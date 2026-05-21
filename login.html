@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#C4551A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>Вход</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-card">
+    <div id="logo-wrap">
+      <div class="login-logo" id="login-logo">🥮</div>
+    </div>
+    <h1 class="login-title" id="lt"></h1>
+    <p class="login-sub" id="ls"></p>
+
+    <div class="form-group">
+      <label id="lbl-user"></label>
+      <input type="text" id="inp-login" autocomplete="username" autocapitalize="none">
+    </div>
+    <div class="form-group">
+      <label id="lbl-pass"></label>
+      <input type="password" id="inp-pass" autocomplete="current-password">
+    </div>
+    <div id="err-msg" style="color:#c0392b;font-size:13px;margin-bottom:12px;display:none"></div>
+
+    <button class="btn btn-primary" style="width:100%;padding:13px;font-size:16px;margin-bottom:12px" onclick="doLogin()" id="btn-login"></button>
+    <button class="btn btn-outline" style="width:100%;padding:11px;font-size:14px;margin-bottom:20px" onclick="doGuest()" id="btn-guest"></button>
+
+    <div style="text-align:center;border-top:1px solid var(--bdr2);padding-top:16px">
+      <a href="admin.html" style="font-size:13px;color:var(--text3);text-decoration:none">🔑 <span id="admin-link-txt">Admin</span></a>
+    </div>
+  </div>
+
+  <div style="margin-top:16px;display:flex;gap:8px">
+    <button class="lang-btn" onclick="setLang('ru')">RU</button>
+    <button class="lang-btn" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" onclick="setLang('es')">ES</button>
+  </div>
+</div>
+
+<script src="i18n.js"></script>
+<script src="core.js"></script>
+<script>
+document.getElementById('lt').textContent = t('loginTitle');
+document.getElementById('ls').textContent = t('loginSubtitle');
+document.getElementById('lbl-user').textContent = t('username');
+document.getElementById('lbl-pass').textContent = t('password');
+document.getElementById('btn-login').textContent = t('loginBtn');
+document.getElementById('btn-guest').textContent = t('guestBtn');
+document.getElementById('admin-link-txt').textContent = t('adminPanel');
+
+// Logo
+const s = getSettings();
+if (s.logo) {
+  const img = document.createElement('img');
+  img.src = s.logo; img.style.cssText = 'width:64px;height:64px;border-radius:14px;object-fit:cover;display:block;margin:0 auto 12px';
+  document.getElementById('login-logo').replaceWith(img);
+} 
+if (s.shopName) { document.getElementById('lt').textContent = s.shopName; document.querySelector('.login-sub').textContent = t('loginSubtitle'); }
+
+document.getElementById('inp-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+function doLogin() {
+  const login = document.getElementById('inp-login').value.trim();
+  const pass  = document.getElementById('inp-pass').value;
+  const err   = document.getElementById('err-msg');
+  if (loginUser(login, pass)) { window.location.href = 'index.html'; }
+  else { err.textContent = t('loginError'); err.style.display = 'block'; }
+}
+
+function doGuest() { loginUser('', ''); window.location.href = 'index.html'; }
+
+// If already logged in, skip
+if (getCurrentUser()) window.location.href = 'index.html';
+</script>
+</body>
+</html>

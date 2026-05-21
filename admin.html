@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#2E6B3E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<title>Админ</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  :root{--brand:#2E6B3E;--brand-dk:#1e5c30;--brand-lt:#E5F2E9;--brand-mid:#4C9E63}
+  .app-header{background:#2E6B3E}
+  .btn-primary{background:#2E6B3E}.btn-primary:hover{background:#1e5c30}
+  .btn-outline{color:#2E6B3E;border-color:#2E6B3E}.btn-outline:hover{background:#E5F2E9}
+  input:focus,select:focus,textarea:focus{border-color:#2E6B3E;box-shadow:0 0 0 3px rgba(46,107,62,.12)}
+  .toggle-slider{}.toggle input:checked+.toggle-slider{background:#2E6B3E}
+  .admin-login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg)}
+  .admin-login-card{width:100%;max-width:360px;background:var(--bgc);border-radius:20px;padding:32px 24px;box-shadow:var(--sh)}
+  .color-swatch{width:36px;height:36px;border-radius:50%;border:2px solid var(--bdr);cursor:pointer;transition:border-color .15s}
+  .color-swatch.active{border-color:#2E6B3E;box-shadow:0 0 0 3px rgba(46,107,62,.25)}
+</style>
+</head>
+<body>
+
+<!-- ADMIN LOGIN -->
+<div id="admin-login-screen" class="admin-login">
+  <div class="admin-login-card">
+    <div style="font-size:44px;text-align:center;margin-bottom:12px">🔑</div>
+    <h1 style="text-align:center;font-size:22px;margin-bottom:20px">Admin Panel</h1>
+    <div class="form-group"><label>Password</label><input type="password" id="adm-pass" placeholder="admin123"></div>
+    <div id="adm-err" style="color:#c0392b;font-size:13px;margin-bottom:10px;display:none">Wrong password</div>
+    <button class="btn btn-primary" style="width:100%;padding:13px;font-size:15px" onclick="doAdminLogin()">Enter</button>
+    <div style="text-align:center;margin-top:16px"><a href="index.html" style="font-size:13px;color:var(--text3);text-decoration:none">← Back to shop</a></div>
+  </div>
+</div>
+
+<!-- ADMIN MAIN -->
+<div id="admin-main" style="display:none">
+  <header class="app-header">
+    <span style="font-size:22px">🔑</span>
+    <div><h1 style="font-size:17px">Admin Panel</h1></div>
+    <div class="header-right">
+      <a href="index.html" class="btn-ghost" style="font-size:12px">Shop →</a>
+      <button class="btn-ghost" style="font-size:12px" onclick="adminLogout()">Exit</button>
+    </div>
+  </header>
+
+  <div class="admin-tabs" id="admin-tabs">
+    <div class="admin-tab active" onclick="switchTab('orders')">📋 Orders</div>
+    <div class="admin-tab" onclick="switchTab('catalog')">🥟 Catalog</div>
+    <div class="admin-tab" onclick="switchTab('clients')">👥 Clients</div>
+    <div class="admin-tab" onclick="switchTab('settings')">⚙️ Settings</div>
+    <div class="admin-tab" onclick="switchTab('stats')">📊 Stats</div>
+  </div>
+
+  <!-- ══ ORDERS ══════════════════════════════════════════════════════════════ -->
+  <div id="tab-orders" class="admin-section active">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px 6px">
+      <span style="font-size:12px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.5px">Filter</span>
+      <select id="order-filter" style="width:auto;padding:6px 10px;font-size:13px" onchange="renderOrders()">
+        <option value="">All orders</option>
+        <option value="new">🟡 New</option>
+        <option value="confirmed">🟢 Confirmed</option>
+        <option value="done">✅ Done</option>
+        <option value="cancelled">❌ Cancelled</option>
+      </select>
+    </div>
+    <div id="orders-list" style="padding:0 16px 100px"></div>
+  </div>
+
+  <!-- ══ CATALOG ═════════════════════════════════════════════════════════════ -->
+  <div id="tab-catalog" class="admin-section">
+    <div class="import-zone" onclick="document.getElementById('csv-input').click()">
+      <div style="font-size:30px;margin-bottom:6px">📥</div>
+      <div style="font-weight:700;font-size:14px">Import CSV price list</div>
+      <div style="font-size:12px;margin-top:3px">name, price, unit, category, min_qty</div>
+      <input type="file" id="csv-input" accept=".csv,text/csv" onchange="importCSV(event)">
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:0 16px 10px">
+      <span style="font-size:12px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.5px">Products</span>
+      <button class="btn btn-primary btn-sm" onclick="openProductModal()">+ Add</button>
+    </div>
+    <div id="catalog-list" style="padding:0 16px 100px"></div>
+  </div>
+
+  <!-- ══ CLIENTS ═════════════════════════════════════════════════════════════ -->
+  <div id="tab-clients" class="admin-section">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 16px 10px">
+      <span style="font-size:12px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.5px">Clients</span>
+      <button class="btn btn-primary btn-sm" onclick="openClientModal()">+ Add client</button>
+    </div>
+    <div class="clients-list" id="clients-list"></div>
+  </div>
+
+  <!-- ══ SETTINGS ════════════════════════════════════════════════════════════ -->
+  <div id="tab-settings" class="admin-section">
+    <div style="padding:16px 16px 100px">
+
+      <div style="font-size:13px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">Shop identity</div>
+
+      <div class="form-group">
+        <label>Shop name</label>
+        <input type="text" id="s-name" placeholder="Пирожковая">
+      </div>
+
+      <div class="form-group">
+        <label>Logo</label>
+        <div class="photo-upload" onclick="document.getElementById('logo-input').click()">
+          <div id="logo-preview-wrap">
+            <div style="font-size:32px;margin-bottom:6px">🖼️</div>
+            <div style="font-size:14px;font-weight:700">Upload logo</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:3px">PNG / JPG, recommended 200×200</div>
+          </div>
+          <input type="file" id="logo-input" accept="image/*" onchange="uploadLogo(event)">
+        </div>
+      </div>
+
+      <div style="font-size:13px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:20px 0 12px">Currency</div>
+      <div class="form-group">
+        <label>Currency</label>
+        <select id="s-currency">
+          <option value="RUB">₽ RUB — Russian Ruble</option>
+          <option value="EUR">€ EUR — Euro</option>
+          <option value="USD">$ USD — US Dollar</option>
+          <option value="GBP">£ GBP — British Pound</option>
+          <option value="KZT">₸ KZT — Kazakhstani Tenge</option>
+        </select>
+      </div>
+
+      <div style="font-size:13px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:20px 0 12px">Payment details</div>
+      <div class="form-group">
+        <label>Bizum number</label>
+        <input type="tel" id="s-bizum" placeholder="+34 600 000 000">
+      </div>
+      <div class="form-group">
+        <label>Revolut handle</label>
+        <input type="text" id="s-revolut" placeholder="@yourhandle">
+      </div>
+      <div class="form-group">
+        <label>Invoice details (company name, CIF, address…)</label>
+        <textarea id="s-invoice" rows="3" placeholder="Company SL&#10;CIF: B12345678&#10;Calle Mayor 1, Madrid"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Stripe Publishable Key</label>
+        <input type="text" id="s-stripe" placeholder="pk_live_...">
+        <div style="font-size:12px;color:var(--text3);margin-top:4px">Leave empty to hide Stripe option from clients</div>
+      </div>
+
+      <div style="font-size:13px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:20px 0 12px">Security</div>
+      <div class="form-group">
+        <label>Admin password</label>
+        <input type="password" id="s-adminpass" placeholder="admin123">
+      </div>
+
+      <button class="btn btn-primary" style="width:100%;padding:13px;font-size:15px;margin-top:8px" onclick="saveSettingsForm()">
+        💾 Save settings
+      </button>
+    </div>
+  </div>
+
+  <!-- ══ STATS ═══════════════════════════════════════════════════════════════ -->
+  <div id="tab-stats" class="admin-section">
+    <div class="stat-grid" id="stat-grid"></div>
+    <div style="padding:0 16px 16px">
+      <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">Top products</div>
+      <div id="top-items"></div>
+    </div>
+    <div style="padding:0 16px 100px">
+      <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">By payment method</div>
+      <div id="pay-stats"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PRODUCT MODAL ═══════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="product-modal" onclick="if(event.target===this)closeModal('product-modal')">
+  <div class="modal">
+    <div class="modal-title" id="pm-title">Add product</div>
+    <input type="hidden" id="pm-id">
+
+    <div class="form-group">
+      <label>Photo</label>
+      <div class="photo-upload" onclick="document.getElementById('pm-photo-input').click()">
+        <div id="pm-photo-preview">
+          <div style="font-size:28px;margin-bottom:4px">📷</div>
+          <div style="font-size:13px;font-weight:700">Upload photo</div>
+        </div>
+        <input type="file" id="pm-photo-input" accept="image/*" onchange="previewProductPhoto(event)">
+      </div>
+    </div>
+
+    <div class="form-group"><label>Name *</label><input type="text" id="pm-name" placeholder="Product name"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-group"><label>Base price *</label><input type="number" id="pm-price" placeholder="55" step="0.01"></div>
+      <div class="form-group">
+        <label>Unit</label>
+        <select id="pm-unit"><option value="sht">шт / pcs / ud</option><option value="kg">кг / kg</option><option value="l">л / l</option><option value="up">уп / pack / paq</option></select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-group"><label>Category</label><input type="text" id="pm-cat" list="pm-cat-list" placeholder="Pirozhki"></div>
+      <div class="form-group"><label>Min. order qty</label><input type="number" id="pm-min" placeholder="1" min="0" step="0.5"></div>
+    </div>
+    <datalist id="pm-cat-list"></datalist>
+    <div class="form-group toggle-wrap">
+      <label class="toggle"><input type="checkbox" id="pm-avail" checked><span class="toggle-slider"></span></label>
+      <span style="font-size:14px;font-weight:700">Available for order</span>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button class="btn btn-primary" style="flex:1;padding:13px" onclick="saveProduct()">Save</button>
+      <button class="btn btn-outline" onclick="closeModal('product-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CLIENT MODAL ════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="client-modal" onclick="if(event.target===this)closeModal('client-modal')">
+  <div class="modal">
+    <div class="modal-title" id="cm-title">Add client</div>
+    <input type="hidden" id="cm-id">
+    <div class="form-group"><label>Login *</label><input type="text" id="cm-login" placeholder="client1" autocapitalize="none"></div>
+    <div class="form-group"><label>Password *</label><input type="text" id="cm-pass" placeholder="pass1"></div>
+    <div class="form-group"><label>Name / company</label><input type="text" id="cm-name" placeholder="ООО Рога и Копыта"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-group"><label>Discount %</label><input type="number" id="cm-disc" placeholder="0" min="0" max="100"></div>
+      <div class="form-group"><label>Price coeff ×</label><input type="number" id="cm-coeff" placeholder="1.00" min="0" step="0.05"></div>
+    </div>
+    <div class="form-group">
+      <label>Price group</label>
+      <select id="cm-group">
+        <option value="retail">Retail</option>
+        <option value="wholesale">Wholesale</option>
+        <option value="vip">VIP</option>
+        <option value="custom">Custom</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button class="btn btn-primary" style="flex:1;padding:13px" onclick="saveClient()">Save</button>
+      <button class="btn btn-outline" onclick="closeModal('client-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+<script src="i18n.js"></script>
+<script src="core.js"></script>
+<script>
+const STATUS_CLS   = {new:'badge-new',confirmed:'badge-confirmed',done:'badge-done',cancelled:'badge-cancelled'};
+const STATUS_LABEL = {new:'🟡 New',confirmed:'🟢 Confirmed',done:'✅ Done',cancelled:'❌ Cancelled'};
+const PAY_LABEL    = {cash:'💵 Cash',bizum:'📱 Bizum',revolut:'💜 Revolut',stripe:'💳 Stripe',invoice:'📄 Invoice'};
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+function doAdminLogin() {
+  const p = document.getElementById('adm-pass').value;
+  if (loginAdmin(p)) {
+    sessionStorage.setItem('adminAuth','1');
+    document.getElementById('admin-login-screen').style.display='none';
+    document.getElementById('admin-main').style.display='block';
+    loadSettingsForm();
+    renderOrders();
+  } else {
+    document.getElementById('adm-err').style.display='block';
+  }
+}
+document.getElementById('adm-pass').addEventListener('keydown', e=>{ if(e.key==='Enter') doAdminLogin(); });
+function adminLogout() { sessionStorage.removeItem('adminAuth'); location.reload(); }
+
+if (sessionStorage.getItem('adminAuth')==='1') {
+  document.getElementById('admin-login-screen').style.display='none';
+  document.getElementById('admin-main').style.display='block';
+  loadSettingsForm();
+  renderOrders();
+}
+
+// ─── Tabs ────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.admin-tab').forEach((el,i)=>{
+    el.classList.toggle('active',['orders','catalog','clients','settings','stats'][i]===tab);
+  });
+  document.querySelectorAll('.admin-section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  if(tab==='orders')   renderOrders();
+  if(tab==='catalog')  renderCatalog();
+  if(tab==='clients')  renderClients();
+  if(tab==='stats')    renderStats();
+}
+
+// ─── ORDERS ───────────────────────────────────────────────────────────────────
+function renderOrders() {
+  const filter = document.getElementById('order-filter').value;
+  let orders = getOrders();
+  if (filter) orders = orders.filter(o=>o.status===filter);
+  const el = document.getElementById('orders-list');
+  if (!orders.length) { el.innerHTML='<div class="empty-state"><div class="eicon">📋</div><p>No orders</p></div>'; return; }
+
+  el.innerHTML = orders.map(o=>{
+    const d = new Date(o.date).toLocaleString('en', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+    const delD = o.delivery?.date ? new Date(o.delivery.date).toLocaleDateString('en',{day:'numeric',month:'long'}) : '';
+    return `<div class="order-card">
+      <div class="order-header" onclick="toggleOrder(${o.id})">
+        <div>
+          <div style="font-size:11px;color:var(--text3);font-weight:700">#${String(o.id).slice(-6)} · ${d}</div>
+          <div style="font-size:15px;font-weight:700;margin-top:2px">${o.customer?.name||'—'}</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px">${o.customer?.phone||''}${delD?' · 📅 '+delD:''}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+          <span class="badge ${STATUS_CLS[o.status]||'badge-new'}">${STATUS_LABEL[o.status]||o.status}</span>
+          <span style="font-size:14px;font-weight:700;color:#2E6B3E">${formatPrice(o.total)}</span>
+        </div>
+      </div>
+      <div class="order-body" id="ob-${o.id}">
+        <ul style="font-size:13px;color:var(--text2);margin-bottom:10px;list-style:none;padding:0">
+          ${(o.items||[]).map(i=>`<li>• ${i.name} × ${i.qty} = ${formatPrice(i.price*i.qty)}</li>`).join('')}
+        </ul>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:10px">
+          ${PAY_LABEL[o.payment]||o.payment}${o.delivery?.time?' · ⏰ '+o.delivery.time:''}
+          ${o.customer?.address?'<br>📍 '+o.customer.address:''}
+          ${o.lang?' · 🌐 '+o.lang.toUpperCase():''}
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <select style="width:auto;padding:6px 10px;font-size:13px;border-radius:20px" onchange="changeOrderStatus(${o.id},this.value)">
+            ${['new','confirmed','done','cancelled'].map(s=>`<option value="${s}"${o.status===s?' selected':''}>${STATUS_LABEL[s]}</option>`).join('')}
+          </select>
+          <button class="btn btn-danger btn-sm" onclick="deleteOrder(${o.id})">🗑</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleOrder(id) { document.getElementById('ob-'+id)?.classList.toggle('open'); }
+function changeOrderStatus(id, status) {
+  const orders=getOrders(); const o=orders.find(x=>x.id===id);
+  if(o){o.status=status;saveOrders(orders);showToast('Status updated');}
+}
+function deleteOrder(id) {
+  if(!confirm('Delete order?')) return;
+  saveOrders(getOrders().filter(o=>o.id!==id)); renderOrders(); showToast('Deleted');
+}
+
+// ─── CATALOG ──────────────────────────────────────────────────────────────────
+let pmPhotoData = null;
+
+function renderCatalog() {
+  const catalog = getCatalog();
+  const cats = [...new Set(catalog.map(p=>p.category))];
+  document.getElementById('pm-cat-list').innerHTML = cats.map(c=>`<option value="${c}">`).join('');
+  const el = document.getElementById('catalog-list');
+  if (!catalog.length) { el.innerHTML='<div class="empty-state"><div class="eicon">🥟</div><p>Catalog is empty</p></div>'; return; }
+
+  el.innerHTML = catalog.map(p=>{
+    const thumb = p.photo
+      ? `<div class="product-row-thumb"><img src="${p.photo}" alt="${p.name}"></div>`
+      : `<div class="product-row-thumb">🍴</div>`;
+    return `<div class="product-row${p.available===false?' unavail':''}">
+      ${thumb}
+      <div class="product-row-info">
+        <div class="product-row-name">${p.name}</div>
+        <div class="product-row-meta">${formatPrice(p.price)} / ${p.unit} · ${p.category}${p.minQty>1?' · min '+p.minQty:''}</div>
+      </div>
+      <div class="row-actions">
+        <button class="btn-icon" onclick="openProductModal(${p.id})">✏️</button>
+        <button class="btn-icon" onclick="deleteProduct(${p.id})">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openProductModal(id) {
+  pmPhotoData = null;
+  document.getElementById('pm-title').textContent = id ? 'Edit product' : 'Add product';
+  document.getElementById('pm-id').value = id || '';
+  document.getElementById('pm-photo-preview').innerHTML = '<div style="font-size:28px;margin-bottom:4px">📷</div><div style="font-size:13px;font-weight:700">Upload photo</div>';
+  if (id) {
+    const p = getCatalog().find(x=>x.id===id);
+    if (!p) return;
+    document.getElementById('pm-name').value  = p.name;
+    document.getElementById('pm-price').value = p.price;
+    document.getElementById('pm-unit').value  = p.unit;
+    document.getElementById('pm-cat').value   = p.category;
+    document.getElementById('pm-min').value   = p.minQty || 1;
+    document.getElementById('pm-avail').checked = p.available !== false;
+    if (p.photo) {
+      pmPhotoData = p.photo;
+      document.getElementById('pm-photo-preview').innerHTML = `<img src="${p.photo}" class="photo-preview">`;
+    }
+  } else {
+    document.getElementById('pm-name').value='';document.getElementById('pm-price').value='';
+    document.getElementById('pm-unit').value='sht';document.getElementById('pm-cat').value='';
+    document.getElementById('pm-min').value='1';document.getElementById('pm-avail').checked=true;
+  }
+  document.getElementById('product-modal').classList.add('open');
+}
+
+function previewProductPhoto(event) {
+  const file = event.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    pmPhotoData = e.target.result;
+    document.getElementById('pm-photo-preview').innerHTML = `<img src="${pmPhotoData}" class="photo-preview">`;
+  };
+  reader.readAsDataURL(file);
+}
+
+function saveProduct() {
+  const name  = document.getElementById('pm-name').value.trim();
+  const price = parseFloat(document.getElementById('pm-price').value);
+  if (!name || isNaN(price)) { showToast('Fill name and price'); return; }
+  const catalog = getCatalog();
+  const editId  = parseInt(document.getElementById('pm-id').value);
+  const data = {
+    name, price,
+    unit:     document.getElementById('pm-unit').value,
+    category: document.getElementById('pm-cat').value || 'Other',
+    minQty:   parseFloat(document.getElementById('pm-min').value) || 1,
+    available:document.getElementById('pm-avail').checked,
+    photo:    pmPhotoData || null,
+  };
+  if (editId) { const p=catalog.find(x=>x.id===editId); if(p) Object.assign(p,data); }
+  else        { catalog.push({id:Date.now(),...data}); }
+  saveCatalog(catalog); closeModal('product-modal'); renderCatalog(); showToast('Saved ✓');
+}
+
+function deleteProduct(id) {
+  if(!confirm('Delete?')) return;
+  saveCatalog(getCatalog().filter(p=>p.id!==id)); renderCatalog(); showToast('Deleted');
+}
+
+function importCSV(event) {
+  const file = event.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const lines = e.target.result.split('\n').filter(l=>l.trim());
+    const existing = getCatalog(); let added=0;
+    lines.forEach(line=>{
+      const parts = line.split(',').map(s=>s.trim().replace(/^["']|["']$/g,''));
+      if(parts.length<2) return;
+      const [name,priceStr,unit='sht',category='Other',minQtyStr='1'] = parts;
+      const price=parseFloat(priceStr); if(!name||isNaN(price)) return;
+      existing.push({id:Date.now()+Math.random(),name,price,unit,category,minQty:parseFloat(minQtyStr)||1,available:true,photo:null});
+      added++;
+    });
+    saveCatalog(existing); renderCatalog(); showToast(`Added ${added} items`);
+    event.target.value='';
+  };
+  reader.readAsText(file,'UTF-8');
+}
+
+// ─── CLIENTS ──────────────────────────────────────────────────────────────────
+function renderClients() {
+  const clients = getClients();
+  const el = document.getElementById('clients-list');
+  if (!clients.length) { el.innerHTML='<div class="empty-state"><div class="eicon">👥</div><p>No clients</p></div>'; return; }
+  el.innerHTML = clients.map(c=>`
+    <div class="client-row">
+      <div class="client-info">
+        <div class="client-name">${c.name||c.login}</div>
+        <div class="client-meta">@${c.login} · ${c.group||'retail'}${c.discount>0?' · −'+c.discount+'%':''}${c.coeff&&c.coeff!==1?' · ×'+c.coeff:''}</div>
+      </div>
+      <div class="row-actions">
+        <button class="btn-icon" onclick="openClientModal(${c.id})">✏️</button>
+        <button class="btn-icon" onclick="deleteClient(${c.id})">🗑️</button>
+      </div>
+    </div>`).join('');
+}
+
+function openClientModal(id) {
+  document.getElementById('cm-title').textContent = id ? 'Edit client' : 'Add client';
+  document.getElementById('cm-id').value = id||'';
+  if (id) {
+    const c = getClients().find(x=>x.id===id); if(!c) return;
+    document.getElementById('cm-login').value = c.login;
+    document.getElementById('cm-pass').value  = c.password;
+    document.getElementById('cm-name').value  = c.name||'';
+    document.getElementById('cm-disc').value  = c.discount||0;
+    document.getElementById('cm-coeff').value = c.coeff||1;
+    document.getElementById('cm-group').value = c.group||'retail';
+  } else {
+    ['cm-login','cm-pass','cm-name'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('cm-disc').value='0';
+    document.getElementById('cm-coeff').value='1';
+    document.getElementById('cm-group').value='retail';
+  }
+  document.getElementById('client-modal').classList.add('open');
+}
+
+function saveClient() {
+  const login = document.getElementById('cm-login').value.trim();
+  const pass  = document.getElementById('cm-pass').value.trim();
+  if (!login||!pass) { showToast('Login and password required'); return; }
+  const clients = getClients();
+  const editId  = parseInt(document.getElementById('cm-id').value);
+  const data = {
+    login, password:pass,
+    name:     document.getElementById('cm-name').value.trim(),
+    discount: parseFloat(document.getElementById('cm-disc').value)||0,
+    coeff:    parseFloat(document.getElementById('cm-coeff').value)||1,
+    group:    document.getElementById('cm-group').value,
+  };
+  if (editId) { const c=clients.find(x=>x.id===editId); if(c) Object.assign(c,data); }
+  else        { clients.push({id:Date.now(),...data}); }
+  saveClients(clients); closeModal('client-modal'); renderClients(); showToast('Saved ✓');
+}
+
+function deleteClient(id) {
+  if(!confirm('Delete client?')) return;
+  saveClients(getClients().filter(c=>c.id!==id)); renderClients(); showToast('Deleted');
+}
+
+// ─── SETTINGS ─────────────────────────────────────────────────────────────────
+function loadSettingsForm() {
+  const s = getSettings();
+  document.getElementById('s-name').value     = s.shopName||'';
+  document.getElementById('s-currency').value = s.currency||'EUR';
+  document.getElementById('s-bizum').value    = s.bizumNumber||'';
+  document.getElementById('s-revolut').value  = s.revolutHandle||'';
+  document.getElementById('s-invoice').value  = s.invoiceDetails||'';
+  document.getElementById('s-stripe').value   = s.stripeKey||'';
+  document.getElementById('s-adminpass').value= s.adminPassword||'';
+  if (s.logo) {
+    document.getElementById('logo-preview-wrap').innerHTML = `<img src="${s.logo}" class="photo-preview" style="width:80px;height:80px"><br><div style="font-size:12px;color:var(--text3);margin-top:6px">Click to replace</div>`;
+  }
+}
+
+function uploadLogo(event) {
+  const file = event.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const s = getSettings(); s.logo = e.target.result; saveSettings(s);
+    document.getElementById('logo-preview-wrap').innerHTML = `<img src="${s.logo}" class="photo-preview" style="width:80px;height:80px"><br><div style="font-size:12px;color:var(--text3);margin-top:6px">Click to replace</div>`;
+    showToast('Logo saved ✓');
+  };
+  reader.readAsDataURL(file);
+}
+
+function saveSettingsForm() {
+  const s = getSettings();
+  s.shopName      = document.getElementById('s-name').value.trim() || 'Пирожковая';
+  s.currency      = document.getElementById('s-currency').value;
+  s.bizumNumber   = document.getElementById('s-bizum').value.trim();
+  s.revolutHandle = document.getElementById('s-revolut').value.trim();
+  s.invoiceDetails= document.getElementById('s-invoice').value.trim();
+  s.stripeKey     = document.getElementById('s-stripe').value.trim();
+  const newPass   = document.getElementById('s-adminpass').value.trim();
+  if (newPass) s.adminPassword = newPass;
+  saveSettings(s);
+  showToast('Settings saved ✓');
+}
+
+// ─── STATS ────────────────────────────────────────────────────────────────────
+function renderStats() {
+  const orders = getOrders();
+  const total  = orders.reduce((s,o)=>s+(o.total||0),0);
+  const newCnt = orders.filter(o=>o.status==='new').length;
+  const doneCnt= orders.filter(o=>o.status==='done').length;
+
+  document.getElementById('stat-grid').innerHTML = `
+    <div class="stat-card"><div class="stat-num">${orders.length}</div><div class="stat-label">Total orders</div></div>
+    <div class="stat-card"><div class="stat-num">${formatPrice(total)}</div><div class="stat-label">Revenue</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:#856404">${newCnt}</div><div class="stat-label">New</div></div>
+    <div class="stat-card"><div class="stat-num">${doneCnt}</div><div class="stat-label">Done</div></div>`;
+
+  // Top products
+  const freq={};
+  orders.forEach(o=>(o.items||[]).forEach(i=>{freq[i.name]=(freq[i.name]||0)+i.qty;}));
+  const top=Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const maxQ=top[0]?.[1]||1;
+  document.getElementById('top-items').innerHTML = top.length ? top.map(([name,qty])=>`
+    <div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span style="font-size:14px;font-weight:700">${name}</span>
+        <span style="font-size:13px;color:var(--text3)">${qty}</span>
+      </div>
+      <div style="height:6px;background:var(--bdr2);border-radius:4px;overflow:hidden">
+        <div style="height:100%;width:${Math.round(qty/maxQ*100)}%;background:#2E6B3E;border-radius:4px"></div>
+      </div>
+    </div>`).join('') : `<p style="color:var(--text3);font-size:14px">No data</p>`;
+
+  // By payment
+  const payFreq={};
+  orders.forEach(o=>{ payFreq[o.payment]=(payFreq[o.payment]||0)+1; });
+  document.getElementById('pay-stats').innerHTML = Object.entries(payFreq).map(([pay,cnt])=>`
+    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bdr2);font-size:14px">
+      <span>${PAY_LABEL[pay]||pay}</span><span style="font-weight:700">${cnt}</span>
+    </div>`).join('') || `<p style="color:var(--text3);font-size:14px">No data</p>`;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+</script>
+</body>
+</html>

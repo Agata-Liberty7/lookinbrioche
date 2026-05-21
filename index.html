@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#C4551A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>Заказ</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--bgc);border-top:1px solid var(--bdr2);display:flex;z-index:80}
+.bottom-nav a{flex:1;display:flex;flex-direction:column;align-items:center;padding:9px 0 11px;text-decoration:none;color:var(--text3);font-size:10px;font-weight:700;gap:3px;transition:color .15s;-webkit-tap-highlight-color:transparent}
+.bottom-nav a .ni{font-size:20px}
+.bottom-nav a.active{color:var(--brand)}
+.page-wrap{padding-bottom:60px}
+</style>
+</head>
+<body>
+
+<!-- PAGE: CATALOG -->
+<div id="page-catalog" class="page active page-wrap">
+  <header class="app-header" id="main-header">
+    <div class="logo-emoji" id="hdr-logo">🥮</div>
+    <div>
+      <h1 id="hdr-name">Пирожковая</h1>
+      <div class="subtitle" id="hdr-tag"></div>
+    </div>
+    <div class="header-right">
+      <button class="cart-icon-btn" onclick="goPage('cart');renderCart()">
+        🛒 <span class="cart-cnt" id="cart-count">0</span>
+      </button>
+      <div style="position:relative">
+        <button class="lang-btn" id="lang-toggle" onclick="toggleLangMenu()">🌐</button>
+        <div id="lang-menu" style="display:none;position:absolute;right:0;top:36px;background:var(--bgc);border:1px solid var(--bdr);border-radius:var(--rsm);overflow:hidden;z-index:200;box-shadow:var(--sh)">
+          <button onclick="setLang('ru')" style="display:block;width:100%;padding:9px 18px;background:none;border:none;cursor:pointer;font-family:'PT Sans',sans-serif;font-weight:700;font-size:14px;text-align:left">🇷🇺 Русский</button>
+          <button onclick="setLang('en')" style="display:block;width:100%;padding:9px 18px;background:none;border:none;cursor:pointer;font-family:'PT Sans',sans-serif;font-weight:700;font-size:14px;text-align:left">🇬🇧 English</button>
+          <button onclick="setLang('es')" style="display:block;width:100%;padding:9px 18px;background:none;border:none;cursor:pointer;font-family:'PT Sans',sans-serif;font-weight:700;font-size:14px;text-align:left">🇪🇸 Español</button>
+        </div>
+      </div>
+    </div>
+  </header>
+  <div id="user-banner" style="display:none;padding:10px 16px;background:var(--brand-lt);border-bottom:1px solid #E8C4A8;font-size:13px;display:flex;align-items:center;gap:8px">
+    <span id="user-banner-text"></span>
+  </div>
+  <div class="cat-tabs" id="cat-tabs"></div>
+  <div class="product-list-wrap" id="product-list"></div>
+  <div class="sticky-cart" id="sticky-cart">
+    <button class="btn btn-primary" style="width:100%;font-size:15px;padding:13px" onclick="goPage('cart');renderCart()">
+      🛒 <span id="sticky-label"></span>
+    </button>
+  </div>
+</div>
+
+<!-- PAGE: CART -->
+<div id="page-cart" class="page page-wrap">
+  <header class="app-header">
+    <button class="btn-ghost" onclick="goPage('catalog')" id="btn-back-cart"></button>
+    <h1 style="font-size:17px" id="hdr-cart"></h1>
+  </header>
+  <div id="cart-empty" class="empty-state" style="display:none"><div class="eicon">🛒</div><p id="cart-empty-txt"></p></div>
+  <div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px" id="cart-list"></div>
+  <div class="order-summary" id="cart-summary" style="display:none">
+    <div class="sum-row"><span id="lbl-items"></span><span id="sum-items"></span></div>
+    <div class="sum-row total"><span id="lbl-total"></span><span id="sum-total"></span></div>
+  </div>
+  <div style="padding:0 16px 20px" id="cart-cta"></div>
+</div>
+
+<!-- PAGE: CHECKOUT -->
+<div id="page-checkout" class="page page-wrap">
+  <header class="app-header">
+    <button class="btn-ghost" onclick="goPage('cart')" id="btn-back-co"></button>
+    <h1 style="font-size:17px" id="hdr-checkout"></h1>
+  </header>
+  <div class="checkout-wrap">
+    <div class="section-title" id="lbl-yourdata"></div>
+    <div class="form-group"><label id="lbl-name"></label><input type="text" id="ch-name" id="ch-name"></div>
+    <div class="form-group"><label id="lbl-phone"></label><input type="tel" id="ch-phone"></div>
+    <div class="form-group"><label id="lbl-addr"></label><textarea id="ch-addr" rows="2"></textarea></div>
+    <div class="section-title" id="lbl-delivery"></div>
+    <div class="form-group"><label id="lbl-date"></label><input type="date" id="ch-date"></div>
+    <div class="form-group">
+      <label id="lbl-time"></label>
+      <select id="ch-time">
+        <option value="" id="opt-any"></option>
+        <option>08:00 – 10:00</option><option>10:00 – 12:00</option>
+        <option>12:00 – 14:00</option><option>14:00 – 16:00</option>
+        <option>16:00 – 18:00</option><option>18:00 – 20:00</option>
+      </select>
+    </div>
+    <div class="section-title" id="lbl-payment-hdr"></div>
+    <div class="pay-opts" id="pay-opts"></div>
+    <div id="pay-note" class="info-box" style="margin-top:10px;display:none"></div>
+    <div class="order-summary" style="margin:16px 0">
+      <div class="sum-row total"><span id="lbl-topay"></span><span id="ch-total"></span></div>
+    </div>
+    <button class="btn btn-green" style="width:100%;font-size:16px;padding:14px;border-radius:var(--r)" onclick="submitOrder()" id="btn-confirm"></button>
+  </div>
+</div>
+
+<!-- PAGE: SUCCESS -->
+<div id="page-success" class="page page-wrap">
+  <div class="success-screen">
+    <div class="check">🎉</div>
+    <h2 id="success-title"></h2>
+    <p id="success-msg"></p>
+    <div id="stripe-block" style="display:none;margin-top:20px">
+      <div class="info-box" id="stripe-note-txt" style="margin-bottom:14px"></div>
+      <button class="btn btn-primary" style="padding:13px 32px;font-size:15px" onclick="goStripe()" id="btn-stripe"></button>
+    </div>
+    <div style="margin-top:28px">
+      <button class="btn btn-outline" style="padding:12px 30px;font-size:15px" onclick="newOrder()" id="btn-neworder"></button>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE: MY ORDERS -->
+<div id="page-orders" class="page page-wrap">
+  <header class="app-header">
+    <h1 style="font-size:18px" id="hdr-myorders"></h1>
+    <div class="header-right">
+      <button class="btn-ghost" onclick="doLogout()" id="btn-logout"></button>
+    </div>
+  </header>
+  <div id="my-orders-list" style="padding:14px 16px 80px"></div>
+</div>
+
+<nav class="bottom-nav" id="bottom-nav">
+  <a href="#" onclick="goPage('catalog');return false" id="nav-catalog" class="active"><span class="ni">🛍️</span><span id="nav-catalog-lbl"></span></a>
+  <a href="#" onclick="goPage('cart');renderCart();return false" id="nav-cart"><span class="ni">🛒</span><span id="nav-cart-lbl"></span></a>
+  <a href="#" onclick="goPage('orders');renderMyOrders();return false" id="nav-orders"><span class="ni">📋</span><span id="nav-orders-lbl"></span></a>
+</nav>
+
+<div id="toast" class="toast"></div>
+<script src="i18n.js"></script>
+<script src="core.js"></script>
+<script>
+// ─── Guards ──────────────────────────────────────────────────────────────────
+if (!getCurrentUser()) { window.location.href = 'login.html'; }
+
+const EMOJIS = { 'Pirozhki':'🥟','Pirogi':'🥮','Vypechka':'🍞','Sladosti':'🍯','Prochee':'🍴' };
+let currentCat = t('all');
+let selectedPay = 'cash';
+let lastOrder = null;
+
+// ─── Init UI strings ─────────────────────────────────────────────────────────
+function initStrings() {
+  const s = getSettings();
+  document.getElementById('hdr-name').textContent = s.shopName || t('appName');
+  document.getElementById('hdr-tag').textContent = t('appTagline');
+  if (s.logo) {
+    const img = document.createElement('img');
+    img.src = s.logo; img.className = 'logo-img';
+    document.getElementById('hdr-logo').replaceWith(img);
+  }
+  document.title = s.shopName || t('appName');
+  document.getElementById('btn-back-cart').textContent = t('back');
+  document.getElementById('btn-back-co').textContent = t('back');
+  document.getElementById('hdr-cart').textContent = t('cart');
+  document.getElementById('hdr-checkout').textContent = t('orderTitle');
+  document.getElementById('lbl-yourdata').textContent = t('yourData');
+  document.getElementById('lbl-name').textContent = t('name') + ' *';
+  document.getElementById('lbl-phone').textContent = t('phone') + ' *';
+  document.getElementById('lbl-addr').textContent = t('address');
+  document.getElementById('ch-addr').placeholder = t('addressPlaceholder');
+  document.getElementById('lbl-delivery').textContent = t('deliveryDate');
+  document.getElementById('lbl-date').textContent = t('date') + ' *';
+  document.getElementById('lbl-time').textContent = t('time');
+  document.getElementById('opt-any').textContent = t('timeAny');
+  document.getElementById('lbl-payment-hdr').textContent = t('paymentMethod');
+  document.getElementById('lbl-topay').textContent = t('toPay');
+  document.getElementById('btn-confirm').textContent = t('confirmOrder');
+  document.getElementById('lbl-items').textContent = t('items');
+  document.getElementById('lbl-total').textContent = t('total');
+  document.getElementById('cart-empty-txt').textContent = t('cartEmpty');
+  document.getElementById('success-title').textContent = t('orderSuccess');
+  document.getElementById('hdr-myorders').textContent = t('myOrders');
+  document.getElementById('btn-logout').textContent = t('logout');
+  document.getElementById('btn-neworder').textContent = t('newOrder');
+  document.getElementById('nav-catalog-lbl').textContent = t('catalog');
+  document.getElementById('nav-cart-lbl').textContent = t('cart');
+  document.getElementById('nav-orders-lbl').textContent = t('orders');
+  document.getElementById('ch-name').placeholder = t('namePlaceholder');
+  document.getElementById('ch-phone').placeholder = t('phonePlaceholder');
+
+  // Pre-fill from user
+  const user = getCurrentUser();
+  if (user && !user.guest) {
+    document.getElementById('ch-name').value = user.name || '';
+    const banner = document.getElementById('user-banner');
+    let bannerText = `👤 ${user.name}`;
+    if (user.discount > 0) bannerText += ` · ${t('discount')}: −${user.discount}%`;
+    else if (user.coeff && user.coeff !== 1) bannerText += ` · ${t('priceGroup')}: ×${user.coeff}`;
+    document.getElementById('user-banner-text').textContent = bannerText;
+    banner.style.display = 'flex';
+  }
+
+  buildPaymentOpts();
+  const tom = new Date(); tom.setDate(tom.getDate()+1);
+  document.getElementById('ch-date').value = tom.toISOString().split('T')[0];
+  document.getElementById('ch-date').min = new Date().toISOString().split('T')[0];
+}
+
+// ─── Catalog ─────────────────────────────────────────────────────────────────
+function renderCatalog() {
+  const catalog = getCatalog().filter(p => p.available !== false);
+  const cats = [t('all'), ...new Set(catalog.map(p => p.category))];
+  document.getElementById('cat-tabs').innerHTML = cats.map(c =>
+    `<button class="cat-tab ${c===currentCat?'active':''}" onclick="selectCat('${c.replace(/'/g,"\\'")}')">
+      ${c === t('all') ? c : (EMOJIS[c]||'🍴')+' '+c}
+    </button>`).join('');
+
+  const items = currentCat===t('all') ? catalog : catalog.filter(p=>p.category===currentCat);
+  const cart = getCart();
+  const el = document.getElementById('product-list');
+  if (!items.length) { el.innerHTML = `<div class="empty-state"><div class="eicon">😔</div></div>`; return; }
+
+  el.innerHTML = items.map(p => {
+    const inCart = cart.find(c=>c.id===p.id);
+    const qty = inCart ? inCart.qty : 0;
+    const cPrice = clientPrice(p.price);
+    const emoji = EMOJIS[p.category] || '🍴';
+    const priceChanged = cPrice !== p.price;
+    const thumb = p.photo
+      ? `<div class="product-thumb"><img src="${p.photo}" alt="${p.name}"></div>`
+      : `<div class="product-thumb">${emoji}</div>`;
+    const minInfo = p.minQty > 1 ? `<div class="product-meta">${t('minQty')} ${p.minQty} ${t('unit_'+p.unit)||p.unit}</div>` : '';
+    const discBadge = priceChanged ? `<span class="discount-badge">−${Math.round((1-cPrice/p.price)*100)}%</span>` : '';
+
+    return `<div class="product-card">
+      ${thumb}
+      <div class="product-info">
+        <div class="product-name">${p.name}</div>
+        <div class="product-price">${formatPrice(cPrice)} <span style="font-size:12px;color:var(--text3);font-weight:400">/ ${t('unit_'+p.unit)||p.unit}</span>${discBadge}</div>
+        ${minInfo}
+      </div>
+      <div class="qty-control" id="qc-${p.id}">
+        ${qty===0
+          ? `<button class="btn btn-primary btn-sm" onclick="addToCart(${p.id})">${t('addToCart')}</button>`
+          : `<button class="qty-btn" onclick="chQty(${p.id},-1)">−</button>
+             <span class="qty-num">${qty}</span>
+             <button class="qty-btn" onclick="chQty(${p.id},1)">+</button>`
+        }
+      </div>
+    </div>`;
+  }).join('');
+
+  updateCartBadge();
+  updateSticky();
+}
+
+function selectCat(c) { currentCat = c; renderCatalog(); }
+
+function addToCart(id) {
+  const p = getCatalog().find(x=>x.id===id);
+  const minQ = p ? (p.minQty || 1) : 1;
+  let cart = getCart();
+  const ex = cart.find(c=>c.id===id);
+  if (ex) { ex.qty += 1; } else { cart.push({id, qty: minQ}); }
+  saveCart(cart); renderCatalog();
+}
+
+function chQty(id, delta) {
+  let cart = getCart();
+  const item = cart.find(c=>c.id===id);
+  const p = getCatalog().find(x=>x.id===id);
+  const minQ = p ? (p.minQty||1) : 1;
+  if (item) {
+    item.qty += delta;
+    if (item.qty < minQ) cart = cart.filter(c=>c.id!==id);
+  }
+  saveCart(cart); renderCatalog();
+}
+
+function updateCartBadge() {
+  const n = getCart().reduce((s,c)=>s+c.qty, 0);
+  document.getElementById('cart-count').textContent = n;
+}
+
+function updateSticky() {
+  const cart = getCart();
+  const catalog = getCatalog();
+  const n = cart.reduce((s,c)=>s+c.qty,0);
+  const total = cart.reduce((s,c)=>{const p=catalog.find(x=>x.id===c.id);return s+(p?clientPrice(p.price)*c.qty:0);},0);
+  const el = document.getElementById('sticky-cart');
+  if (n>0) { el.classList.add('visible'); document.getElementById('sticky-label').textContent = `${t('checkout')} · ${formatPrice(total)}`; }
+  else { el.classList.remove('visible'); }
+}
+
+// ─── Cart ────────────────────────────────────────────────────────────────────
+function renderCart() {
+  const cart = getCart();
+  const catalog = getCatalog();
+  const listEl = document.getElementById('cart-list');
+  const emptyEl = document.getElementById('cart-empty');
+  const sumEl = document.getElementById('cart-summary');
+  const ctaEl = document.getElementById('cart-cta');
+
+  if (!cart.length) {
+    emptyEl.style.display='block'; listEl.style.display='none'; sumEl.style.display='none';
+    ctaEl.innerHTML=''; return;
+  }
+  emptyEl.style.display='none'; listEl.style.display='flex'; sumEl.style.display='block';
+
+  let total=0, count=0;
+  listEl.innerHTML = cart.map(item=>{
+    const p = catalog.find(x=>x.id===item.id); if(!p) return '';
+    const cp = clientPrice(p.price);
+    const sub = cp*item.qty; total+=sub; count+=item.qty;
+    return `<div class="product-card">
+      <div class="product-info">
+        <div class="product-name">${p.name}</div>
+        <div style="font-size:13px;color:var(--text2);margin-top:3px">${item.qty} × ${formatPrice(cp)} = ${formatPrice(sub)}</div>
+      </div>
+      <div class="qty-control">
+        <button class="qty-btn" onclick="cartChQty(${p.id},-1)">−</button>
+        <span class="qty-num">${item.qty}</span>
+        <button class="qty-btn" onclick="cartChQty(${p.id},1)">+</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('sum-items').textContent = count;
+  document.getElementById('sum-total').textContent = formatPrice(total);
+  document.getElementById('ch-total').textContent = formatPrice(total);
+  ctaEl.innerHTML = `<button class="btn btn-primary" style="width:100%;font-size:15px;padding:13px" onclick="goPage('checkout')">${t('checkout')} →</button>`;
+}
+
+function cartChQty(id, delta) {
+  let cart = getCart();
+  const item = cart.find(c=>c.id===id);
+  const p = getCatalog().find(x=>x.id===id);
+  const minQ = p?(p.minQty||1):1;
+  if(item){ item.qty+=delta; if(item.qty<minQ) cart=cart.filter(c=>c.id!==id); }
+  saveCart(cart); renderCart(); updateCartBadge();
+}
+
+// ─── Payment options ──────────────────────────────────────────────────────────
+const PAY_NOTES = {
+  bizum: () => { const s=getSettings(); return s.bizumNumber ? `📱 Bizum: <b>${s.bizumNumber}</b> — ${t('bizumNote')}` : t('bizumNote'); },
+  revolut: () => { const s=getSettings(); return s.revolutHandle ? `💜 Revolut: <b>${s.revolutHandle}</b> — ${t('revolutNote')}` : t('revolutNote'); },
+  invoice: () => { const s=getSettings(); return s.invoiceDetails ? `📄 ${s.invoiceDetails}<br>${t('invoiceNote')}` : t('invoiceNote'); },
+  stripe: () => t('stripeNote'),
+  cash: () => '',
+};
+
+function buildPaymentOpts() {
+  const s = getSettings();
+  const opts = [
+    { val:'cash',    icon:'💵', label: t('payLater') },
+    { val:'bizum',   icon:'📱', label: t('payBizum') },
+    { val:'revolut', icon:'💜', label: t('payRevolut') },
+    { val:'stripe',  icon:'💳', label: t('payStripe'), hide: !s.stripeKey },
+    { val:'invoice', icon:'📄', label: t('payInvoice') },
+  ].filter(o=>!o.hide);
+
+  document.getElementById('pay-opts').innerHTML = opts.map(o=>
+    `<div class="pay-opt ${o.val===selectedPay?'selected':''}" data-val="${o.val}" onclick="selectPay('${o.val}')">
+       <span class="pay-icon">${o.icon}</span><span>${o.label}</span>
+     </div>`).join('');
+  updatePayNote();
+}
+
+function selectPay(val) {
+  selectedPay = val;
+  document.querySelectorAll('.pay-opt').forEach(e=>e.classList.toggle('selected', e.dataset.val===val));
+  updatePayNote();
+}
+
+function updatePayNote() {
+  const note = PAY_NOTES[selectedPay]?.() || '';
+  const el = document.getElementById('pay-note');
+  el.innerHTML = note; el.style.display = note ? 'block' : 'none';
+}
+
+// ─── Submit ───────────────────────────────────────────────────────────────────
+function submitOrder() {
+  const name  = document.getElementById('ch-name').value.trim();
+  const phone = document.getElementById('ch-phone').value.trim();
+  const date  = document.getElementById('ch-date').value;
+  if (!name)  { showToast(t('fillName'));  return; }
+  if (!phone) { showToast(t('fillPhone')); return; }
+  if (!date)  { showToast(t('fillDate'));  return; }
+
+  const cart = getCart(), catalog = getCatalog();
+  const total = cart.reduce((s,c)=>{const p=catalog.find(x=>x.id===c.id);return s+(p?clientPrice(p.price)*c.qty:0);},0);
+  const user = getCurrentUser();
+
+  const order = {
+    id: Date.now(),
+    date: new Date().toISOString(),
+    customer: { name, phone, address: document.getElementById('ch-addr').value, userId: user?.id || null },
+    delivery: { date, time: document.getElementById('ch-time').value },
+    payment: selectedPay,
+    paymentStatus: selectedPay==='stripe' ? 'pending' : 'unpaid',
+    items: cart.map(c=>{ const p=catalog.find(x=>x.id===c.id); return {id:c.id, name:p?.name, qty:c.qty, price:clientPrice(p?.price||0)}; }),
+    total,
+    status: 'new',
+    lang: detectLang(),
+  };
+  const orders = getOrders(); orders.unshift(order); saveOrders(orders);
+  saveCart([]);
+  lastOrder = order;
+
+  const dFmt = new Date(date).toLocaleDateString(detectLang()+'-'+detectLang().toUpperCase(), {day:'numeric',month:'long'});
+  document.getElementById('success-msg').textContent = `${name} — ${formatPrice(total)}, ${dFmt}. ${t('orderSuccessMsg')}`;
+
+  if (selectedPay === 'stripe') {
+    document.getElementById('stripe-block').style.display = 'block';
+    document.getElementById('stripe-note-txt').textContent = t('stripeNote');
+    document.getElementById('btn-stripe').textContent = t('toStripe');
+  } else {
+    document.getElementById('stripe-block').style.display = 'none';
+  }
+  goPage('success');
+}
+
+function goStripe() {
+  const s = getSettings();
+  if (!s.stripeKey || !lastOrder) { showToast('Stripe key not configured'); return; }
+  // In real deploy: redirect to your backend /create-checkout?orderId=...
+  // For demo: show instruction
+  alert('Stripe: redirect to payment for order #' + lastOrder.id + '\n\nIn production, your server creates a Checkout Session and redirects here.');
+}
+
+function newOrder() { goPage('catalog'); renderCatalog(); }
+
+// ─── My Orders ────────────────────────────────────────────────────────────────
+function renderMyOrders() {
+  const user = getCurrentUser();
+  const all = getOrders();
+  const mine = user && !user.guest ? all.filter(o=>o.customer?.userId===user.id) : all;
+  const el = document.getElementById('my-orders-list');
+  const STATUS_CLS = {new:'badge-new',confirmed:'badge-confirmed',done:'badge-done',cancelled:'badge-cancelled'};
+
+  if (!mine.length) { el.innerHTML = `<div class="empty-state"><div class="eicon">📋</div><p>${t('noOrders')}</p></div>`; return; }
+
+  el.innerHTML = mine.map(o=>{
+    const d = new Date(o.date).toLocaleDateString(detectLang(), {day:'numeric',month:'short',year:'numeric'});
+    const delD = o.delivery?.date ? new Date(o.delivery.date).toLocaleDateString(detectLang(), {day:'numeric',month:'long'}) : '';
+    return `<div class="order-card">
+      <div class="order-header" onclick="this.nextElementSibling.classList.toggle('open')">
+        <div>
+          <div style="font-size:11px;color:var(--text3);font-weight:700">${t('orderNum')} #${String(o.id).slice(-6)} · ${d}</div>
+          <div style="font-size:15px;font-weight:700;margin-top:2px">${formatPrice(o.total)}</div>
+          ${delD?`<div style="font-size:12px;color:var(--text2);margin-top:2px">📅 ${delD}</div>`:''}
+        </div>
+        <span class="badge ${STATUS_CLS[o.status]||'badge-new'}">${t('status'+o.status.charAt(0).toUpperCase()+o.status.slice(1))||o.status}</span>
+      </div>
+      <div class="order-body">
+        <ul style="font-size:13px;color:var(--text2);margin-bottom:8px;padding-left:0;list-style:none">
+          ${(o.items||[]).map(i=>`<li>• ${i.name} × ${i.qty} = ${formatPrice(i.price*i.qty)}</li>`).join('')}
+        </ul>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function doLogout() { clearCurrentUser(); window.location.href = 'login.html'; }
+function toggleLangMenu() { const m=document.getElementById('lang-menu'); m.style.display=m.style.display==='none'?'block':'none'; }
+document.addEventListener('click', e=>{ if(!e.target.closest('#lang-toggle')&&!e.target.closest('#lang-menu')) document.getElementById('lang-menu').style.display='none'; });
+
+function goPage(name) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.querySelectorAll('.bottom-nav a').forEach(a=>a.classList.remove('active'));
+  const map={catalog:'nav-catalog',cart:'nav-cart',orders:'nav-orders'};
+  if(map[name]) document.getElementById(map[name])?.classList.add('active');
+  window.scrollTo(0,0);
+}
+
+initStrings();
+renderCatalog();
+</script>
+</body>
+</html>
