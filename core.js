@@ -8,19 +8,34 @@ const DB = {
 // ─── Settings ───────────────────────────────────────────────────────────────
 const DEFAULT_SETTINGS = {
   shopName: 'Пирожковая',
-  currency: 'RUB',
-  currencySymbol: '₽',
-  currencyPos: 'after',
+  shopTagline: 'Свежая выпечка каждый день',
+  currency: 'EUR',
   logo: null,
   stripeKey: '',
   adminPassword: 'admin123',
   bizumNumber: '',
   revolutHandle: '',
   invoiceDetails: '',
+  fontFamily: 'PT Sans',
+  darkMode: 'system', // 'light' | 'dark' | 'system'
 };
 
 function getSettings() { return Object.assign({}, DEFAULT_SETTINGS, DB.get('settings') || {}); }
 function saveSettings(s) { DB.set('settings', s); }
+
+// ─── Theme ───────────────────────────────────────────────────────────────────
+function applyTheme() {
+  const s = getSettings();
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const dark = s.darkMode === 'dark' || (s.darkMode === 'system' && prefersDark);
+  document.documentElement.classList.toggle('dark', dark);
+}
+
+// ─── Font ─────────────────────────────────────────────────────────────────────
+function applyFont() {
+  const s = getSettings();
+  document.documentElement.style.setProperty('--font-body', s.fontFamily || 'PT Sans');
+}
 
 // ─── Currency formatting ─────────────────────────────────────────────────────
 const CURRENCIES = {
@@ -40,12 +55,12 @@ function formatPrice(n) {
 
 // ─── Default catalog ─────────────────────────────────────────────────────────
 const DEFAULT_CATALOG = [
-  { id:1, name:'Pirozhki s kapustoy', price:45, unit:'sht', category:'Pirozhki', available:true, minQty:1, photo:null },
-  { id:2, name:'Pirozhki s myasom',   price:55, unit:'sht', category:'Pirozhki', available:true, minQty:1, photo:null },
-  { id:3, name:'Belyashi',            price:65, unit:'sht', category:'Pirozhki', available:true, minQty:5, photo:null },
-  { id:4, name:'Pirog s vishney',     price:350, unit:'kg', category:'Pirogi',  available:true, minQty:1, photo:null },
-  { id:5, name:'Shangi tvorozhnye',   price:50, unit:'sht', category:'Vypechka',available:true, minQty:3, photo:null },
-  { id:6, name:'Chak-chak',           price:280, unit:'kg', category:'Sladosti',available:true, minQty:0.5, photo:null },
+  { id:1, name:'Barra brioche', price:4.5, unit:'sht', category:'Pan', available:true, minQty:1, photo:null,
+    description:'Pan brioche artesano, suave y tierno',
+    ingredients:'Masa madre, harina de trigo fuerza, leche, mantequilla, azúcar, sal, yema de huevo. ¡Sin levadura!' },
+  { id:2, name:'Piroski de carne', price:2.5, unit:'sht', category:'Piroski', available:true, minQty:5, photo:null, description:'', ingredients:'' },
+  { id:3, name:'Piroski de col', price:2.0, unit:'sht', category:'Piroski', available:true, minQty:5, photo:null, description:'', ingredients:'' },
+  { id:4, name:'Tarta de cereza', price:18, unit:'kg', category:'Tartas', available:true, minQty:0.5, photo:null, description:'', ingredients:'' },
 ];
 
 function getCatalog() { return DB.get('catalog') || DEFAULT_CATALOG; }
@@ -61,14 +76,13 @@ function saveCart(c) { DB.set('cart', c); }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 const DEFAULT_CLIENTS = [
-  { id:1, login:'client1', password:'pass1', name:'Иван Петров',     discount:0,  coeff:1.0, group:'retail' },
-  { id:2, login:'opt',     password:'opt123', name:'ООО Опторг',      discount:10, coeff:0.9, group:'wholesale' },
-  { id:3, login:'vip',     password:'vip999', name:'VIP-клиент',      discount:20, coeff:0.8, group:'vip' },
+  { id:1, login:'client1', password:'pass1', name:'Cliente 1', discount:0,  coeff:1.0, group:'retail' },
+  { id:2, login:'opt',     password:'opt123', name:'Mayorista', discount:10, coeff:0.9, group:'wholesale' },
+  { id:3, login:'vip',     password:'vip999', name:'VIP',       discount:20, coeff:0.8, group:'vip' },
 ];
 
 function getClients() { return DB.get('clients') || DEFAULT_CLIENTS; }
 function saveClients(c) { DB.set('clients', c); }
-
 function getCurrentUser() { return DB.get('currentUser') || null; }
 function setCurrentUser(u) { DB.set('currentUser', u); }
 function clearCurrentUser() { DB.del('currentUser'); }
@@ -86,7 +100,6 @@ function loginAdmin(password) {
   return password === s.adminPassword;
 }
 
-// Apply client price
 function clientPrice(basePrice) {
   const user = getCurrentUser();
   if (!user) return basePrice;
@@ -104,4 +117,4 @@ function showToast(msg, duration = 2200) {
 }
 
 // ─── Service Worker ───────────────────────────────────────────────────────────
-if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js').catch(() => {}); }
+if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/pirozhki/sw.js').catch(() => {}); }
