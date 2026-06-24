@@ -1,9 +1,10 @@
 {
-  "name": "Пирожковая",
-  "short_name": "Пирожки",
-  "start_url": "/pirozhki/",
+  "name": "Look-in Brioche",
+  "short_name": "Look-in",
+  "description": "Pan y Empanadillas Artesanos · Valencia",
+  "start_url": "/",
   "display": "standalone",
-  "background_color": "#FFF8F0",
+  "background_color": "#FAF6F0",
   "theme_color": "#C4551A",
   "orientation": "portrait",
   "icons": [
