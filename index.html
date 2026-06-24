@@ -290,6 +290,96 @@
       .lb-hero p{
         font-size:17px;
       }
+      .lb-wa-float{
+        width:58px;
+        height:58px;
+        right:16px;
+        bottom:96px;
+        font-size:26px;
+      }
+    }
+
+
+
+    /* Public order request */
+    .lb-order-request{
+      background:linear-gradient(135deg,rgba(255,253,249,.92),rgba(247,239,230,.82));
+    }
+    .dark .lb-order-request{
+      background:linear-gradient(135deg,rgba(33,25,20,.92),rgba(36,27,21,.82));
+    }
+    .lb-order-box{
+      display:grid;
+      grid-template-columns:.9fr 1.1fr;
+      gap:28px;
+      align-items:start;
+      background:var(--lb-bg-card);
+      border:1px solid var(--lb-line);
+      border-radius:34px;
+      padding:34px;
+      box-shadow:0 14px 46px rgba(70,40,20,.08);
+    }
+    .lb-order-note{
+      color:var(--lb-muted);
+      font-size:15px;
+      line-height:1.65;
+      margin-top:14px;
+    }
+    .lb-order-form{
+      display:grid;
+      gap:12px;
+    }
+    .lb-order-form label{
+      display:grid;
+      gap:6px;
+      color:var(--lb-muted);
+      font-size:13px;
+      font-weight:700;
+    }
+    .lb-order-form input,
+    .lb-order-form select,
+    .lb-order-form textarea{
+      width:100%;
+      border:1px solid var(--lb-line);
+      background:var(--lb-bg);
+      color:var(--lb-text);
+      border-radius:16px;
+      padding:13px 14px;
+      font:inherit;
+      outline:none;
+    }
+    .lb-order-form textarea{
+      min-height:104px;
+      resize:vertical;
+    }
+    .lb-order-form input:focus,
+    .lb-order-form select:focus,
+    .lb-order-form textarea:focus{
+      border-color:rgba(159,91,47,.46);
+      box-shadow:0 0 0 4px rgba(159,91,47,.09);
+    }
+    .lb-form-row{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+    .lb-form-help{
+      color:var(--lb-muted);
+      font-size:13px;
+      line-height:1.45;
+    }
+    @media (max-width:640px){
+      #hero-public-order{
+        flex:1 1 calc(50% - 6px);
+      }
+      .lb-order-box{
+        grid-template-columns:1fr;
+        padding:22px;
+        border-radius:28px;
+      }
+      .lb-form-row{
+        grid-template-columns:1fr;
+      }
     }
 
   </style>
@@ -330,6 +420,7 @@
             <p data-home="heroSubtitle">Для магазинов, мероприятий и индивидуальных заказов в Валенсии.</p>
             <div class="lb-hero-cta">
               <a class="lb-btn lb-btn-primary" href="#catalog" data-home="catalogBtn">Каталог</a>
+              <a class="lb-btn lb-btn-ghost" id="hero-public-order" href="#public-order" data-home="publicOrderBtn">Pedido sin cuenta</a>
               <a class="lb-btn lb-btn-ghost lb-mobile-login" href="login.html" data-home="clientAccess">Вход для клиентов</a>
               <a class="lb-btn lb-btn-ghost" id="hero-wa" href="#" target="_blank" rel="noopener" data-home="whatsappBtn">Написать в WhatsApp</a>
             </div>
@@ -346,6 +437,51 @@
               <strong data-home="photoCardTitle">Золотистая корочка, мягкое тесто, щедрая начинка</strong>
               <span data-home="photoCardText">Формат, который легко предложить в магазине, на встрече или небольшом событии.</span>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="lb-section lb-order-request" id="public-order">
+        <div class="lb-container">
+          <div class="lb-order-box">
+            <div>
+              <h2 data-home="publicOrderTitle">Заявка без регистрации</h2>
+              <p class="lb-section-lead" data-home="publicOrderLead">Оставьте заявку без логина и пароля. Мы подтвердим ассортимент, дату и детали.</p>
+              <p class="lb-order-note" data-home="publicOrderNote">Это не B2B-кабинет и не онлайн-оплата: это быстрая заявка для частного заказа, мероприятия или первой поставки.</p>
+            </div>
+            <form class="lb-order-form" id="public-order-form">
+              <div class="lb-form-row">
+                <label>
+                  <span data-home="publicFormName">Имя</span>
+                  <input id="po-name" name="name" type="text" autocomplete="name" required data-home-placeholder="publicFormNamePh" placeholder="Как к вам обращаться">
+                </label>
+                <label>
+                  <span data-home="publicFormContact">Телефон или email</span>
+                  <input id="po-contact" name="contact" type="text" autocomplete="tel email" required data-home-placeholder="publicFormContactPh" placeholder="Куда ответить">
+                </label>
+              </div>
+              <div class="lb-form-row">
+                <label>
+                  <span data-home="publicFormFormat">Формат</span>
+                  <select id="po-format" name="format">
+                    <option value="event" data-home="publicFormatEvent">Мероприятие</option>
+                    <option value="private" data-home="publicFormatPrivate">Частный заказ</option>
+                    <option value="shop" data-home="publicFormatShop">Tienda o cafetería / primera entrega</option>
+                    <option value="other" data-home="publicFormatOther">Другое</option>
+                  </select>
+                </label>
+                <label>
+                  <span data-home="publicFormDate">Желаемая дата</span>
+                  <input id="po-date" name="date" type="date">
+                </label>
+              </div>
+              <label>
+                <span data-home="publicFormDetails">Что нужно</span>
+                <textarea id="po-details" name="details" required data-home-placeholder="publicFormDetailsPh" placeholder="Например: 20–30 пирожков, сладкие и солёные, на субботу"></textarea>
+              </label>
+              <button class="lb-btn lb-btn-primary" type="submit" data-home="publicFormSubmit">Отправить заявку</button>
+              <div class="lb-form-help" data-home="publicFormHelp">Мы свяжемся, чтобы подтвердить наличие, количество и дату. Цены для B2B остаются в личном кабинете.</div>
+            </form>
           </div>
         </div>
       </section>
@@ -488,22 +624,23 @@
   <script src="i18n.js"></script>
   <script src="core.js"></script>
   <script type="module">
-    import { fbGetSettings, fbGetCatalog } from './firebase.js';
+    import { fbGetSettings, fbGetCatalog, fbAddOrder } from './firebase.js';
 
     const FALLBACK_WA = '34600000000';
 
     const HOME = {
       es: {
-        navCatalog:'Catálogo', navShops:'Para tiendas', navEvents:'Eventos', navContact:'Contacto',
+        navCatalog:'Catálogo', navShops:'Para tiendas y cafeterías', navEvents:'Eventos', navContact:'Contacto',
         clientAccess:'Acceso clientes', eyebrow:'Valencia · artesanal · brioche',
         heroTitle:'Empanadillas de brioche artesanales',
-        heroSubtitle:'Para tiendas, eventos y pedidos especiales en Valencia.',
-        catalogBtn:'Ver catálogo', whatsappBtn:'Escribir por WhatsApp',
-        proof1Title:'Para tiendas', proof1Text:'Cuenta cliente, catálogo y pedidos repetidos.',
+        heroSubtitle:'Para tiendas, cafeterías, eventos y pedidos especiales en Valencia.',
+        catalogBtn:'Ver catálogo', whatsappBtn:'Escribir por WhatsApp', publicOrderBtn:'Pedido sin cuenta',
+        proof1Title:'Para tiendas y cafeterías', proof1Text:'Cuenta cliente, catálogo y pedidos repetidos.',
         proof2Title:'Para eventos', proof2Text:'Bocados artesanales para celebraciones y reuniones.',
         proof3Title:'Recién horneado', proof3Text:'Masa de brioche y rellenos artesanales.',
         photoCardTitle:'Corteza dorada, masa tierna y relleno generoso',
-        photoCardText:'Un formato fácil de ofrecer en tiendas, reuniones y eventos privados.',
+        photoCardText:'Un formato fácil de ofrecer en tiendas, cafeterías, reuniones y eventos privados.',
+        publicOrderTitle:'Pedido sin cuenta', publicOrderLead:'Deja una solicitud sin login ni contraseña. Confirmaremos disponibilidad, fecha y detalles.', publicOrderNote:'No es el acceso B2B ni un pago online: es una solicitud rápida para pedidos privados, eventos o una primera entrega.', publicFormName:'Nombre', publicFormNamePh:'Cómo te llamas', publicFormContact:'Teléfono o email', publicFormContactPh:'Dónde podemos responder', publicFormFormat:'Formato', publicFormatEvent:'Evento', publicFormatPrivate:'Pedido privado', publicFormatShop:'Tienda o cafetería / primera entrega', publicFormatOther:'Otro', publicFormDate:'Fecha deseada', publicFormDetails:'Qué necesitas', publicFormDetailsPh:'Por ejemplo: 20–30 piezas, dulces y saladas, para el sábado', publicFormSubmit:'Enviar solicitud', publicFormHelp:'Te contactaremos para confirmar disponibilidad, cantidad y fecha. Los precios B2B siguen dentro del acceso de clientes.', publicFormRequired:'Completa nombre, contacto y detalles del pedido.', publicFormSuccess:'Solicitud enviada. Te contactaremos para confirmar los detalles.', publicFormError:'No se pudo enviar la solicitud. Puedes escribirnos por WhatsApp.',
         catalogTitle:'Catálogo', catalogLead:'Empanadillas, brioche relleno, bollería artesanal y especiales de temporada.',
         b2bPrices:'Precios B2B tras acceder',
         cat1Title:'Empanadillas de brioche', cat1Text:'Masa de brioche con rellenos salados y dulces.',
@@ -512,30 +649,31 @@
         cat4Title:'Especiales de temporada', cat4Text:'Sabores especiales y lotes bajo pedido.',
         askAvailability:'Consultar disponibilidad →',
         liveCatalogTitle:'Productos disponibles', liveCatalogLead:'Mostramos productos del catálogo sin precios B2B.',
-        shopsTitle:'Para tiendas',
-        shopsText:'Ofrecemos productos artesanales para puntos de venta, con condiciones especiales para clientes profesionales.',
+        shopsTitle:'Para tiendas y cafeterías',
+        shopsText:'Ofrecemos productos artesanales para tiendas, cafeterías y puntos de venta, con condiciones especiales para clientes profesionales.',
         eventsTitle:'Para eventos',
         eventsText:'Bocados artesanales de brioche relleno para celebraciones, reuniones y eventos privados en Valencia.',
         discussOrder:'Consultar pedido',
-        howTitle:'Cómo pedir', howLead:'Para invitados, por WhatsApp. Para socios, desde el acceso de clientes.',
-        step1Title:'Elige el formato', step1Text:'Tienda, evento o pedido especial.',
-        step2Title:'Consulta el surtido', step2Text:'Escríbenos o entra en tu cuenta de cliente.',
+        howTitle:'Cómo pedir', howLead:'Sin cuenta puedes dejar una solicitud en la web o escribir por WhatsApp. Los socios usan el acceso de clientes.',
+        step1Title:'Elige el formato', step1Text:'Tienda, cafetería, evento o pedido especial.',
+        step2Title:'Consulta el surtido', step2Text:'Deja una solicitud en la web, escríbenos por WhatsApp o entra en tu cuenta de cliente.',
         step3Title:'Recibe brioche fresco', step3Text:'Acordamos fecha, cantidad y detalles del pedido.',
-        contactTitle:'Hablemos', contactText:'Cuéntanos qué necesitas: surtido para tienda, catering para evento o pedido especial.',
+        contactTitle:'Hablemos', contactText:'Cuéntanos qué necesitas: surtido para tienda o cafetería, catering para evento o pedido especial.',
         waMessage:'Hola! Me gustaría consultar un pedido de Look-in Brioche.',
         productMessage:'Hola! Me gustaría consultar disponibilidad de: '
       },
       ru: {
-        navCatalog:'Каталог', navShops:'Для магазинов', navEvents:'Мероприятия', navContact:'Контакты',
+        navCatalog:'Каталог', navShops:'Для магазинов и кафе', navEvents:'Мероприятия', navContact:'Контакты',
         clientAccess:'Вход для клиентов', eyebrow:'Валенсия · ручная работа · бриошь',
         heroTitle:'Выпечка из бриошного теста ручной работы',
-        heroSubtitle:'Для магазинов, мероприятий и индивидуальных заказов в Валенсии.',
-        catalogBtn:'Каталог', whatsappBtn:'Написать в WhatsApp',
-        proof1Title:'Для магазинов', proof1Text:'Личный кабинет, каталог и повторные заказы.',
+        heroSubtitle:'Для магазинов, кафе, мероприятий и индивидуальных заказов в Валенсии.',
+        catalogBtn:'Каталог', whatsappBtn:'Написать в WhatsApp', publicOrderBtn:'Заявка без регистрации',
+        proof1Title:'Для магазинов и кафе', proof1Text:'Личный кабинет, каталог и повторные заказы.',
         proof2Title:'Для событий', proof2Text:'Выпечка для встреч, праздников и мероприятий.',
         proof3Title:'Свежая выпечка', proof3Text:'Бриошное тесто и начинки ручной работы.',
         photoCardTitle:'Золотистая корочка, мягкое тесто, щедрая начинка',
-        photoCardText:'Формат, который легко предложить в магазине, на встрече или небольшом событии.',
+        photoCardText:'Формат, который легко предложить в магазине, кафе, на встрече или небольшом событии.',
+        publicOrderTitle:'Заявка без регистрации', publicOrderLead:'Оставьте заявку без логина и пароля. Мы подтвердим ассортимент, дату и детали.', publicOrderNote:'Это не B2B-кабинет и не онлайн-оплата: это быстрая заявка для частного заказа, мероприятия или первой поставки.', publicFormName:'Имя', publicFormNamePh:'Как к вам обращаться', publicFormContact:'Телефон или email', publicFormContactPh:'Куда ответить', publicFormFormat:'Формат', publicFormatEvent:'Мероприятие', publicFormatPrivate:'Частный заказ', publicFormatShop:'Магазин или кафе / первая поставка', publicFormatOther:'Другое', publicFormDate:'Желаемая дата', publicFormDetails:'Что нужно', publicFormDetailsPh:'Например: 20–30 пирожков, сладкие и солёные, на субботу', publicFormSubmit:'Отправить заявку', publicFormHelp:'Мы свяжемся, чтобы подтвердить наличие, количество и дату. Цены для B2B остаются в личном кабинете.', publicFormRequired:'Заполните имя, контакт и детали заказа.', publicFormSuccess:'Заявка отправлена. Мы свяжемся для подтверждения деталей.', publicFormError:'Не удалось отправить заявку. Можно написать нам в WhatsApp.',
         catalogTitle:'Ассортимент', catalogLead:'Пирожки, рогалики, булочки и сезонная выпечка из бриошного теста.',
         b2bPrices:'B2B-цены после входа',
         cat1Title:'Пирожки', cat1Text:'Бриошное тесто с солёными и сладкими начинками.',
@@ -544,30 +682,31 @@
         cat4Title:'Сезонные позиции', cat4Text:'Специальные вкусы и партии под заказ.',
         askAvailability:'Уточнить наличие →',
         liveCatalogTitle:'Актуальные позиции', liveCatalogLead:'Показываем позиции из каталога без B2B-цен.',
-        shopsTitle:'Для магазинов',
-        shopsText:'Работаем с розничными партнёрами в Валенсии. В личном кабинете доступны специальные цены, актуальный каталог и быстрые повторные заказы.',
+        shopsTitle:'Для магазинов и кафе',
+        shopsText:'Работаем с магазинами, кафе и розничными партнёрами в Валенсии. В личном кабинете доступны специальные цены, актуальный каталог и быстрые повторные заказы.',
         eventsTitle:'Для мероприятий',
         eventsText:'Пирожки, рогалики и выпечка с начинками для встреч, праздников и небольших событий в Валенсии.',
         discussOrder:'Обсудить заказ',
-        howTitle:'Как заказать', howLead:'Для гостей — через WhatsApp. Для партнёров — через личный кабинет.',
-        step1Title:'Выберите формат', step1Text:'Магазин, мероприятие или индивидуальный заказ.',
-        step2Title:'Уточните ассортимент', step2Text:'Напишите нам или войдите в кабинет клиента.',
+        howTitle:'Как заказать', howLead:'Без аккаунта можно оставить заявку на сайте или написать в WhatsApp. Партнёры используют личный кабинет.',
+        step1Title:'Выберите формат', step1Text:'Магазин, кафе, мероприятие или индивидуальный заказ.',
+        step2Title:'Уточните ассортимент', step2Text:'Оставьте заявку на сайте, напишите в WhatsApp или войдите в кабинет клиента.',
         step3Title:'Получите свежую выпечку', step3Text:'Согласуем дату, объём и детали заказа.',
-        contactTitle:'Свяжитесь с нами', contactText:'Расскажите, что вам нужно: ассортимент для магазина, выпечка для мероприятия или специальный заказ.',
+        contactTitle:'Свяжитесь с нами', contactText:'Расскажите, что вам нужно: ассортимент для магазина или кафе, выпечка для мероприятия или специальный заказ.',
         waMessage:'Здравствуйте! Хочу уточнить заказ Look-in Brioche.',
         productMessage:'Здравствуйте! Хочу уточнить наличие: '
       },
       en: {
-        navCatalog:'Catalog', navShops:'For shops', navEvents:'Events', navContact:'Contact',
+        navCatalog:'Catalog', navShops:'For shops and cafés', navEvents:'Events', navContact:'Contact',
         clientAccess:'Client access', eyebrow:'Valencia · handmade · brioche',
         heroTitle:'Handcrafted brioche pastries',
-        heroSubtitle:'For shops, events and special orders in Valencia.',
-        catalogBtn:'View catalog', whatsappBtn:'Message on WhatsApp',
-        proof1Title:'For shops', proof1Text:'Client account, catalog and repeat orders.',
+        heroSubtitle:'For shops, cafés, events and special orders in Valencia.',
+        catalogBtn:'View catalog', whatsappBtn:'Message on WhatsApp', publicOrderBtn:'Order without account',
+        proof1Title:'For shops and cafés', proof1Text:'Client account, catalog and repeat orders.',
         proof2Title:'For events', proof2Text:'Handcrafted bites for meetings and celebrations.',
         proof3Title:'Freshly baked', proof3Text:'Brioche dough and handmade fillings.',
         photoCardTitle:'Golden crust, soft dough and generous filling',
-        photoCardText:'A practical format for shops, meetings and private events.',
+        photoCardText:'A practical format for shops, cafés, meetings and private events.',
+        publicOrderTitle:'Order without account', publicOrderLead:'Leave a request without login or password. We will confirm availability, date and details.', publicOrderNote:'This is not the B2B account and not online payment: it is a quick request for private orders, events or a first delivery.', publicFormName:'Name', publicFormNamePh:'Your name', publicFormContact:'Phone or email', publicFormContactPh:'Where we can reply', publicFormFormat:'Format', publicFormatEvent:'Event', publicFormatPrivate:'Private order', publicFormatShop:'Shop or café / first delivery', publicFormatOther:'Other', publicFormDate:'Preferred date', publicFormDetails:'What do you need', publicFormDetailsPh:'For example: 20–30 pieces, sweet and savory, for Saturday', publicFormSubmit:'Send request', publicFormHelp:'We will contact you to confirm availability, quantity and date. B2B prices remain inside client access.', publicFormRequired:'Please fill in name, contact and order details.', publicFormSuccess:'Request sent. We will contact you to confirm the details.', publicFormError:'Could not send the request. You can message us on WhatsApp.',
         catalogTitle:'Catalog', catalogLead:'Brioche empanadillas, filled brioche, handmade pastries and seasonal specials.',
         b2bPrices:'B2B prices after login',
         cat1Title:'Brioche empanadillas', cat1Text:'Brioche dough with sweet and savory fillings.',
@@ -576,16 +715,16 @@
         cat4Title:'Seasonal specials', cat4Text:'Special flavors and custom batches.',
         askAvailability:'Check availability →',
         liveCatalogTitle:'Available products', liveCatalogLead:'Catalog items are shown without B2B prices.',
-        shopsTitle:'For shops',
-        shopsText:'We supply artisan products for retail points, with special conditions for professional clients.',
+        shopsTitle:'For shops and cafés',
+        shopsText:'We supply artisan products for shops, cafés and retail points, with special conditions for professional clients.',
         eventsTitle:'For events',
         eventsText:'Handcrafted filled brioche bites for celebrations, meetings and private events in Valencia.',
         discussOrder:'Discuss an order',
-        howTitle:'How to order', howLead:'Guests can use WhatsApp. Partners can use client access.',
-        step1Title:'Choose the format', step1Text:'Shop, event or special order.',
-        step2Title:'Check the assortment', step2Text:'Message us or sign in to your client account.',
+        howTitle:'How to order', howLead:'Without an account, you can leave a website request or message us on WhatsApp. Partners use client access.',
+        step1Title:'Choose the format', step1Text:'Shop, café, event or special order.',
+        step2Title:'Check the assortment', step2Text:'Leave a website request, message us on WhatsApp, or sign in to your client account.',
         step3Title:'Receive fresh brioche', step3Text:'We agree on date, quantity and order details.',
-        contactTitle:'Get in touch', contactText:'Tell us what you need: shop assortment, event pastries or a special order.',
+        contactTitle:'Get in touch', contactText:'Tell us what you need: shop or café assortment, event pastries or a special order.',
         waMessage:'Hello! I would like to ask about a Look-in Brioche order.',
         productMessage:'Hello! I would like to check availability of: '
       }
@@ -630,6 +769,11 @@
       document.querySelectorAll('[data-lang]').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.lang === lang);
       });
+      document.querySelectorAll('[data-home-placeholder]').forEach(el => {
+        const key = el.getAttribute('data-home-placeholder');
+        el.placeholder = text(key);
+      });
+
       document.querySelectorAll('.lb-wa-link, #hero-wa, #wa-float').forEach(a => {
         a.href = waLink(text('waMessage'));
       });
@@ -659,6 +803,59 @@
       wrap.classList.add('show');
     }
 
+
+
+    function homeToast(message){
+      if (window.showToast) window.showToast(message);
+      else alert(message);
+    }
+
+    function setupPublicOrderForm(){
+      const form = document.getElementById('public-order-form');
+      if (!form) return;
+
+      form.addEventListener('submit', async e => {
+        e.preventDefault();
+        const name = document.getElementById('po-name')?.value.trim();
+        const contact = document.getElementById('po-contact')?.value.trim();
+        const format = document.getElementById('po-format')?.value || 'private';
+        const preferredDate = document.getElementById('po-date')?.value || '';
+        const details = document.getElementById('po-details')?.value.trim();
+
+        if (!name || !contact || !details) {
+          homeToast(text('publicFormRequired'));
+          return;
+        }
+
+        const formatLabel = document.querySelector(`#po-format option[value="${format}"]`)?.textContent?.trim() || format;
+        const order = {
+          date: new Date().toISOString(),
+          customer: { name, phone: contact, address: details, userId: null, userName: 'Public website request' },
+          delivery: { date: preferredDate, time: '' },
+          payment: 'public request',
+          items: [{ id: 'public-request', name: `${text('publicOrderTitle')}: ${formatLabel}`, qty: 1, price: 0 }],
+          total: 0,
+          status: 'new',
+          lang: currentLang(),
+          source: 'public-site',
+          publicRequest: true
+        };
+
+        const btn = form.querySelector('button[type="submit"]');
+        try {
+          if (btn) btn.disabled = true;
+          await fbAddOrder(order);
+          form.reset();
+          homeToast(text('publicFormSuccess'));
+        } catch (err) {
+          console.error(err);
+          homeToast(text('publicFormError'));
+        } finally {
+          if (btn) btn.disabled = false;
+        }
+      });
+    }
+
     async function boot(){
       window.applyTheme?.();
       window.applyFont?.();
@@ -673,6 +870,7 @@
       } catch(e) {}
 
       applyHomeLanguage();
+      setupPublicOrderForm();
 
       try {
         const catalog = await fbGetCatalog();
