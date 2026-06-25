@@ -225,7 +225,6 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
 .font-opt.active{border-color:var(--green);background:var(--green-lt);color:var(--green);font-weight:600}
 
 /* === Look-in Brioche app UI polish v1 === */
-/* === Look-in Brioche app UI polish v1 === */
 
 /* Desktop shell */
 body{
