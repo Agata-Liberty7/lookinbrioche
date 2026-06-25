@@ -382,6 +382,411 @@
       }
     }
 
+  
+    /* === iPhone hero compact fix v1 === */
+    @media (max-width:640px){
+      .lb-header{
+        position:sticky;
+        top:0;
+      }
+
+      .lb-container{
+        padding-left:16px;
+        padding-right:16px;
+      }
+
+      .lb-nav{
+        height:60px;
+        gap:8px;
+      }
+
+      .lb-brand{
+        gap:10px;
+      }
+
+      .lb-brand img{
+        width:44px;
+        height:44px;
+      }
+
+      .lb-brand span{
+        font-size:22px;
+        line-height:1;
+        letter-spacing:-.04em;
+      }
+
+      .lb-lang{
+        padding:4px;
+        gap:2px;
+      }
+
+      .lb-lang button{
+        font-size:15px;
+        line-height:1;
+        padding:9px 10px;
+        min-width:38px;
+      }
+
+      .lb-hero{
+        padding:28px 0 30px;
+      }
+
+      .lb-hero-grid{
+        gap:24px;
+      }
+
+      .lb-eyebrow{
+        font-size:14px;
+        line-height:1.1;
+        padding:9px 13px;
+        margin-bottom:22px;
+      }
+
+      .lb-hero h1{
+        font-size:clamp(34px, 9.2vw, 40px);
+        line-height:1.01;
+        letter-spacing:-.06em;
+        margin-bottom:18px;
+      }
+
+      .lb-hero p{
+        font-size:18px;
+        line-height:1.42;
+        margin-bottom:24px;
+      }
+
+      .lb-hero-cta{
+        gap:10px;
+        margin-bottom:22px;
+      }
+
+      .lb-hero-cta .lb-btn{
+        min-height:50px;
+        padding:12px 16px;
+        border-radius:999px;
+        font-size:16px;
+        line-height:1.1;
+      }
+
+      .lb-hero-cta .lb-btn-primary,
+      .lb-hero-cta .lb-mobile-order{
+        flex:1 1 calc(50% - 5px);
+      }
+
+      .lb-hero-cta .lb-mobile-login,
+      .lb-hero-cta #hero-wa{
+        flex:1 1 100%;
+      }
+
+      .lb-hero-photo{
+        margin-top:10px;
+      }
+
+      .lb-hero-photo img{
+        aspect-ratio:1 / 1.05;
+        object-position:center 70%;
+      }
+
+      .lb-photo-card{
+        left:14px;
+        right:14px;
+        bottom:14px;
+        padding:13px 15px;
+      }
+
+      .lb-photo-card strong{
+        font-size:15px;
+        line-height:1.15;
+      }
+
+      .lb-photo-card span{
+        font-size:12px;
+        line-height:1.25;
+      }
+
+      .lb-wa-float{
+        width:56px;
+        height:56px;
+        right:18px;
+        bottom:92px;
+        font-size:25px;
+      }
+    }
+
+    @media (max-width:390px){
+      .lb-container{
+        padding-left:14px;
+        padding-right:14px;
+      }
+
+      .lb-brand span{
+        font-size:20px;
+      }
+
+      .lb-brand img{
+        width:40px;
+        height:40px;
+      }
+
+      .lb-lang button{
+        font-size:14px;
+        padding:8px 9px;
+        min-width:35px;
+      }
+
+      .lb-hero{
+        padding-top:24px;
+      }
+
+      .lb-eyebrow{
+        font-size:13px;
+        margin-bottom:18px;
+      }
+
+      .lb-hero h1{
+        font-size:32px;
+        line-height:1.02;
+      }
+
+      .lb-hero p{
+        font-size:17px;
+      }
+
+      .lb-hero-cta .lb-btn{
+        font-size:15px;
+        min-height:48px;
+      }
+    }
+
+  
+    /* === Mobile hero actions cleanup v1 === */
+    @media (max-width:640px){
+      .lb-photo-card{
+        display:none;
+      }
+
+      .lb-hero-cta{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:10px;
+        margin-bottom:16px;
+      }
+
+      .lb-hero-cta .lb-btn-primary,
+      .lb-hero-cta #hero-public-order{
+        width:100%;
+        min-height:48px;
+      }
+
+      .lb-hero-cta .lb-mobile-login{
+        grid-column:1 / -1;
+        min-height:auto;
+        padding:2px 0 0;
+        border:none;
+        background:transparent;
+        box-shadow:none;
+        font-size:14px;
+        color:var(--lb-muted);
+        text-decoration:underline;
+        text-underline-offset:4px;
+        justify-self:center;
+        width:auto;
+      }
+
+      .lb-hero-cta #hero-wa{
+        display:none;
+      }
+
+      .lb-hero-photo{
+        margin-top:8px;
+      }
+
+      .lb-hero-photo img{
+        object-position:center 78%;
+      }
+    }
+
+  
+    /* === Mobile homepage hero final v1 === */
+    .lb-hero-mobile-meta{
+      display:block;
+    }
+
+    .lb-mobile-client-link,
+    .lb-mobile-cta{
+      display:none;
+    }
+
+    @media (max-width:640px){
+      .lb-header{
+        position:sticky;
+        top:0;
+        z-index:90;
+      }
+
+      .lb-container{
+        padding-left:16px;
+        padding-right:16px;
+      }
+
+      .lb-nav{
+        height:58px;
+        gap:8px;
+      }
+
+      .lb-brand{
+        gap:10px;
+      }
+
+      .lb-brand img{
+        width:40px;
+        height:40px;
+      }
+
+      .lb-brand span{
+        font-size:20px;
+        line-height:1;
+        letter-spacing:-.04em;
+      }
+
+      .lb-lang{
+        transform:scale(.92);
+        transform-origin:right center;
+      }
+
+      .lb-lang button{
+        font-size:14px;
+        padding:8px 9px;
+        min-width:34px;
+      }
+
+      .lb-hero{
+        padding:22px 0 30px;
+      }
+
+      .lb-hero-grid{
+        display:flex;
+        flex-direction:column;
+        gap:16px;
+      }
+
+      .lb-hero-grid > div:first-child{
+        order:1;
+      }
+
+      .lb-hero-photo{
+        order:2;
+        width:100%;
+        max-width:none;
+        margin:0;
+      }
+
+      .lb-mobile-cta{
+        order:3;
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:10px;
+        width:100%;
+      }
+
+      .lb-mobile-cta .lb-btn{
+        min-height:46px;
+        padding:10px 12px;
+        font-size:14px;
+        line-height:1.12;
+      }
+
+      .lb-hero-mobile-meta{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+        margin-bottom:14px;
+      }
+
+      .lb-eyebrow{
+        margin-bottom:0;
+        font-size:12px;
+        line-height:1.1;
+        padding:7px 10px;
+        white-space:normal;
+      }
+
+      .lb-mobile-client-link{
+        display:inline-flex;
+        flex:0 0 auto;
+        color:var(--lb-muted);
+        font-size:12px;
+        font-weight:700;
+        text-decoration:underline;
+        text-underline-offset:3px;
+        white-space:nowrap;
+      }
+
+      .lb-hero h1{
+        font-size:clamp(30px,8.4vw,36px);
+        line-height:1.02;
+        letter-spacing:-.055em;
+        margin-bottom:12px;
+      }
+
+      .lb-hero p{
+        font-size:15.5px;
+        line-height:1.42;
+        margin-bottom:0;
+      }
+
+      .lb-hero-cta{
+        display:none!important;
+      }
+
+      .lb-proof{
+        display:none!important;
+      }
+
+      .lb-photo-card{
+        display:none!important;
+      }
+
+      .lb-hero-photo::before{
+        inset:14px -8px -10px 16px;
+        border-radius:26px;
+      }
+
+      .lb-hero-photo img{
+        aspect-ratio:1.25/1;
+        border-radius:26px;
+        object-position:center 78%;
+      }
+
+      .lb-wa-float{
+        width:50px;
+        height:50px;
+        right:16px;
+        bottom:calc(18px + env(safe-area-inset-bottom));
+        font-size:22px;
+      }
+    }
+
+    @media (max-width:390px){
+      .lb-brand span{
+        font-size:18px;
+      }
+
+      .lb-hero h1{
+        font-size:29px;
+      }
+
+      .lb-hero p{
+        font-size:15px;
+      }
+
+      .lb-mobile-cta .lb-btn{
+        font-size:13.5px;
+        min-height:44px;
+      }
+    }
+
   </style>
 </head>
 <body class="lb-home">
@@ -415,7 +820,13 @@
       <section class="lb-hero">
         <div class="lb-container lb-hero-grid">
           <div>
-            <div class="lb-eyebrow" data-home="eyebrow">Валенсия · ручная работа · бриошь</div>
+            <div class="lb-hero-mobile-meta">
+
+              <div class="lb-eyebrow" data-home="eyebrow">Валенсия · Домашние пирожки</div>
+
+              <a class="lb-mobile-client-link" href="login.html" data-home="clientAccess">Вход для клиентов</a>
+
+            </div>
             <h1 data-home="heroTitle">Выпечка из бриошного теста ручной работы</h1>
             <p data-home="heroSubtitle">Для магазинов, мероприятий и индивидуальных заказов в Валенсии.</p>
             <div class="lb-hero-cta">
@@ -437,6 +848,11 @@
               <strong data-home="photoCardTitle">Золотистая корочка, мягкое тесто, щедрая начинка</strong>
               <span data-home="photoCardText">Формат, который легко предложить в магазине, на встрече или небольшом событии.</span>
             </div>
+          </div>
+
+          <div class="lb-mobile-cta" aria-label="Primary actions">
+            <a class="lb-btn lb-btn-primary" href="#catalog" data-home="catalogBtn">Каталог</a>
+            <a class="lb-btn lb-btn-ghost" href="#public-order" data-home="publicOrderBtn">Заявка без регистрации</a>
           </div>
         </div>
       </section>
@@ -626,21 +1042,21 @@
   <script type="module">
     import { fbGetSettings, fbGetCatalog, fbAddOrder } from './firebase.js';
 
-    const FALLBACK_WA = '34600000000';
+    const FALLBACK_WA = '34666233341';
 
     const HOME = {
       es: {
-        navCatalog:'Catálogo', navShops:'Para tiendas y cafeterías', navEvents:'Eventos', navContact:'Contacto',
-        clientAccess:'Acceso clientes', eyebrow:'Valencia · artesanal · brioche',
-        heroTitle:'Empanadillas de brioche artesanales',
-        heroSubtitle:'Para tiendas, cafeterías, eventos y pedidos especiales en Valencia.',
-        catalogBtn:'Ver catálogo', whatsappBtn:'Escribir por WhatsApp', publicOrderBtn:'Pedido sin cuenta',
+        navCatalog:'Catálogo', navShops:'Para cafeterías y tiendas', navEvents:'Eventos', navContact:'Contacto',
+        clientAccess:'Acceso clientes', eyebrow:'Valencia · Empanadillas de brioche',
+        heroTitle:'Empanadillas de brioche con rellenos artesanos',
+        heroSubtitle:'Para cafeterías, eventos y pedidos personalizados en Valencia.',
+        catalogBtn:'Catálogo', whatsappBtn:'Escribir por WhatsApp', publicOrderBtn:'Pedido sin registro',
         proof1Title:'Para tiendas y cafeterías', proof1Text:'Cuenta cliente, catálogo y pedidos repetidos.',
         proof2Title:'Para eventos', proof2Text:'Bocados artesanales para celebraciones y reuniones.',
         proof3Title:'Recién horneado', proof3Text:'Masa de brioche y rellenos artesanales.',
         photoCardTitle:'Corteza dorada, masa tierna y relleno generoso',
         photoCardText:'Un formato fácil de ofrecer en tiendas, cafeterías, reuniones y eventos privados.',
-        publicOrderTitle:'Pedido sin cuenta', publicOrderLead:'Deja una solicitud sin login ni contraseña. Confirmaremos disponibilidad, fecha y detalles.', publicOrderNote:'No es el acceso B2B ni un pago online: es una solicitud rápida para pedidos privados, eventos o una primera entrega.', publicFormName:'Nombre', publicFormNamePh:'Cómo te llamas', publicFormContact:'Teléfono o email', publicFormContactPh:'Dónde podemos responder', publicFormFormat:'Formato', publicFormatEvent:'Evento', publicFormatPrivate:'Pedido privado', publicFormatShop:'Tienda o cafetería / primera entrega', publicFormatOther:'Otro', publicFormDate:'Fecha deseada', publicFormDetails:'Qué necesitas', publicFormDetailsPh:'Por ejemplo: 20–30 piezas, dulces y saladas, para el sábado', publicFormSubmit:'Enviar solicitud', publicFormHelp:'Te contactaremos para confirmar disponibilidad, cantidad y fecha. Los precios B2B siguen dentro del acceso de clientes.', publicFormRequired:'Completa nombre, contacto y detalles del pedido.', publicFormSuccess:'Solicitud enviada. Te contactaremos para confirmar los detalles.', publicFormError:'No se pudo enviar la solicitud. Puedes escribirnos por WhatsApp.',
+        publicOrderTitle:'Pedido sin registro', publicOrderLead:'Deja una solicitud sin login ni contraseña. Confirmaremos disponibilidad, fecha y detalles.', publicOrderNote:'No es el acceso B2B ni un pago online: es una solicitud rápida para pedidos privados, eventos o una primera entrega.', publicFormName:'Nombre', publicFormNamePh:'Cómo te llamas', publicFormContact:'Teléfono o email', publicFormContactPh:'Dónde podemos responder', publicFormFormat:'Formato', publicFormatEvent:'Evento', publicFormatPrivate:'Pedido privado', publicFormatShop:'Tienda o cafetería / primera entrega', publicFormatOther:'Otro', publicFormDate:'Fecha deseada', publicFormDetails:'Qué necesitas', publicFormDetailsPh:'Por ejemplo: 20–30 piezas, dulces y saladas, para el sábado', publicFormSubmit:'Enviar solicitud', publicFormHelp:'Te contactaremos para confirmar disponibilidad, cantidad y fecha. Los precios B2B siguen dentro del acceso de clientes.', publicFormRequired:'Completa nombre, contacto y detalles del pedido.', publicFormSuccess:'Solicitud enviada. Te contactaremos para confirmar los detalles.', publicFormError:'No se pudo enviar la solicitud. Puedes escribirnos por WhatsApp.',
         catalogTitle:'Catálogo', catalogLead:'Empanadillas, brioche relleno, bollería artesanal y especiales de temporada.',
         b2bPrices:'Precios B2B tras acceder',
         cat1Title:'Empanadillas de brioche', cat1Text:'Masa de brioche con rellenos salados y dulces.',
@@ -649,23 +1065,23 @@
         cat4Title:'Especiales de temporada', cat4Text:'Sabores especiales y lotes bajo pedido.',
         askAvailability:'Consultar disponibilidad →',
         liveCatalogTitle:'Productos disponibles', liveCatalogLead:'Mostramos productos del catálogo sin precios B2B.',
-        shopsTitle:'Para tiendas y cafeterías',
-        shopsText:'Ofrecemos productos artesanales para tiendas, cafeterías y puntos de venta, con condiciones especiales para clientes profesionales.',
+        shopsTitle:'Para cafeterías y tiendas',
+        shopsText:'Productos artesanales para cafeterías, tiendas y puntos de venta, con condiciones especiales para clientes profesionales.',
         eventsTitle:'Para eventos',
-        eventsText:'Bocados artesanales de brioche relleno para celebraciones, reuniones y eventos privados en Valencia.',
+        eventsText:'Bocados artesanales de brioche para celebraciones, reuniones y eventos privados en Valencia.',
         discussOrder:'Consultar pedido',
         howTitle:'Cómo pedir', howLead:'Sin cuenta puedes dejar una solicitud en la web o escribir por WhatsApp. Los socios usan el acceso de clientes.',
-        step1Title:'Elige el formato', step1Text:'Tienda, cafetería, evento o pedido especial.',
-        step2Title:'Consulta el surtido', step2Text:'Deja una solicitud en la web, escríbenos por WhatsApp o entra en tu cuenta de cliente.',
+        step1Title:'Elige el formato', step1Text:'Cafetería, tienda, evento o pedido especial.',
+        step2Title:'Consulta el surtido', step2Text:'Escríbenos, deja una solicitud o entra en tu cuenta de cliente.',
         step3Title:'Recibe brioche fresco', step3Text:'Acordamos fecha, cantidad y detalles del pedido.',
-        contactTitle:'Hablemos', contactText:'Cuéntanos qué necesitas: surtido para tienda o cafetería, catering para evento o pedido especial.',
+        contactTitle:'Hablemos', contactText:'Cuéntanos qué necesitas: surtido para cafetería o tienda, catering para evento o pedido especial.',
         waMessage:'Hola! Me gustaría consultar un pedido de Look-in Brioche.',
         productMessage:'Hola! Me gustaría consultar disponibilidad de: '
       },
       ru: {
-        navCatalog:'Каталог', navShops:'Для магазинов и кафе', navEvents:'Мероприятия', navContact:'Контакты',
-        clientAccess:'Вход для клиентов', eyebrow:'Валенсия · ручная работа · бриошь',
-        heroTitle:'Выпечка из бриошного теста ручной работы',
+        navCatalog:'Каталог', navShops:'Для кафе и магазинов', navEvents:'Мероприятия', navContact:'Контакты',
+        clientAccess:'Вход для клиентов', eyebrow:'Валенсия · Домашние пирожки',
+        heroTitle:'Домашние пирожки и свежая выпечка',
         heroSubtitle:'Для магазинов, кафе, мероприятий и индивидуальных заказов в Валенсии.',
         catalogBtn:'Каталог', whatsappBtn:'Написать в WhatsApp', publicOrderBtn:'Заявка без регистрации',
         proof1Title:'Для магазинов и кафе', proof1Text:'Личный кабинет, каталог и повторные заказы.',
@@ -674,7 +1090,7 @@
         photoCardTitle:'Золотистая корочка, мягкое тесто, щедрая начинка',
         photoCardText:'Формат, который легко предложить в магазине, кафе, на встрече или небольшом событии.',
         publicOrderTitle:'Заявка без регистрации', publicOrderLead:'Оставьте заявку без логина и пароля. Мы подтвердим ассортимент, дату и детали.', publicOrderNote:'Это не B2B-кабинет и не онлайн-оплата: это быстрая заявка для частного заказа, мероприятия или первой поставки.', publicFormName:'Имя', publicFormNamePh:'Как к вам обращаться', publicFormContact:'Телефон или email', publicFormContactPh:'Куда ответить', publicFormFormat:'Формат', publicFormatEvent:'Мероприятие', publicFormatPrivate:'Частный заказ', publicFormatShop:'Магазин или кафе / первая поставка', publicFormatOther:'Другое', publicFormDate:'Желаемая дата', publicFormDetails:'Что нужно', publicFormDetailsPh:'Например: 20–30 пирожков, сладкие и солёные, на субботу', publicFormSubmit:'Отправить заявку', publicFormHelp:'Мы свяжемся, чтобы подтвердить наличие, количество и дату. Цены для B2B остаются в личном кабинете.', publicFormRequired:'Заполните имя, контакт и детали заказа.', publicFormSuccess:'Заявка отправлена. Мы свяжемся для подтверждения деталей.', publicFormError:'Не удалось отправить заявку. Можно написать нам в WhatsApp.',
-        catalogTitle:'Ассортимент', catalogLead:'Пирожки, рогалики, булочки и сезонная выпечка из бриошного теста.',
+        catalogTitle:'Каталог', catalogLead:'Пирожки, рогалики, булочки и сезонная выпечка из бриошного теста.',
         b2bPrices:'B2B-цены после входа',
         cat1Title:'Пирожки', cat1Text:'Бриошное тесто с солёными и сладкими начинками.',
         cat2Title:'Рогалики', cat2Text:'Фирменная форма, мягкое тесто и насыщенный вкус.',
@@ -682,49 +1098,49 @@
         cat4Title:'Сезонные позиции', cat4Text:'Специальные вкусы и партии под заказ.',
         askAvailability:'Уточнить наличие →',
         liveCatalogTitle:'Актуальные позиции', liveCatalogLead:'Показываем позиции из каталога без B2B-цен.',
-        shopsTitle:'Для магазинов и кафе',
-        shopsText:'Работаем с магазинами, кафе и розничными партнёрами в Валенсии. В личном кабинете доступны специальные цены, актуальный каталог и быстрые повторные заказы.',
+        shopsTitle:'Для кафе и магазинов',
+        shopsText:'Свежая выпечка для кафе, магазинов и точек продаж, со специальными условиями для профессиональных клиентов.',
         eventsTitle:'Для мероприятий',
-        eventsText:'Пирожки, рогалики и выпечка с начинками для встреч, праздников и небольших событий в Валенсии.',
+        eventsText:'Домашние пирожки и выпечка для праздников, встреч и частных событий в Валенсии.',
         discussOrder:'Обсудить заказ',
         howTitle:'Как заказать', howLead:'Без аккаунта можно оставить заявку на сайте или написать в WhatsApp. Партнёры используют личный кабинет.',
-        step1Title:'Выберите формат', step1Text:'Магазин, кафе, мероприятие или индивидуальный заказ.',
-        step2Title:'Уточните ассортимент', step2Text:'Оставьте заявку на сайте, напишите в WhatsApp или войдите в кабинет клиента.',
-        step3Title:'Получите свежую выпечку', step3Text:'Согласуем дату, объём и детали заказа.',
-        contactTitle:'Свяжитесь с нами', contactText:'Расскажите, что вам нужно: ассортимент для магазина или кафе, выпечка для мероприятия или специальный заказ.',
+        step1Title:'Выберите формат', step1Text:'Кафе, магазин, мероприятие или частный заказ.',
+        step2Title:'Уточните ассортимент', step2Text:'Напишите нам, оставьте заявку или войдите в кабинет клиента.',
+        step3Title:'Получите свежую выпечку', step3Text:'Согласуем дату, количество и детали заказа.',
+        contactTitle:'Связаться', contactText:'Расскажите, что нужно: ассортимент для кафе или магазина, выпечка для мероприятия или индивидуальный заказ.',
         waMessage:'Здравствуйте! Хочу уточнить заказ Look-in Brioche.',
         productMessage:'Здравствуйте! Хочу уточнить наличие: '
       },
       en: {
-        navCatalog:'Catalog', navShops:'For shops and cafés', navEvents:'Events', navContact:'Contact',
-        clientAccess:'Client access', eyebrow:'Valencia · handmade · brioche',
-        heroTitle:'Handcrafted brioche pastries',
-        heroSubtitle:'For shops, cafés, events and special orders in Valencia.',
-        catalogBtn:'View catalog', whatsappBtn:'Message on WhatsApp', publicOrderBtn:'Order without account',
+        navCatalog:'Catalogue', navShops:'For cafés and shops', navEvents:'Events', navContact:'Contact',
+        clientAccess:'Client login', eyebrow:'Valencia · Pirozhki & brioche pastries',
+        heroTitle:'Pirozhki and homemade brioche with artisan fillings',
+        heroSubtitle:'For cafés, events and custom orders in Valencia.',
+        catalogBtn:'Catalogue', whatsappBtn:'Message on WhatsApp', publicOrderBtn:'Request an order',
         proof1Title:'For shops and cafés', proof1Text:'Client account, catalog and repeat orders.',
         proof2Title:'For events', proof2Text:'Handcrafted bites for meetings and celebrations.',
         proof3Title:'Freshly baked', proof3Text:'Brioche dough and handmade fillings.',
         photoCardTitle:'Golden crust, soft dough and generous filling',
         photoCardText:'A practical format for shops, cafés, meetings and private events.',
-        publicOrderTitle:'Order without account', publicOrderLead:'Leave a request without login or password. We will confirm availability, date and details.', publicOrderNote:'This is not the B2B account and not online payment: it is a quick request for private orders, events or a first delivery.', publicFormName:'Name', publicFormNamePh:'Your name', publicFormContact:'Phone or email', publicFormContactPh:'Where we can reply', publicFormFormat:'Format', publicFormatEvent:'Event', publicFormatPrivate:'Private order', publicFormatShop:'Shop or café / first delivery', publicFormatOther:'Other', publicFormDate:'Preferred date', publicFormDetails:'What do you need', publicFormDetailsPh:'For example: 20–30 pieces, sweet and savory, for Saturday', publicFormSubmit:'Send request', publicFormHelp:'We will contact you to confirm availability, quantity and date. B2B prices remain inside client access.', publicFormRequired:'Please fill in name, contact and order details.', publicFormSuccess:'Request sent. We will contact you to confirm the details.', publicFormError:'Could not send the request. You can message us on WhatsApp.',
-        catalogTitle:'Catalog', catalogLead:'Brioche empanadillas, filled brioche, handmade pastries and seasonal specials.',
+        publicOrderTitle:'Request an order', publicOrderLead:'Leave a request without login or password. We will confirm availability, date and details.', publicOrderNote:'This is not the B2B account and not online payment: it is a quick request for private orders, events or a first delivery.', publicFormName:'Name', publicFormNamePh:'Your name', publicFormContact:'Phone or email', publicFormContactPh:'Where we can reply', publicFormFormat:'Format', publicFormatEvent:'Event', publicFormatPrivate:'Private order', publicFormatShop:'Shop or café / first delivery', publicFormatOther:'Other', publicFormDate:'Preferred date', publicFormDetails:'What do you need', publicFormDetailsPh:'For example: 20–30 pieces, sweet and savory, for Saturday', publicFormSubmit:'Send request', publicFormHelp:'We will contact you to confirm availability, quantity and date. B2B prices remain inside client access.', publicFormRequired:'Please fill in name, contact and order details.', publicFormSuccess:'Request sent. We will contact you to confirm the details.', publicFormError:'Could not send the request. You can message us on WhatsApp.',
+        catalogTitle:'Catalogue', catalogLead:'Pirozhki, filled brioche, handmade bakery and seasonal specials.',
         b2bPrices:'B2B prices after login',
-        cat1Title:'Brioche empanadillas', cat1Text:'Brioche dough with sweet and savory fillings.',
+        cat1Title:'Pirozhki with fillings', cat1Text:'Soft brioche dough with sweet and savoury artisan fillings.',
         cat2Title:'Filled brioche', cat2Text:'Signature shape, soft dough and rich flavor.',
-        cat3Title:'Handmade pastries', cat3Text:'Small pieces for counters, offices and gatherings.',
+        cat3Title:'Fresh bakery', cat3Text:'Small pieces for counters, cafés, offices and gatherings.',
         cat4Title:'Seasonal specials', cat4Text:'Special flavors and custom batches.',
         askAvailability:'Check availability →',
         liveCatalogTitle:'Available products', liveCatalogLead:'Catalog items are shown without B2B prices.',
-        shopsTitle:'For shops and cafés',
-        shopsText:'We supply artisan products for shops, cafés and retail points, with special conditions for professional clients.',
+        shopsTitle:'For cafés and shops',
+        shopsText:'Fresh handmade bakery for cafés, shops and points of sale, with special terms for professional clients.',
         eventsTitle:'For events',
-        eventsText:'Handcrafted filled brioche bites for celebrations, meetings and private events in Valencia.',
+        eventsText:'Handmade brioche bites for celebrations, meetings and private events in Valencia.',
         discussOrder:'Discuss an order',
         howTitle:'How to order', howLead:'Without an account, you can leave a website request or message us on WhatsApp. Partners use client access.',
-        step1Title:'Choose the format', step1Text:'Shop, café, event or special order.',
-        step2Title:'Check the assortment', step2Text:'Leave a website request, message us on WhatsApp, or sign in to your client account.',
-        step3Title:'Receive fresh brioche', step3Text:'We agree on date, quantity and order details.',
-        contactTitle:'Get in touch', contactText:'Tell us what you need: shop or café assortment, event pastries or a special order.',
+        step1Title:'Choose the format', step1Text:'Café, shop, event or custom order.',
+        step2Title:'Check the assortment', step2Text:'Message us, leave a request, or enter your client account.',
+        step3Title:'Receive fresh bakery', step3Text:'We agree the date, quantity and order details.',
+        contactTitle:'Let’s talk', contactText:'Tell us what you need: assortment for a café or shop, event catering, or a custom order.',
         waMessage:'Hello! I would like to ask about a Look-in Brioche order.',
         productMessage:'Hello! I would like to check availability of: '
       }
@@ -755,10 +1171,10 @@
       const lang = currentLang();
       document.documentElement.lang = lang;
       document.title = lang === 'es'
-        ? 'Look-in Brioche · Empanadillas de brioche artesanales en Valencia'
+        ? 'Look-in Brioche · Empanadillas de brioche con rellenos artesanos en Valencia'
         : lang === 'ru'
-          ? 'Look-in Brioche · Выпечка из бриошного теста в Валенсии'
-          : 'Look-in Brioche · Handcrafted brioche pastries in Valencia';
+          ? 'Look-in Brioche · Домашние пирожки и свежая выпечка в Валенсии'
+          : 'Look-in Brioche · Pirozhki and homemade brioche in Valencia';
       const meta = document.querySelector('meta[name="description"]');
       if (meta) meta.content = text('heroSubtitle');
 
