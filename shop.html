@@ -65,7 +65,13 @@
     <div class="form-group"><label id="lbl-phone"></label><input type="tel" id="ch-phone"></div>
     <div class="form-group"><label id="lbl-addr"></label><textarea id="ch-addr" rows="2"></textarea></div>
     <div class="section-title" id="lbl-delivery"></div>
-    <div class="form-group"><label id="lbl-date"></label><input type="date" id="ch-date"></div>
+    <div class="form-group">
+      <label id="lbl-date"></label>
+      <div class="date-picker-row">
+        <input type="date" id="ch-date">
+        <button type="button" class="btn btn-outline btn-date-picker" onclick="openDatePicker()">📅 Elegir</button>
+      </div>
+    </div>
     <div class="form-group">
       <label id="lbl-time"></label>
       <select id="ch-time">
@@ -78,6 +84,10 @@
     <div class="section-title" id="lbl-payment-hdr"></div>
     <div class="pay-opts" id="pay-opts"></div>
     <div id="pay-note" class="info-box" style="margin-top:10px;display:none"></div>
+    <div class="form-group invoice-details-wrap" id="invoice-details-wrap" style="display:none">
+      <label id="lbl-invoice-details">Datos para factura</label>
+      <textarea id="ch-invoice-details" rows="3" placeholder="Nombre fiscal, NIF/CIF, dirección fiscal, email"></textarea>
+    </div>
     <div class="order-summary" style="margin:16px 0">
       <div class="sum-row total"><span id="lbl-topay"></span><span id="ch-total"></span></div>
     </div>
@@ -361,7 +371,7 @@ window.cartChQty = (id,delta) => {
 const PAY_NOTES={
   bizum:()=>{const s=getSettings();return s.bizumNumber?`📱 Bizum: <b>${s.bizumNumber}</b> — ${t('bizumNote')}`:t('bizumNote');},
   revolut:()=>{const s=getSettings();return s.revolutHandle?`💜 Revolut: <b>${s.revolutHandle}</b> — ${t('revolutNote')}`:t('revolutNote');},
-  invoice:()=>{const s=getSettings();return s.invoiceDetails?`📄 ${s.invoiceDetails}<br>${t('invoiceNote')}`:t('invoiceNote');},
+  invoice:()=>t('invoiceNote'),
   stripe:()=>t('stripeNote'),cash:()=>'',
 };
 function buildPaymentOpts(){
@@ -386,37 +396,100 @@ window.selectPay = val => {
 };
 function updatePayNote(){
   const note=PAY_NOTES[selectedPay]?.()||'';
-  const el=document.getElementById('pay-note');el.innerHTML=note;el.style.display=note?'block':'none';
+  const el=document.getElementById('pay-note');
+  el.innerHTML=note;
+  el.style.display=note?'block':'none';
+
+  const invoiceBox=document.getElementById('invoice-details-wrap');
+  if(invoiceBox) invoiceBox.style.display=selectedPay==='invoice'?'block':'none';
+}
+
+window.openDatePicker = () => {
+  const input = document.getElementById('ch-date');
+  if (!input) return;
+  if (typeof input.showPicker === 'function') input.showPicker();
+  else { input.focus(); input.click(); }
+};
+
+function cleanForFirestore(value) {
+  if (Array.isArray(value)) return value.map(cleanForFirestore).filter(v => v !== undefined);
+  if (value && typeof value === 'object') {
+    const out = {};
+    Object.entries(value).forEach(([k, v]) => {
+      if (v !== undefined) out[k] = cleanForFirestore(v);
+    });
+    return out;
+  }
+  return value;
 }
 
 window.submitOrder = async () => {
   const name=document.getElementById('ch-name').value.trim();
   const phone=document.getElementById('ch-phone').value.trim();
   const date=document.getElementById('ch-date').value;
+  const address=document.getElementById('ch-addr').value.trim();
+  const invoiceDetails=document.getElementById('ch-invoice-details')?.value.trim() || '';
+
   if(!name){showToast(t('fillName'));return;}
   if(!phone){showToast(t('fillPhone'));return;}
   if(!date){showToast(t('fillDate'));return;}
+  if(selectedPay==='invoice' && !invoiceDetails){
+    showToast('Añade los datos para factura');
+    return;
+  }
+
   const cart=getCart();
-  const total=cart.reduce((s,c)=>{const p=_catalog.find(x=>x.id===c.id);return s+(p?clientPrice(p.price)*c.qty:0);},0);
+  if(!cart.length){showToast(t('cartEmpty'));return;}
+
+  const items=cart.map(c=>{
+    const p=_catalog.find(x=>x.id===c.id);
+    if(!p) return null;
+    return {
+      id:String(c.id),
+      name:p.name || 'Producto',
+      qty:Number(c.qty || 0),
+      price:Number(clientPrice(p.price || 0))
+    };
+  }).filter(Boolean);
+
+  if(!items.length){showToast(t('cartEmpty'));return;}
+
+  const total=items.reduce((s,i)=>s+(i.price*i.qty),0);
   const user=getCurrentUser();
-  const order={
+
+  const order=cleanForFirestore({
     date:new Date().toISOString(),
-    customer:{name,phone,address:document.getElementById('ch-addr').value,userId:user?.id||null,userName:user?.name||null},
-    delivery:{date,time:document.getElementById('ch-time').value},
+    customer:{
+      name,
+      phone,
+      address,
+      userId:user?.id||null,
+      userName:user?.name||user?.login||null
+    },
+    delivery:{
+      date,
+      time:document.getElementById('ch-time').value || ''
+    },
     payment:selectedPay,
-    items:cart.map(c=>{const p=_catalog.find(x=>x.id===c.id);return{id:c.id,name:p?.name,qty:c.qty,price:clientPrice(p?.price||0)};}),
-    total,status:'new',lang:detectLang(),
-  };
+    invoiceDetails:selectedPay==='invoice'?invoiceDetails:null,
+    items,
+    total,
+    status:'new',
+    lang:detectLang(),
+  });
+
   try {
     showLoading('Sending order…');
     await fbAddOrder(order);
     saveCart([]);
     hideLoading();
-    const dFmt=new Date(date).toLocaleDateString(detectLang(),{day:'numeric',month:'long'});
+    const dFmt=new Date(date+'T00:00:00').toLocaleDateString(detectLang(),{day:'numeric',month:'long'});
     document.getElementById('success-msg').textContent=`${name} — ${formatPrice(total)}, ${dFmt}. ${t('orderSuccessMsg')}`;
     goPage('success');
   } catch(e) {
-    hideLoading(); showToast('Error saving order');
+    console.error('Order save error:', e, order);
+    hideLoading();
+    showToast(`Error saving order: ${e?.message || e}`);
   }
 };
 

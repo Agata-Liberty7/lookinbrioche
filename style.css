@@ -655,3 +655,31 @@ body{
     align-items:flex-start;
   }
 }
+
+/* === Checkout date / invoice polish === */
+.date-picker-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.btn-date-picker {
+  white-space: nowrap;
+  padding-left: 14px;
+  padding-right: 14px;
+}
+
+.invoice-details-wrap textarea {
+  min-height: 96px;
+}
+
+@media (max-width: 520px) {
+  .date-picker-row {
+    grid-template-columns: 1fr;
+  }
+
+  .btn-date-picker {
+    width: 100%;
+  }
+}
