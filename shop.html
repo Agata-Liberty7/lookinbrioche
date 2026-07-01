@@ -63,6 +63,10 @@
     <div class="section-title" id="lbl-yourdata"></div>
     <div class="form-group"><label id="lbl-name"></label><input type="text" id="ch-name"></div>
     <div class="form-group"><label id="lbl-phone"></label><input type="tel" id="ch-phone"></div>
+    <div class="form-grid">
+      <div class="form-group"><label id="lbl-contact-person"></label><input type="text" id="ch-contact-person"></div>
+      <div class="form-group"><label id="lbl-contact-phone"></label><input type="tel" id="ch-contact-phone"></div>
+    </div>
     <div class="form-group"><label id="lbl-addr"></label><textarea id="ch-addr" rows="2"></textarea></div>
     <div class="section-title" id="lbl-delivery"></div>
     <div class="form-group">
@@ -335,10 +339,40 @@ function initStrings() {
   document.getElementById('nav-orders-lbl').textContent  = t('orders');
   document.getElementById('ch-name').placeholder  = t('namePlaceholder');
   document.getElementById('ch-phone').placeholder = t('phonePlaceholder');
+
+  const lang = detectLang();
+  const contactI18n = {
+    es:{person:'Persona de contacto', phone:'Teléfono de contacto', personPh:'Nombre de contacto', phonePh:'+34 600 000 000'},
+    ru:{person:'Контактное лицо', phone:'Телефон контактного лица', personPh:'Имя контактного лица', phonePh:'+34 600 000 000'},
+    en:{person:'Contact person', phone:'Contact phone', personPh:'Contact name', phonePh:'+34 600 000 000'}
+  }[lang] || {person:'Contact person', phone:'Contact phone', personPh:'Contact name', phonePh:'+34 600 000 000'};
+
+  document.getElementById('lbl-contact-person').textContent = contactI18n.person;
+  document.getElementById('lbl-contact-phone').textContent = contactI18n.phone;
+  document.getElementById('ch-contact-person').placeholder = contactI18n.personPh;
+  document.getElementById('ch-contact-phone').placeholder = contactI18n.phonePh;
+
   const user = getCurrentUser();
   if (user && !user.guest) {
     const displayName = user.name || user.login || 'Cliente';
     document.getElementById('ch-name').value = displayName;
+    document.getElementById('ch-phone').value = user.phone || user.contactPhone || '';
+    document.getElementById('ch-contact-person').value = user.contactPerson || '';
+    document.getElementById('ch-contact-phone').value = user.contactPhone || '';
+    document.getElementById('ch-addr').value = user.address || '';
+
+    const invoiceEl = document.getElementById('ch-invoice-details');
+    if (invoiceEl) invoiceEl.value = user.invoiceDetails || '';
+
+    if (user.preferredPayment) {
+      if (typeof window.selectPay === 'function') window.selectPay(user.preferredPayment);
+      else selectedPay = user.preferredPayment;
+      if (user.preferredPayment === 'invoice') {
+        const invoiceWrap = document.getElementById('invoice-details-wrap');
+        if (invoiceWrap) invoiceWrap.style.display = 'block';
+      }
+    }
+
     let txt = '👤 '+displayName;
     if (user.discount>0) txt += ' · '+t('discount')+': −'+user.discount+'%';
     else if (user.coeff&&user.coeff!==1) txt += ' · ×'+user.coeff;
@@ -538,6 +572,8 @@ function cleanForFirestore(value) {
 window.submitOrder = async () => {
   const name=document.getElementById('ch-name').value.trim();
   const phone=document.getElementById('ch-phone').value.trim();
+  const contactPerson=document.getElementById('ch-contact-person')?.value.trim() || '';
+  const contactPhone=document.getElementById('ch-contact-phone')?.value.trim() || '';
   const date=document.getElementById('ch-date').value;
   const address=document.getElementById('ch-addr').value.trim();
   const invoiceDetails=document.getElementById('ch-invoice-details')?.value.trim() || '';
@@ -574,6 +610,8 @@ window.submitOrder = async () => {
     customer:{
       name,
       phone,
+      contactPerson,
+      contactPhone,
       address,
       userId:user?.id||null,
       userName:user?.name||user?.login||null
