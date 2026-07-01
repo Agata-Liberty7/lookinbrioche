@@ -148,7 +148,7 @@
 <script src="i18n.js"></script>
 <script src="core.js"></script>
 <script type="module">
-import { fbGetSettings, fbGetCatalog, fbFindClient, fbAddOrder, fbGetOrders } from './firebase.js';
+import { fbGetSettings, fbGetCatalog, fbFindClient, fbAddOrder, fbGetOrders, fbSaveClient } from './firebase.js';
 
 if (!getCurrentUser()) { window.location.href='login.html'; }
 
@@ -631,6 +631,28 @@ window.submitOrder = async () => {
   try {
     showLoading('Sending order…');
     await fbAddOrder(order);
+
+    if (user && !user.guest && user.id) {
+      const clientUpdate = cleanForFirestore({
+        id:user.id,
+        phone,
+        contactPerson,
+        contactPhone,
+        address,
+        invoiceDetails,
+        preferredPayment:selectedPay
+      });
+
+      try {
+        await fbSaveClient(clientUpdate);
+        if (typeof setCurrentUser === 'function') {
+          setCurrentUser({...user, ...clientUpdate});
+        }
+      } catch(profileError) {
+        console.warn('Client profile update error:', profileError);
+      }
+    }
+
     saveCart([]);
     hideLoading();
     const dFmt=new Date(date+'T00:00:00').toLocaleDateString(detectLang(),{day:'numeric',month:'long'});
