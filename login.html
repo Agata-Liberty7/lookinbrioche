@@ -45,6 +45,8 @@ async function initLogin() {
     if (s) { window._settings = Object.assign({}, window._settings||{}, s); saveSettingsCache(window._settings); applyTheme(); applyFont(); }
   } catch(e) {}
   const s = getSettings();
+  const loginLogo = document.querySelector('.login-logo');
+  if (loginLogo && s.logo) loginLogo.src = s.logo;
   document.getElementById('lt').textContent  = s.shopName || 'Look-in Brioche';
   document.getElementById('ls').textContent  = s.shopTagline || 'Pan y Empanadillas Artesanos';
   document.getElementById('lbl-user').textContent  = t('username');
