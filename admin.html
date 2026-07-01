@@ -275,6 +275,34 @@
     <div class="form-group"><label>Login *</label><input type="text" id="cm-login" placeholder="client1" autocapitalize="none"></div>
     <div class="form-group"><label>Password *</label><input type="text" id="cm-pass" placeholder="pass1"></div>
     <div class="form-group"><label>Name / company</label><input type="text" id="cm-name" placeholder="ООО Рога и Копыта"></div>
+    <div class="form-grid">
+      <div class="form-group"><label>Phone</label><input type="tel" id="cm-phone" placeholder="+34 600 000 000"></div>
+      <div class="form-group">
+        <label>Preferred language</label>
+        <select id="cm-lang">
+          <option value="es">ES</option>
+          <option value="ru">RU</option>
+          <option value="en">EN</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-group"><label>Contact person</label><input type="text" id="cm-contact-person" placeholder="Nombre de contacto"></div>
+      <div class="form-group"><label>Contact phone</label><input type="tel" id="cm-contact-phone" placeholder="+34 600 000 000"></div>
+    </div>
+    <div class="form-group"><label>Address</label><textarea id="cm-address" rows="2" placeholder="Delivery address"></textarea></div>
+    <div class="form-group"><label>Datos para factura / реквизиты</label><textarea id="cm-invoice" rows="3" placeholder="Company name, CIF/NIF, billing address..."></textarea></div>
+    <div class="form-group">
+      <label>Preferred payment</label>
+      <select id="cm-payment">
+        <option value="">Not set</option>
+        <option value="cash">Pagar al recibir</option>
+        <option value="bizum">Bizum</option>
+        <option value="revolut">Revolut</option>
+        <option value="invoice">Factura</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Notes</label><textarea id="cm-notes" rows="2" placeholder="Internal notes for admin"></textarea></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="form-group"><label>Discount %</label><input type="number" id="cm-disc" placeholder="0" min="0" max="100"></div>
       <div class="form-group"><label>Price coeff ×</label><input type="number" id="cm-coeff" placeholder="1.00" min="0" step="0.05"></div>
@@ -626,9 +654,19 @@ window.openClientModal = id => {
     const c=_clients.find(x=>x.id===id);if(!c)return;
     document.getElementById('cm-login').value=c.login;document.getElementById('cm-pass').value=c.password;
     document.getElementById('cm-name').value=c.name||'';document.getElementById('cm-disc').value=c.discount||0;
+    document.getElementById('cm-phone').value=c.phone||'';
+    document.getElementById('cm-contact-person').value=c.contactPerson||'';
+    document.getElementById('cm-contact-phone').value=c.contactPhone||'';
+    document.getElementById('cm-address').value=c.address||'';
+    document.getElementById('cm-invoice').value=c.invoiceDetails||'';
+    document.getElementById('cm-payment').value=c.preferredPayment||'';
+    document.getElementById('cm-lang').value=c.language||'es';
+    document.getElementById('cm-notes').value=c.notes||'';
     document.getElementById('cm-coeff').value=c.coeff||1;document.getElementById('cm-group').value=c.group||'retail';
   } else {
-    ['cm-login','cm-pass','cm-name'].forEach(i=>document.getElementById(i).value='');
+    ['cm-login','cm-pass','cm-name','cm-phone','cm-contact-person','cm-contact-phone','cm-address','cm-invoice','cm-notes'].forEach(i=>document.getElementById(i).value='');
+    document.getElementById('cm-payment').value='';
+    document.getElementById('cm-lang').value='es';
     document.getElementById('cm-disc').value='0';document.getElementById('cm-coeff').value='1';document.getElementById('cm-group').value='retail';
   }
   document.getElementById('client-modal').classList.add('open');
@@ -639,6 +677,14 @@ window.saveClient = async () => {
   const pass=document.getElementById('cm-pass').value.trim();
   if(!login||!pass){showToast('Login and password required');return;}
   const data={login,password:pass,name:document.getElementById('cm-name').value.trim(),
+    phone:document.getElementById('cm-phone').value.trim(),
+    contactPerson:document.getElementById('cm-contact-person').value.trim(),
+    contactPhone:document.getElementById('cm-contact-phone').value.trim(),
+    address:document.getElementById('cm-address').value.trim(),
+    invoiceDetails:document.getElementById('cm-invoice').value.trim(),
+    preferredPayment:document.getElementById('cm-payment').value,
+    language:document.getElementById('cm-lang').value||'es',
+    notes:document.getElementById('cm-notes').value.trim(),
     discount:parseFloat(document.getElementById('cm-disc').value)||0,
     coeff:parseFloat(document.getElementById('cm-coeff').value)||1,
     group:document.getElementById('cm-group').value};
