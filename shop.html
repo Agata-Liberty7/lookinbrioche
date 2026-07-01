@@ -451,23 +451,82 @@ function updateSheetQty() {
   const cart=getCart(); const inCart=cart.find(c=>c.id===sheetProductId);
   const qty=inCart?inCart.qty:0;
   const ctrl=document.getElementById('sheet-qty-control');
-  ctrl.innerHTML=qty>0?`<button class="qty-btn" onclick="chQty('${sheetProductId}',-1);updateSheetQty()">−</button><span class="qty-num">${qty}</span><button class="qty-btn" onclick="chQty('${sheetProductId}',1);updateSheetQty()">+</button>`:'';
+  const btn=document.getElementById('sheet-add-btn');
+
+  ctrl.innerHTML=qty>0
+    ?`<button class="qty-btn" onclick="chQty('${sheetProductId}',-1)">−</button><span class="qty-num">${qty}</span><button class="qty-btn" onclick="chQty('${sheetProductId}',1)">+</button>`
+    :'';
+
+  if (btn) {
+    if (qty > 0) {
+      const labels = {
+        es:'Ir a la cesta',
+        ru:'Перейти в корзину',
+        en:'Go to cart'
+      };
+      btn.textContent = labels[detectLang()] || labels.es;
+      btn.onclick = () => goPage('cart');
+    } else {
+      btn.textContent = t('addToCart');
+      btn.onclick = () => addFromSheet();
+    }
+  }
 }
 window.updateSheetQty = updateSheetQty;
 window.closeSheet = () => document.getElementById('product-sheet').classList.remove('open');
 window.addFromSheet = () => { addToCart(sheetProductId); updateSheetQty(); };
 
+function productMinQty(p) {
+  return Math.max(1, Number(p?.minQty || 1));
+}
+
+function productStepQty(p) {
+  return Math.max(1, Number(p?.stepQty || p?.minQty || 1));
+}
+
+function nextProductQty(p, currentQty, direction) {
+  const minQ = productMinQty(p);
+  const step = productStepQty(p);
+  const current = Number(currentQty || 0);
+
+  if (direction > 0) {
+    if (current <= 0) return minQ;
+    if (current < minQ) return minQ;
+
+    const offset = current - minQ;
+    if (offset % step !== 0) return minQ + Math.ceil(offset / step) * step;
+
+    return current + step;
+  }
+
+  if (current <= minQ) return 0;
+
+  const offset = current - minQ;
+  if (offset % step !== 0) return minQ + Math.floor(offset / step) * step;
+
+  return current - step;
+}
+
 window.addToCart = id => {
-  const p=_catalog.find(x=>x.id===id); const minQ=p?(p.minQty||1):1;
+  const p=_catalog.find(x=>x.id===id);
+  if(!p) return;
+
   let cart=getCart(); const ex=cart.find(c=>c.id===id);
-  if(ex){ex.qty+=1;}else{cart.push({id,qty:minQ});}
-  saveCart(cart); renderCatalog();
+  if(ex){ex.qty=nextProductQty(p, ex.qty, 1);}
+  else{cart.push({id,qty:productMinQty(p)});}
+
+  saveCart(cart); syncCartViews();
 };
+
 window.chQty = (id,delta) => {
   let cart=getCart(); const item=cart.find(c=>c.id===id);
-  const p=_catalog.find(x=>x.id===id); const minQ=p?(p.minQty||1):1;
-  if(item){item.qty+=delta;if(item.qty<minQ)cart=cart.filter(c=>c.id!==id);}
-  saveCart(cart); renderCatalog();
+  const p=_catalog.find(x=>x.id===id);
+  if(item && p){
+    const next = nextProductQty(p, item.qty, delta);
+    if(next <= 0) cart=cart.filter(c=>c.id!==id);
+    else item.qty = next;
+  }
+  saveCart(cart); syncCartViews();
 };
 
 function updateCartBadge(){document.getElementById('cart-count').textContent=getCart().reduce((s,c)=>s+c.qty,0);}
@@ -477,6 +536,18 @@ function updateSticky(){
   const el=document.getElementById('sticky-cart');
   if(n>0){el.classList.add('visible');document.getElementById('sticky-label').textContent=t('checkout')+' · '+formatPrice(total);}
   else el.classList.remove('visible');
+}
+
+function syncCartViews(opts={}) {
+  updateCartBadge();
+  updateSticky();
+  renderCatalog();
+
+  if (opts.cart) renderCart();
+
+  if (typeof sheetProductId !== 'undefined' && sheetProductId) {
+    updateSheetQty();
+  }
 }
 
 window.renderCart = () => {
@@ -509,9 +580,13 @@ window.renderCart = () => {
 
 window.cartChQty = (id,delta) => {
   let cart=getCart();const item=cart.find(c=>c.id===id);
-  const p=_catalog.find(x=>x.id===id);const minQ=p?(p.minQty||1):1;
-  if(item){item.qty+=delta;if(item.qty<minQ)cart=cart.filter(c=>c.id!==id);}
-  saveCart(cart);renderCart();updateCartBadge();
+  const p=_catalog.find(x=>x.id===id);
+  if(item && p){
+    const next = nextProductQty(p, item.qty, delta);
+    if(next <= 0) cart=cart.filter(c=>c.id!==id);
+    else item.qty = next;
+  }
+  saveCart(cart); syncCartViews({cart:true});
 };
 
 const PAY_NOTES={
