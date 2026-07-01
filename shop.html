@@ -148,7 +148,112 @@ import { fbGetSettings, fbGetCatalog, fbFindClient, fbAddOrder, fbGetOrders } fr
 
 if (!getCurrentUser()) { window.location.href='login.html'; }
 
-const EMOJIS = {Pan:'🍞',Piroski:'🥟',Pirogi:'🥮',Vypechka:'🍞',Sladosti:'🍯',Tartas:'🎂',Other:'🍴'};
+const EMOJIS = {
+  pan:'🍞',
+  pirozhki:'🥟',
+  rogaliki:'🥐',
+  buns:'🍞',
+  seasonal:'✨',
+  frozen:'❄️',
+  other:'🍴',
+  Pan:'🍞',
+  Piroski:'🥟',
+  Pirogi:'🥮',
+  Vypechka:'🍞',
+  Sladosti:'🍯',
+  Tartas:'🎂',
+  Other:'🍴'
+};
+
+const CATEGORY_LABELS = {
+  pan:      { es:'Pan brioche',       ru:'Бриошный хлеб',       en:'Brioche bread' },
+  pirozhki: { es:'Empanadillas',      ru:'Пирожки',             en:'Pirozhki' },
+  rogaliki: { es:'Brioche relleno',   ru:'Рогалики',            en:'Filled brioche' },
+  buns:     { es:'Bollería',          ru:'Булочки',             en:'Bakery' },
+  seasonal: { es:'Temporada',         ru:'Сезонные позиции',    en:'Seasonal' },
+  frozen:   { es:'Congelados',        ru:'Заморозка',           en:'Frozen' },
+  other:    { es:'Other',             ru:'Другое',              en:'Other' }
+};
+
+function clientLang() {
+  const user = getCurrentUser?.();
+  const raw = user?.language || user?.lang || detectLang?.() || 'es';
+  const lang = String(raw).slice(0,2).toLowerCase();
+  return ['es','ru','en'].includes(lang) ? lang : 'es';
+}
+
+function pickLocalized(obj, base) {
+  if (!obj) return '';
+  const lang = clientLang();
+  return (
+    obj[`${base}_${lang}`] ||
+    obj[`${base}${lang.toUpperCase()}`] ||
+    obj[base] ||
+    obj[`${base}_es`] ||
+    obj[`${base}_ru`] ||
+    obj[`${base}_en`] ||
+    ''
+  );
+}
+
+function productName(p) {
+  return pickLocalized(p, 'name') || 'Producto';
+}
+
+function productDesc(p) {
+  return pickLocalized(p, 'description') || p.desc || '';
+}
+
+function normalizeCatKey(category) {
+  const c = String(category || 'other').trim().toLowerCase();
+
+  const map = {
+    pan: 'pan',
+    bread: 'pan',
+    'беленый хлеб': 'pan',
+
+    piroski: 'pirozhki',
+    piroshki: 'pirozhki',
+    pirozhki: 'pirozhki',
+    pirogi: 'pirozhki',
+    empanadillas: 'pirozhki',
+    'пирожки': 'pirozhki',
+
+    rogaliki: 'rogaliki',
+    croissants: 'rogaliki',
+    'рогалики': 'rogaliki',
+    'brioche relleno': 'rogaliki',
+
+    buns: 'buns',
+    bolleria: 'buns',
+    'bollería': 'buns',
+    'булочки': 'buns',
+
+    seasonal: 'seasonal',
+    temporada: 'seasonal',
+    'сезонные позиции': 'seasonal',
+
+    frozen: 'frozen',
+    congelados: 'frozen',
+    'заморозка': 'frozen',
+
+    other: 'other',
+    другое: 'other'
+  };
+
+  return map[c] || c || 'other';
+}
+
+function categoryLabel(category) {
+  const key = normalizeCatKey(category);
+  const lang = clientLang();
+  return CATEGORY_LABELS[key]?.[lang] || category || CATEGORY_LABELS.other[lang];
+}
+
+function categoryEmoji(category) {
+  const key = normalizeCatKey(category);
+  return EMOJIS[key] || EMOJIS[category] || '🍴';
+}
 let currentCat = null;
 let selectedPay = 'cash';
 let sheetProductId = null;
@@ -177,7 +282,7 @@ async function boot() {
       ];
     }
     window._catalog = _catalog;
-    currentCat = t('all');
+    currentCat = 'all';
 
     // Load my orders
     _orders = await fbGetOrders();
@@ -189,7 +294,7 @@ async function boot() {
     console.error(e);
     hideLoading();
     showToast('Connection error — offline mode');
-    currentCat = t('all');
+    currentCat = 'all';
     initStrings();
     renderCatalog();
   }
@@ -247,26 +352,32 @@ function initStrings() {
 
 function renderCatalog() {
   const catalog = _catalog.filter(p=>p.available!==false);
-  const cats = [t('all'), ...new Set(catalog.map(p=>p.category))];
-  document.getElementById('cat-tabs').innerHTML = cats.map(c=>
-    `<button class="cat-tab ${c===currentCat?'active':''}" onclick="selectCat('${c.replace(/'/g,"\\'")}')">
-      ${c===t('all')?c:(EMOJIS[c]||'🍴')+' '+c}
-    </button>`).join('');
-  const items = currentCat===t('all') ? catalog : catalog.filter(p=>p.category===currentCat);
+  const cats = ['all', ...new Set(catalog.map(p=>normalizeCatKey(p.category)))];
+
+  document.getElementById('cat-tabs').innerHTML = cats.map(c => {
+    const label = c === 'all' ? t('all') : `${categoryEmoji(c)} ${categoryLabel(c)}`;
+    return `<button class="cat-tab ${c===currentCat?'active':''}" onclick="selectCat('${c.replace(/'/g,"\\'")}')">${label}</button>`;
+  }).join('');
+
+  const items = currentCat==='all' ? catalog : catalog.filter(p=>normalizeCatKey(p.category)===currentCat);
   const cart = getCart();
   const el = document.getElementById('product-list');
   if (!items.length){el.innerHTML='<div class="empty-state"><div class="eicon">😔</div></div>';return;}
+
   el.innerHTML = items.map(p=>{
-    const inCart=cart.find(c=>c.id===p.id); const qty=inCart?inCart.qty:0;
+    const inCart=cart.find(c=>String(c.id)===String(p.id));
+    const qty=inCart?inCart.qty:0;
     const cp=clientPrice(p.price);
-    const emoji=EMOJIS[p.category]||'🍴';
+    const emoji=categoryEmoji(p.category);
+    const pName=productName(p);
     const discBadge=cp!==p.price?`<span class="discount-badge">−${Math.round((1-cp/p.price)*100)}%</span>`:'';
-    const thumb=p.photo?`<div class="product-thumb"><img src="${p.photo}" alt="${p.name}"></div>`:`<div class="product-thumb">${emoji}</div>`;
+    const thumb=p.photo?`<div class="product-thumb"><img src="${p.photo}" alt="${pName}"></div>`:`<div class="product-thumb">${emoji}</div>`;
     const minInfo=p.minQty>1?`<div class="product-meta">${t('minQty')} ${p.minQty} ${t('unit_'+p.unit)||p.unit}</div>`:'';
+
     return `<div class="product-card" onclick="openSheet('${p.id}')">
       ${thumb}
       <div class="product-info">
-        <div class="product-name">${p.name}</div>
+        <div class="product-name">${pName}</div>
         <div class="product-price">${formatPrice(cp)} <span style="font-size:12px;color:var(--text3);font-weight:400">/ ${t('unit_'+p.unit)||p.unit}</span>${discBadge}</div>
         ${minInfo}
       </div>
@@ -277,6 +388,7 @@ function renderCatalog() {
       </div>
     </div>`;
   }).join('');
+
   updateCartBadge(); updateSticky();
 }
 
@@ -286,13 +398,13 @@ window.openSheet = id => {
   const p=_catalog.find(x=>x.id===id); if(!p) return;
   sheetProductId=id;
   const cp=clientPrice(p.price);
-  const emoji=EMOJIS[p.category]||'🍴';
+  const emoji=categoryEmoji(p.category);
   document.getElementById('sheet-img-wrap').innerHTML=p.photo
-    ?`<div class="sheet-img"><img src="${p.photo}" alt="${p.name}"></div>`
+    ?`<div class="sheet-img"><img src="${p.photo}" alt="${productName(p)}"></div>`
     :`<div class="sheet-img">${emoji}</div>`;
-  document.getElementById('sheet-name').textContent=p.name;
+  document.getElementById('sheet-name').textContent=productName(p);
   document.getElementById('sheet-price').textContent=formatPrice(cp)+' / '+(t('unit_'+p.unit)||p.unit);
-  document.getElementById('sheet-desc').textContent=p.description||'';
+  document.getElementById('sheet-desc').textContent=productDesc(p);
   const ing=p.ingredients||'';
   document.getElementById('sheet-ing-block').style.display=ing?'block':'none';
   document.getElementById('sheet-ing').textContent=ing;
@@ -345,7 +457,7 @@ window.renderCart = () => {
     const cp=clientPrice(p.price);const sub=cp*item.qty;total+=sub;count+=item.qty;
     return `<div class="product-card">
       <div class="product-info">
-        <div class="product-name">${p.name}</div>
+        <div class="product-name">${productName(p)}</div>
         <div style="font-size:14px;color:var(--text2);margin-top:4px">${item.qty} × ${formatPrice(cp)} = ${formatPrice(sub)}</div>
       </div>
       <div class="qty-control">
@@ -446,7 +558,7 @@ window.submitOrder = async () => {
     if(!p) return null;
     return {
       id:String(c.id),
-      name:p.name || 'Producto',
+      name:productName(p),
       qty:Number(c.qty || 0),
       price:Number(clientPrice(p.price || 0))
     };

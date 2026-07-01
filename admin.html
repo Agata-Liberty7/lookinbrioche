@@ -224,7 +224,10 @@
       </div>
     </div>
 
-    <div class="form-group"><label>Name *</label><input type="text" id="pm-name" placeholder="Product name"></div>
+    <div class="form-group"><label>Nombre ES *</label><input type="text" id="pm-name-es" placeholder="Empanadillas de brioche"></div>
+    <div class="form-group"><label>Название RU</label><input type="text" id="pm-name-ru" placeholder="Пирожки с яйцом и зелёным луком"></div>
+    <div class="form-group"><label>Name EN</label><input type="text" id="pm-name-en" placeholder="Brioche pirozhki with egg and spring onion"></div>
+    <input type="hidden" id="pm-name">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="form-group"><label>Base price *</label><input type="number" id="pm-price" placeholder="55" step="0.01"></div>
       <div class="form-group">
@@ -233,11 +236,25 @@
       </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div class="form-group"><label>Category</label><input type="text" id="pm-cat" list="pm-cat-list" placeholder="Pirozhki"></div>
+      <div class="form-group">
+        <label>Category key</label>
+        <select id="pm-cat">
+          <option value="pirozhki">🥟 pirozhki</option>
+          <option value="rogaliki">🥐 rogaliki</option>
+          <option value="buns">🍞 buns</option>
+          <option value="seasonal">✨ seasonal</option>
+          <option value="frozen">❄️ frozen</option>
+          <option value="pan">🍞 pan</option>
+          <option value="other">🍴 other</option>
+        </select>
+      </div>
       <div class="form-group"><label>Min. order qty</label><input type="number" id="pm-min" placeholder="1" min="0" step="0.5"></div>
     </div>
     <datalist id="pm-cat-list"></datalist>
-    <div class="form-group"><label>Description</label><textarea id="pm-desc" rows="2" placeholder="Short description for clients..."></textarea></div>
+    <div class="form-group"><label>Descripción ES</label><textarea id="pm-desc-es" rows="2" placeholder="Descripción corta para clientes..."></textarea></div>
+    <div class="form-group"><label>Описание RU</label><textarea id="pm-desc-ru" rows="2" placeholder="Короткое описание для клиентов..."></textarea></div>
+    <div class="form-group"><label>Description EN</label><textarea id="pm-desc-en" rows="2" placeholder="Short description for clients..."></textarea></div>
+    <textarea id="pm-desc" style="display:none"></textarea>
     <div class="form-group"><label>Ingredients / Состав</label><textarea id="pm-ing" rows="3" placeholder="Harina, agua, sal..."></textarea></div>
     <div class="form-group toggle-wrap">
       <label class="toggle"><input type="checkbox" id="pm-avail" checked><span class="toggle-slider"></span></label>
@@ -290,6 +307,59 @@ let _catalog = [];
 let _orders  = [];
 let _clients = [];
 let _unsubOrders = null;
+
+const ADMIN_CATEGORY_LABELS = {
+  pan:      '🍞 Pan brioche / Бриошный хлеб',
+  pirozhki: '🥟 Empanadillas / Пирожки',
+  rogaliki: '🥐 Brioche relleno / Рогалики',
+  buns:     '🍞 Bollería / Булочки',
+  seasonal: '✨ Temporada / Сезонные',
+  frozen:   '❄️ Congelados / Заморозка',
+  other:    '🍴 Other / Другое'
+};
+
+function adminNormalizeCatKey(category) {
+  const c = String(category || 'other').trim().toLowerCase();
+  const map = {
+    pan:'pan',
+    piroski:'pirozhki',
+    piroshki:'pirozhki',
+    pirozhki:'pirozhki',
+    pirogi:'pirozhki',
+    empanadillas:'pirozhki',
+    'пирожки':'pirozhki',
+    rogaliki:'rogaliki',
+    'рогалики':'rogaliki',
+    'brioche relleno':'rogaliki',
+    buns:'buns',
+    bolleria:'buns',
+    'bollería':'buns',
+    'булочки':'buns',
+    seasonal:'seasonal',
+    temporada:'seasonal',
+    'сезонные позиции':'seasonal',
+    frozen:'frozen',
+    congelados:'frozen',
+    'заморозка':'frozen',
+    other:'other',
+    другое:'other'
+  };
+  return map[c] || c || 'other';
+}
+
+function adminProductName(p) {
+  return p?.name_es || p?.name_ru || p?.name_en || p?.name || 'Untitled product';
+}
+
+function adminProductDesc(p) {
+  return p?.description_es || p?.description_ru || p?.description_en || p?.description || '';
+}
+
+function adminCategoryLabel(category) {
+  const key = adminNormalizeCatKey(category);
+  return ADMIN_CATEGORY_LABELS[key] || category || ADMIN_CATEGORY_LABELS.other;
+}
+
 
 async function adminBoot() {
   applyTheme(); applyFont();
@@ -407,17 +477,17 @@ window.deleteOrder = async id => {
 
 // ── CATALOG ───────────────────────────────────────────────────────────────────
 function renderCatalog() {
-  const cats=[...new Set(_catalog.map(p=>p.category))];
+  const cats=[...new Set(_catalog.map(p=>adminNormalizeCatKey(p.category)))];
   document.getElementById('pm-cat-list').innerHTML=cats.map(c=>`<option value="${c}">`).join('');
   const el=document.getElementById('catalog-list');
   if(!_catalog.length){el.innerHTML='<div class="empty-state"><div class="eicon">🥟</div><p>Catalog is empty</p></div>';return;}
   el.innerHTML=_catalog.map(p=>{
-    const thumb=p.photo?`<div class="product-row-thumb"><img src="${p.photo}" alt="${p.name}"></div>`:`<div class="product-row-thumb">🍴</div>`;
+    const thumb=p.photo?`<div class="product-row-thumb"><img src="${p.photo}" alt="${adminProductName(p)}"></div>`:`<div class="product-row-thumb">🍴</div>`;
     return`<div class="product-row${p.available===false?' unavail':''}">
       ${thumb}
       <div class="product-row-info">
-        <div class="product-row-name">${p.name}</div>
-        <div class="product-row-meta">${formatPrice(p.price)} / ${p.unit} · ${p.category}${p.minQty>1?' · min '+p.minQty:''}</div>
+        <div class="product-row-name">${adminProductName(p)}</div>
+        <div class="product-row-meta">${formatPrice(p.price)} / ${p.unit} · ${adminCategoryLabel(p.category)}${p.minQty>1?' · min '+p.minQty:''}</div>
       </div>
       <div class="row-actions">
         <button class="btn-icon" onclick="openProductModal('${p.id}')">✏️</button>
@@ -435,18 +505,24 @@ window.openProductModal = id => {
   document.getElementById('pm-photo-preview').innerHTML='<div style="font-size:28px;margin-bottom:4px">📷</div><div style="font-size:13px;font-weight:700">Upload photo</div>';
   if(id){
     const p=_catalog.find(x=>x.id===id);if(!p)return;
-    document.getElementById('pm-name').value=p.name;
+    document.getElementById('pm-name-es').value=p.name_es||'';
+    document.getElementById('pm-name-ru').value=p.name_ru||p.name||'';
+    document.getElementById('pm-name-en').value=p.name_en||'';
+    document.getElementById('pm-name').value=p.name||'';
     document.getElementById('pm-price').value=p.price;
     document.getElementById('pm-unit').value=p.unit;
-    document.getElementById('pm-cat').value=p.category;
+    document.getElementById('pm-cat').value=adminNormalizeCatKey(p.category);
     document.getElementById('pm-min').value=p.minQty||1;
     document.getElementById('pm-avail').checked=p.available!==false;
+    document.getElementById('pm-desc-es').value=p.description_es||'';
+    document.getElementById('pm-desc-ru').value=p.description_ru||p.description||'';
+    document.getElementById('pm-desc-en').value=p.description_en||'';
     document.getElementById('pm-desc').value=p.description||'';
     document.getElementById('pm-ing').value=p.ingredients||'';
     if(p.photo){pmPhotoData=p.photo;document.getElementById('pm-photo-preview').innerHTML=`<img src="${p.photo}" class="photo-preview">`;}
   } else {
-    ['pm-name','pm-price','pm-cat','pm-desc','pm-ing'].forEach(i=>document.getElementById(i).value='');
-    document.getElementById('pm-unit').value='sht';document.getElementById('pm-min').value='1';document.getElementById('pm-avail').checked=true;
+    ['pm-name-es','pm-name-ru','pm-name-en','pm-name','pm-price','pm-desc-es','pm-desc-ru','pm-desc-en','pm-desc','pm-ing'].forEach(i=>document.getElementById(i).value='');
+    document.getElementById('pm-unit').value='sht';document.getElementById('pm-cat').value='pirozhki';document.getElementById('pm-min').value='1';document.getElementById('pm-avail').checked=true;
   }
   document.getElementById('product-modal').classList.add('open');
 };
@@ -459,12 +535,36 @@ window.previewProductPhoto = event => {
 };
 
 window.saveProduct = async () => {
-  const name=document.getElementById('pm-name').value.trim();
+  const name_es=document.getElementById('pm-name-es').value.trim();
+  const name_ru=document.getElementById('pm-name-ru').value.trim();
+  const name_en=document.getElementById('pm-name-en').value.trim();
+  const name=name_es||name_ru||name_en||document.getElementById('pm-name').value.trim();
+
+  const description_es=document.getElementById('pm-desc-es').value.trim();
+  const description_ru=document.getElementById('pm-desc-ru').value.trim();
+  const description_en=document.getElementById('pm-desc-en').value.trim();
+  const description=description_es||description_ru||description_en||document.getElementById('pm-desc').value.trim();
+
   const price=parseFloat(document.getElementById('pm-price').value);
-  if(!name||isNaN(price)){showToast('Fill name and price');return;}
-  const data={name,price,unit:document.getElementById('pm-unit').value,category:document.getElementById('pm-cat').value||'Other',
-    minQty:parseFloat(document.getElementById('pm-min').value)||1,available:document.getElementById('pm-avail').checked,
-    photo:pmPhotoData||null,description:document.getElementById('pm-desc').value.trim(),ingredients:document.getElementById('pm-ing').value.trim()};
+  if(!name||isNaN(price)){showToast('Fill at least ES/RU/EN name and price');return;}
+
+  const data={
+    name,
+    name_es,
+    name_ru,
+    name_en,
+    price,
+    unit:document.getElementById('pm-unit').value,
+    category:document.getElementById('pm-cat').value||'other',
+    minQty:parseFloat(document.getElementById('pm-min').value)||1,
+    available:document.getElementById('pm-avail').checked,
+    photo:pmPhotoData||null,
+    description,
+    description_es,
+    description_ru,
+    description_en,
+    ingredients:document.getElementById('pm-ing').value.trim()
+  };
   const editId=document.getElementById('pm-id').value;
   try {
     showLoading('Saving…');
