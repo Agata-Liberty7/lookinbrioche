@@ -448,6 +448,16 @@ window.switchTab = tab => {
 };
 
 // ── ORDERS ────────────────────────────────────────────────────────────────────
+function adminEscape(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&':'&amp;',
+    '<':'&lt;',
+    '>':'&gt;',
+    '"':'&quot;',
+    "'":'&#39;'
+  }[ch]));
+}
+
 async function renderOrders() {
   const filter=document.getElementById('order-filter').value;
   showLoading('');
@@ -463,12 +473,31 @@ async function renderOrders() {
   el.innerHTML=orders.map(o=>{
     const d=new Date(o.date).toLocaleString('en',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
     const delD=o.delivery?.date?new Date(o.delivery.date).toLocaleDateString('en',{day:'numeric',month:'long'}):'';
+    const customer=o.customer||{};
+    const paymentLabel=PAY_LABEL[o.payment]||adminEscape(o.payment||'—');
+    const invoiceDetails=o.invoiceDetails||customer.invoiceDetails||'';
+
+    const contactHtml=[
+      customer.contactPerson?`👤 Contact: ${adminEscape(customer.contactPerson)}`:'',
+      customer.contactPhone?`☎️ ${adminEscape(customer.contactPhone)}`:''
+    ].filter(Boolean).join('<br>');
+
+    const deliveryHtml=[
+      paymentLabel,
+      delD?`📅 ${adminEscape(delD)}`:'',
+      o.delivery?.time?`⏰ ${adminEscape(o.delivery.time)}`:''
+    ].filter(Boolean).join(' · ');
+
+    const invoiceHtml=invoiceDetails
+      ? `<div class="info-box" style="margin:10px 0;font-size:13px;line-height:1.5"><b>📄 Invoice details</b><br>${adminEscape(invoiceDetails).replace(/\n/g,'<br>')}</div>`
+      : '';
+
     return`<div class="order-card">
       <div class="order-header" onclick="this.nextElementSibling.classList.toggle('open')">
         <div>
           <div style="font-size:11px;color:var(--text3);font-weight:700">#${String(o.id).slice(-6)} · ${d}</div>
-          <div style="font-size:15px;font-weight:700;margin-top:2px">${o.customer?.name||'—'}</div>
-          <div style="font-size:12px;color:var(--text2);margin-top:2px">${o.customer?.phone||''}${delD?' · 📅 '+delD:''}</div>
+          <div style="font-size:15px;font-weight:700;margin-top:2px">${adminEscape(customer.name||'—')}</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px">${customer.phone?adminEscape(customer.phone):''}${delD?' · 📅 '+adminEscape(delD):''}</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
           <span class="badge ${STATUS_CLS[o.status]||'badge-new'}">${STATUS_LABEL[o.status]||o.status}</span>
@@ -477,12 +506,15 @@ async function renderOrders() {
       </div>
       <div class="order-body">
         <ul style="font-size:13px;color:var(--text2);margin-bottom:10px;list-style:none;padding:0">
-          ${(o.items||[]).map(i=>`<li>• ${i.name} × ${i.qty} = ${formatPrice(i.price*i.qty)}</li>`).join('')}
+          ${(o.items||[]).map(i=>`<li>• ${adminEscape(i.name)} × ${i.qty} = ${formatPrice(i.price*i.qty)}</li>`).join('')}
         </ul>
-        <div style="font-size:13px;color:var(--text2);margin-bottom:10px">
-          ${PAY_LABEL[o.payment]||o.payment}${o.delivery?.time?' · ⏰ '+o.delivery.time:''}
-          ${o.customer?.address?'<br>📍 '+o.customer.address:''}
+        <div style="font-size:13px;color:var(--text2);margin-bottom:10px;line-height:1.55">
+          ${deliveryHtml}
+          ${customer.phone?'<br>📞 '+adminEscape(customer.phone):''}
+          ${contactHtml?'<br>'+contactHtml:''}
+          ${customer.address?'<br>📍 '+adminEscape(customer.address):''}
         </div>
+        ${invoiceHtml}
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <select style="width:auto;padding:6px 10px;font-size:13px;border-radius:20px" onchange="changeOrderStatus('${o.id}',this.value)">
             ${['new','confirmed','done','cancelled'].map(s=>`<option value="${s}"${o.status===s?' selected':''}>${STATUS_LABEL[s]}</option>`).join('')}
