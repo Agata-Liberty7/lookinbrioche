@@ -36,8 +36,9 @@ function saveSettingsCache(s) {
 // ─── Theme & Font ─────────────────────────────────────────────────────────────
 function applyTheme() {
   const s = getSettings();
+  const mode = s.darkMode || s.theme || 'system';
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const dark = s.darkMode === 'dark' || (s.darkMode === 'system' && prefersDark);
+  const dark = mode === 'dark' || (mode === 'system' && prefersDark);
   document.documentElement.classList.toggle('dark', dark);
 }
 function applyFont() {

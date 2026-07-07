@@ -21,7 +21,6 @@
   .color-swatch.active{border-color:#2E6B3E;box-shadow:0 0 0 3px rgba(46,107,62,.25)}
   .font-opt{display:inline-block;padding:8px 16px;border:1.5px solid var(--bdr);border-radius:20px;cursor:pointer;font-size:14px;margin:4px;background:var(--bgc);color:var(--text);transition:all .15s}
   .font-opt.active{border-color:#2E6B3E;background:#E5F2E9;color:#2E6B3E;font-weight:700}
-  .dark{--text:#F0E8E0;--text2:#C9A98A;--text3:#8A7060;--bg:#1A1210;--bg2:#241810;--bgc:#2A1E18;--bdr:#4A3020;--bdr2:#3A2418}
 </style>
 </head>
 <body>
@@ -217,6 +216,32 @@
   <!-- ══ STATS ═══════════════════════════════════════════════════════════════ -->
   <div id="tab-stats" class="admin-section">
     <div class="stat-grid" id="stat-grid"></div>
+
+    <div style="padding:0 16px 16px">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-end;margin-bottom:12px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Chart</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:3px">Choose what to show</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <select id="stats-chart-data" style="width:auto;min-width:210px">
+            <option value="revenue_day">Revenue by day</option>
+            <option value="orders_day">Orders by day</option>
+            <option value="product_qty">Product qty by product</option>
+            <option value="product_revenue">Revenue by product</option>
+            <option value="client_revenue">Revenue by client</option>
+            <option value="client_orders">Orders by client</option>
+            <option value="payment_revenue">Revenue by payment</option>
+            <option value="delivery_client">Delivery fees by client</option>
+          </select>
+          <select id="stats-chart-type" style="width:auto;min-width:110px">
+            <option value="bar">Bar</option>
+            <option value="line">Line</option>
+          </select>
+        </div>
+      </div>
+      <div id="stats-chart"></div>
+    </div>
 
     <div style="padding:0 16px 16px">
       <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">Top products</div>
@@ -1244,6 +1269,175 @@ window.exportStatsOrdersCsv = () => {
   URL.revokeObjectURL(url);
 };
 
+function adminStatsChartConfig(kind) {
+  const configs = {
+    revenue_day: { title: 'Revenue by day', valueLabel: 'Revenue', money: true, time: true },
+    orders_day: { title: 'Orders by day', valueLabel: 'Orders', money: false, time: true },
+    product_qty: { title: 'Product qty by product', valueLabel: 'Qty', money: false, time: false },
+    product_revenue: { title: 'Revenue by product', valueLabel: 'Revenue', money: true, time: false },
+    client_revenue: { title: 'Revenue by client', valueLabel: 'Revenue', money: true, time: false },
+    client_orders: { title: 'Orders by client', valueLabel: 'Orders', money: false, time: false },
+    payment_revenue: { title: 'Revenue by payment', valueLabel: 'Revenue', money: true, time: false },
+    delivery_client: { title: 'Delivery fees by client', valueLabel: 'Delivery', money: true, time: false }
+  };
+  return configs[kind] || configs.revenue_day;
+}
+
+function adminStatsChartDateKey(o) {
+  const raw = o.delivery?.date || o.date || '';
+  const ms = adminParseDateOnly(raw);
+  if (ms === null) return { key: 'No date', label: 'No date', sort: 0 };
+  const d = new Date(ms);
+  return {
+    key: adminLocalDateISO(d),
+    label: String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0'),
+    sort: ms
+  };
+}
+
+function adminAddChartValue(map, key, label, value, sort = null) {
+  if (!map.has(key)) map.set(key, { key, label, value: 0, sort });
+  map.get(key).value += Number(value || 0);
+}
+
+function adminBuildStatsChartRows(orders, kind) {
+  const map = new Map();
+
+  if (kind === 'revenue_day' || kind === 'orders_day') {
+    orders.forEach(o => {
+      const d = adminStatsChartDateKey(o);
+      adminAddChartValue(map, d.key, d.label, kind === 'orders_day' ? 1 : adminOrderGrandTotal(o), d.sort);
+    });
+  }
+
+  if (kind === 'product_qty' || kind === 'product_revenue') {
+    orders.forEach(o => {
+      (o.items || []).forEach(item => {
+        if (!adminIsReportProductItem(item, o)) return;
+        const label = adminProductReportLabel(item.name);
+        const value = kind === 'product_qty'
+          ? Number(item.qty || 0)
+          : Number(item.price || 0) * Number(item.qty || 0);
+        adminAddChartValue(map, label, label, value);
+      });
+    });
+  }
+
+  if (kind === 'client_revenue' || kind === 'client_orders' || kind === 'delivery_client') {
+    orders.forEach(o => {
+      const label = o.customer?.name || o.customer?.userName || '—';
+      let value = 0;
+      if (kind === 'client_revenue') value = adminOrderGrandTotal(o);
+      if (kind === 'client_orders') value = 1;
+      if (kind === 'delivery_client') value = adminOrderDeliveryFee(o);
+      adminAddChartValue(map, label, label, value);
+    });
+  }
+
+  if (kind === 'payment_revenue') {
+    orders.forEach(o => {
+      const label = adminPaymentReportLabel(o.payment || '—');
+      adminAddChartValue(map, label, label, adminOrderGrandTotal(o));
+    });
+  }
+
+  const cfg = adminStatsChartConfig(kind);
+  const rows = [...map.values()]
+    .filter(r => r.value > 0)
+    .sort((a,b) => cfg.time ? (a.sort || 0) - (b.sort || 0) : b.value - a.value)
+    .slice(0, cfg.time ? 60 : 12);
+
+  return rows;
+}
+
+function adminStatsChartValueText(value, money) {
+  return money ? formatPrice(value) : String(Math.round(value));
+}
+
+function renderStatsChart(orders) {
+  const el = document.getElementById('stats-chart');
+  if (!el) return;
+
+  const kind = document.getElementById('stats-chart-data')?.value || 'revenue_day';
+  const type = document.getElementById('stats-chart-type')?.value || 'bar';
+  const cfg = adminStatsChartConfig(kind);
+  const rows = adminBuildStatsChartRows(orders, kind);
+
+  if (!rows.length) {
+    el.innerHTML = '<div class="empty-state"><div class="eicon">📊</div><p>No chart data</p></div>';
+    return;
+  }
+
+  const max = Math.max(...rows.map(r => r.value), 1);
+  const w = 760;
+  const h = 280;
+  const padL = 52;
+  const padR = type === 'bar' ? 110 : 18;
+  const padT = 28;
+  const padB = 54;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+
+  const safeTitle = adminEscape(cfg.title);
+  const safeValueLabel = adminEscape(cfg.valueLabel);
+
+  if (type === 'line') {
+    const denom = Math.max(rows.length - 1, 1);
+    const points = rows.map((r, i) => {
+      const x = padL + (plotW * i / denom);
+      const y = padT + plotH - (plotH * r.value / max);
+      return { ...r, x, y };
+    });
+
+    const path = points.map((p,i) => `${i ? 'L' : 'M'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+
+    el.innerHTML = `
+      <div class="info-box" style="padding:14px;overflow:auto">
+        <div style="font-weight:800;margin-bottom:10px">${safeTitle}</div>
+        <svg viewBox="0 0 ${w} ${h}" style="width:100%;min-width:620px;display:block;color:#2E6B3E">
+          <line x1="${padL}" y1="${padT + plotH}" x2="${padL + plotW}" y2="${padT + plotH}" stroke="currentColor" opacity=".25"/>
+          <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + plotH}" stroke="currentColor" opacity=".25"/>
+          <path d="${path}" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          ${points.map(p => `
+            <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4" fill="currentColor">
+              <title>${adminEscape(p.label)} · ${adminStatsChartValueText(p.value, cfg.money)}</title>
+            </circle>
+          `).join('')}
+          ${points.map((p,i) => i % Math.ceil(points.length / 8) === 0 ? `
+            <text x="${p.x.toFixed(1)}" y="${h - 22}" text-anchor="middle" font-size="11" fill="currentColor" opacity=".8">${adminEscape(p.label)}</text>
+          ` : '').join('')}
+          <text x="${padL}" y="18" font-size="12" fill="currentColor" opacity=".8">${safeValueLabel}</text>
+        </svg>
+      </div>
+    `;
+    return;
+  }
+
+  const barGap = 8;
+  const barH = Math.max(14, Math.min(28, (plotH - barGap * (rows.length - 1)) / rows.length));
+
+  el.innerHTML = `
+    <div class="info-box" style="padding:14px;overflow:auto">
+      <div style="font-weight:800;margin-bottom:10px">${safeTitle}</div>
+      <svg viewBox="0 0 ${w} ${h}" style="width:100%;min-width:620px;display:block;color:#2E6B3E">
+        ${rows.map((r,i) => {
+          const y = padT + i * (barH + barGap);
+          const bw = Math.max(2, plotW * r.value / max);
+          const label = adminEscape(r.label);
+          const value = adminEscape(adminStatsChartValueText(r.value, cfg.money));
+          return `
+            <text x="0" y="${(y + barH * .72).toFixed(1)}" font-size="11" fill="currentColor" opacity=".85">${label.length > 18 ? label.slice(0,18) + '…' : label}</text>
+            <rect x="${padL}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${barH.toFixed(1)}" rx="7" fill="currentColor" opacity=".85">
+              <title>${label} · ${value}</title>
+            </rect>
+            <text x="${Math.min(padL + bw + 8, w - 58).toFixed(1)}" y="${(y + barH * .72).toFixed(1)}" font-size="12" fill="var(--text)" font-weight="800">${value}</text>
+          `;
+        }).join('')}
+      </svg>
+    </div>
+  `;
+}
+
 async function renderStats(){
   try { _orders = await fbGetOrders(); } catch(e) {}
 
@@ -1295,7 +1489,19 @@ async function renderStats(){
   `).join('') : '<div class="empty-state"><p>No payment data</p></div>';
 
   renderStatsOrdersTable(orders);
+  renderStatsChart(orders);
 }
+document.getElementById('stats-chart-data')?.addEventListener('change', renderStats);
+document.getElementById('stats-chart-type')?.addEventListener('change', renderStats);
+
+document.getElementById('s-darkmode')?.addEventListener('change', e => {
+  const s = getSettings();
+  s.darkMode = e.target.value || 'system';
+  saveSettingsCache(s);
+  applyTheme();
+});
+
+
 
 window.closeModal = id => document.getElementById(id).classList.remove('open');
 </script>
