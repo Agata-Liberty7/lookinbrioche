@@ -195,6 +195,13 @@
         <div style="font-size:12px;color:var(--text3);margin-top:4px">Leave empty to hide Stripe option from clients</div>
       </div>
 
+      <div style="font-size:13px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:20px 0 12px">Delivery</div>
+      <div class="form-group">
+        <label>Default delivery fee €</label>
+        <input type="number" id="s-default-delivery-fee" step="0.01" min="0" placeholder="0">
+        <div style="font-size:12px;color:var(--text3);margin-top:4px">Used when a client has no personal delivery fee</div>
+      </div>
+
       <div style="font-size:13px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:20px 0 12px">Security</div>
       <div class="form-group">
         <label>Admin password</label>
@@ -309,6 +316,19 @@
       <div class="form-group"><label>Contact phone</label><input type="tel" id="cm-contact-phone" placeholder="+34 600 000 000"></div>
     </div>
     <div class="form-group"><label>Address</label><textarea id="cm-address" rows="2" placeholder="Delivery address"></textarea></div>
+    <div class="form-group">
+      <label>Default delivery method</label>
+      <select id="cm-delivery-method">
+        <option value="delivery">Delivery</option>
+        <option value="pickup">Pickup</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Personal delivery fee €</label>
+      <input type="number" id="cm-delivery-fee" step="0.01" min="0" placeholder="Default from settings">
+      <div style="font-size:12px;color:var(--text3);margin-top:4px">Leave empty to use default delivery fee</div>
+    </div>
+    <div class="form-group"><label>Delivery notes</label><textarea id="cm-delivery-notes" rows="2" placeholder="Entrance, schedule, delivery conditions..."></textarea></div>
     <div class="form-group"><label>Datos para factura / реквизиты</label><textarea id="cm-invoice" rows="3" placeholder="Company name, CIF/NIF, billing address..."></textarea></div>
     <div class="form-group">
       <label>Preferred payment</label>
@@ -857,13 +877,17 @@ window.openClientModal = id => {
     document.getElementById('cm-contact-person').value=c.contactPerson||'';
     document.getElementById('cm-contact-phone').value=c.contactPhone||'';
     document.getElementById('cm-address').value=c.address||'';
+    document.getElementById('cm-delivery-method').value=c.deliveryMethod||'delivery';
+    document.getElementById('cm-delivery-fee').value=c.deliveryFee??'';
+    document.getElementById('cm-delivery-notes').value=c.deliveryNotes||'';
     document.getElementById('cm-invoice').value=c.invoiceDetails||'';
     document.getElementById('cm-payment').value=c.preferredPayment||'';
     document.getElementById('cm-lang').value=c.language||'es';
     document.getElementById('cm-notes').value=c.notes||'';
     document.getElementById('cm-coeff').value=c.coeff||1;document.getElementById('cm-group').value=c.group||'retail';
   } else {
-    ['cm-login','cm-pass','cm-name','cm-phone','cm-contact-person','cm-contact-phone','cm-address','cm-invoice','cm-notes'].forEach(i=>document.getElementById(i).value='');
+    ['cm-login','cm-pass','cm-name','cm-phone','cm-contact-person','cm-contact-phone','cm-address','cm-delivery-fee','cm-delivery-notes','cm-invoice','cm-notes'].forEach(i=>document.getElementById(i).value='');
+    document.getElementById('cm-delivery-method').value='delivery';
     document.getElementById('cm-payment').value='';
     document.getElementById('cm-lang').value='es';
     document.getElementById('cm-disc').value='0';document.getElementById('cm-coeff').value='1';document.getElementById('cm-group').value='retail';
@@ -880,6 +904,14 @@ window.saveClient = async () => {
     contactPerson:document.getElementById('cm-contact-person').value.trim(),
     contactPhone:document.getElementById('cm-contact-phone').value.trim(),
     address:document.getElementById('cm-address').value.trim(),
+    deliveryMethod:document.getElementById('cm-delivery-method').value||'delivery',
+    deliveryFee:(() => {
+      const raw=document.getElementById('cm-delivery-fee').value.trim();
+      if(raw==='') return null;
+      const n=parseFloat(raw.replace(',','.'));
+      return Number.isFinite(n) ? n : 0;
+    })(),
+    deliveryNotes:document.getElementById('cm-delivery-notes').value.trim(),
     invoiceDetails:document.getElementById('cm-invoice').value.trim(),
     preferredPayment:document.getElementById('cm-payment').value,
     language:document.getElementById('cm-lang').value||'es',
@@ -913,6 +945,7 @@ function loadSettingsForm(){
   document.getElementById('s-revolut').value=s.revolutHandle||'';
   document.getElementById('s-invoice').value=s.invoiceDetails||'';
   document.getElementById('s-stripe').value=s.stripeKey||'';
+  document.getElementById('s-default-delivery-fee').value=s.defaultDeliveryFee??'';
   document.getElementById('s-adminpass').value='';
   if(s.logo){document.getElementById('logo-preview-wrap').innerHTML=`<img src="${s.logo}" class="photo-preview" style="width:100px;height:100px"><br><div style="font-size:12px;color:var(--text3);margin-top:6px">Click to replace</div>`;}
   applyTheme();applyFont();
@@ -947,6 +980,7 @@ window.saveSettingsForm = async () => {
   s.revolutHandle=document.getElementById('s-revolut').value.trim();
   s.invoiceDetails=document.getElementById('s-invoice').value.trim();
   s.stripeKey=document.getElementById('s-stripe').value.trim();
+  s.defaultDeliveryFee=parseAdminNumber(document.getElementById('s-default-delivery-fee').value)||0;
   const newPass=document.getElementById('s-adminpass').value.trim();
   if(newPass)s.adminPassword=newPass;
   saveSettingsCache(s);
