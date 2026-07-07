@@ -618,12 +618,22 @@ async function renderOrders() {
   const STATUS_LABEL={new:'🟡 New',confirmed:'🟢 Confirmed',done:'✅ Done',cancelled:'❌ Cancelled'};
   const STATUS_CLS={new:'badge-new',confirmed:'badge-confirmed',done:'badge-done',cancelled:'badge-cancelled'};
   const PAY_LABEL={cash:'💵 Cash',bizum:'📱 Bizum',revolut:'💜 Revolut',stripe:'💳 Stripe',invoice:'📄 Invoice'};
+  const DELIVERY_METHOD_LABEL={delivery:'🚚 Delivery',pickup:'🏠 Pickup'};
   el.innerHTML=orders.map(o=>{
     const d=new Date(o.date).toLocaleString('en',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
     const delD=o.delivery?.date?new Date(o.delivery.date).toLocaleDateString('en',{day:'numeric',month:'long'}):'';
     const customer=o.customer||{};
     const paymentLabel=PAY_LABEL[o.payment]||adminEscape(o.payment||'—');
     const invoiceDetails=o.invoiceDetails||customer.invoiceDetails||'';
+
+    const itemSubtotal=(o.items||[]).reduce((sum,i)=>sum+(Number(i.price||0)*Number(i.qty||0)),0);
+    const subtotal=Number.isFinite(Number(o.subtotal))?Number(o.subtotal):itemSubtotal;
+    const deliveryFeeRaw=o.deliveryFee??o.delivery?.fee;
+    const deliveryFee=Number.isFinite(Number(deliveryFeeRaw))?Number(deliveryFeeRaw):0;
+    const total=Number.isFinite(Number(o.total))?Number(o.total):subtotal+deliveryFee;
+    const deliveryMethod=o.delivery?.method || (deliveryFee>0?'delivery':'');
+    const deliveryMethodLabel=deliveryMethod?DELIVERY_METHOD_LABEL[deliveryMethod]||adminEscape(deliveryMethod):'';
+    const deliveryAddress=o.delivery?.address || customer.address || '';
 
     const contactHtml=[
       customer.contactPerson?`👤 Contact: ${adminEscape(customer.contactPerson)}`:'',
@@ -632,13 +642,21 @@ async function renderOrders() {
 
     const deliveryHtml=[
       paymentLabel,
+      deliveryMethodLabel,
       delD?`📅 ${adminEscape(delD)}`:'',
-      o.delivery?.time?`⏰ ${adminEscape(o.delivery.time)}`:''
+      o.delivery?.time?`⏰ ${adminEscape(o.delivery.time)}`:'',
+      (deliveryMethod==='delivery'||deliveryFee>0)?`🚚 ${formatPrice(deliveryFee)}`:''
     ].filter(Boolean).join(' · ');
 
     const invoiceHtml=invoiceDetails
       ? `<div class="info-box" style="margin:10px 0;font-size:13px;line-height:1.5"><b>📄 Invoice details</b><br>${adminEscape(invoiceDetails).replace(/\n/g,'<br>')}</div>`
       : '';
+
+    const totalsHtml=`<div class="info-box" style="margin:10px 0;font-size:13px;line-height:1.6">
+      <div style="display:flex;justify-content:space-between;gap:12px"><span>Products</span><b>${formatPrice(subtotal)}</b></div>
+      ${(deliveryMethod==='delivery'||deliveryFee>0)?`<div style="display:flex;justify-content:space-between;gap:12px"><span>Delivery</span><b>${formatPrice(deliveryFee)}</b></div>`:''}
+      <div style="display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--border);margin-top:6px;padding-top:6px"><span>Total</span><b>${formatPrice(total)}</b></div>
+    </div>`;
 
     return`<div class="order-card">
       <div class="order-header" onclick="this.nextElementSibling.classList.toggle('open')">
@@ -649,18 +667,21 @@ async function renderOrders() {
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
           <span class="badge ${STATUS_CLS[o.status]||'badge-new'}">${STATUS_LABEL[o.status]||o.status}</span>
-          <span style="font-size:14px;font-weight:700;color:#2E6B3E">${formatPrice(o.total)}</span>
+          <span style="font-size:14px;font-weight:700;color:#2E6B3E">${formatPrice(total)}</span>
         </div>
       </div>
       <div class="order-body">
         <ul style="font-size:13px;color:var(--text2);margin-bottom:10px;list-style:none;padding:0">
           ${(o.items||[]).map(i=>`<li>• ${adminEscape(i.name)} × ${i.qty} = ${formatPrice(i.price*i.qty)}</li>`).join('')}
         </ul>
+        ${totalsHtml}
         <div style="font-size:13px;color:var(--text2);margin-bottom:10px;line-height:1.55">
           ${deliveryHtml}
           ${customer.phone?'<br>📞 '+adminEscape(customer.phone):''}
           ${contactHtml?'<br>'+contactHtml:''}
-          ${customer.address?'<br>📍 '+adminEscape(customer.address):''}
+          ${deliveryMethod==='pickup'?'<br>🏠 Pickup':''}
+          ${deliveryAddress && deliveryMethod!=='pickup'?'<br>📍 '+adminEscape(deliveryAddress):''}
+          ${o.delivery?.notes?'<br>📝 '+adminEscape(o.delivery.notes):''}
         </div>
         ${invoiceHtml}
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">

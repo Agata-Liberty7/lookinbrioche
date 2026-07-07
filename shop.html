@@ -67,7 +67,10 @@
       <div class="form-group"><label id="lbl-contact-person"></label><input type="text" id="ch-contact-person"></div>
       <div class="form-group"><label id="lbl-contact-phone"></label><input type="tel" id="ch-contact-phone"></div>
     </div>
-    <div class="form-group"><label id="lbl-addr"></label><textarea id="ch-addr" rows="2"></textarea></div>
+    <div class="form-group" id="addr-wrap"><label id="lbl-addr"></label><textarea id="ch-addr" rows="2"></textarea></div>
+    <div class="section-title" id="lbl-delivery-method">Delivery method</div>
+    <div class="pay-opts" id="delivery-opts"></div>
+    <div id="delivery-note" class="info-box" style="margin-top:10px;display:none"></div>
     <div class="section-title" id="lbl-delivery"></div>
     <div class="form-group">
       <label id="lbl-date"></label>
@@ -93,6 +96,8 @@
       <textarea id="ch-invoice-details" rows="3" placeholder="Nombre fiscal, NIF/CIF, dirección fiscal, email"></textarea>
     </div>
     <div class="order-summary" style="margin:16px 0">
+      <div class="sum-row"><span id="lbl-products-sum">Products</span><span id="ch-subtotal"></span></div>
+      <div class="sum-row" id="delivery-fee-row"><span id="lbl-delivery-fee">Delivery</span><span id="ch-delivery-fee"></span></div>
       <div class="sum-row total"><span id="lbl-topay"></span><span id="ch-total"></span></div>
     </div>
     <button class="btn btn-green" style="width:100%;font-size:17px;padding:15px;border-radius:var(--r)" onclick="submitOrder()" id="btn-confirm"></button>
@@ -260,6 +265,7 @@ function categoryEmoji(category) {
 }
 let currentCat = null;
 let selectedPay = 'cash';
+let selectedDeliveryMethod = 'delivery';
 let sheetProductId = null;
 let _catalog = [];
 let _orders = [];
@@ -360,6 +366,7 @@ function initStrings() {
     document.getElementById('ch-contact-person').value = user.contactPerson || '';
     document.getElementById('ch-contact-phone').value = user.contactPhone || '';
     document.getElementById('ch-addr').value = user.address || '';
+    selectedDeliveryMethod = user.deliveryMethod === 'pickup' ? 'pickup' : 'delivery';
 
     const invoiceEl = document.getElementById('ch-invoice-details');
     if (invoiceEl) invoiceEl.value = user.invoiceDetails || '';
@@ -607,6 +614,9 @@ window.renderCart = () => {
   const cart=getCart(); const listEl=document.getElementById('cart-list');
   const emptyEl=document.getElementById('cart-empty');
   const sumEl=document.getElementById('cart-summary'); const ctaEl=document.getElementById('cart-cta');
+  buildDeliveryOpts();
+  updateCheckoutTotals();
+
   if(!cart.length){emptyEl.style.display='block';listEl.style.display='none';sumEl.style.display='none';ctaEl.innerHTML='';return;}
   emptyEl.style.display='none';listEl.style.display='flex';sumEl.style.display='block';
   let total=0,count=0;
@@ -627,7 +637,7 @@ window.renderCart = () => {
   }).join('');
   document.getElementById('sum-items').textContent=count;
   document.getElementById('sum-total').textContent=formatPrice(total);
-  document.getElementById('ch-total').textContent=formatPrice(total);
+  updateCheckoutTotals(total);
   ctaEl.innerHTML=`<button class="btn btn-primary" style="width:100%;font-size:16px;padding:14px;border-radius:var(--r)" onclick="goPage('checkout')">${t('checkout')} →</button>`;
 };
 
@@ -641,6 +651,135 @@ window.cartChQty = (id,delta) => {
   }
   saveCart(cart); syncCartViews({cart:true});
 };
+
+function deliveryText(key) {
+  const lang = detectLang();
+  const dict = {
+    es: {
+      method: 'Método de entrega',
+      delivery: 'Entrega',
+      pickup: 'Recogida',
+      deliveryNote: 'Entrega a la dirección indicada.',
+      pickupNote: 'Recogida sin coste de entrega.',
+      products: 'Productos',
+      deliveryFee: 'Entrega'
+    },
+    ru: {
+      method: 'Способ получения',
+      delivery: 'Доставка',
+      pickup: 'Самовывоз',
+      deliveryNote: 'Доставка по указанному адресу.',
+      pickupNote: 'Самовывоз без стоимости доставки.',
+      products: 'Товары',
+      deliveryFee: 'Доставка'
+    },
+    en: {
+      method: 'Delivery method',
+      delivery: 'Delivery',
+      pickup: 'Pickup',
+      deliveryNote: 'Delivery to the selected address.',
+      pickupNote: 'Pickup with no delivery fee.',
+      products: 'Products',
+      deliveryFee: 'Delivery'
+    }
+  };
+  return (dict[lang] || dict.es)[key] || key;
+}
+
+function parseShopNumber(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const n = parseFloat(String(value).replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+}
+
+function getCheckoutSubtotal() {
+  const cart = getCart();
+  return cart.reduce((sum, item) => {
+    const p = _catalog.find(x => x.id === item.id);
+    if (!p) return sum;
+    return sum + clientPrice(productUnitPrice(p)) * Number(item.qty || 0);
+  }, 0);
+}
+
+function getDeliveryFee() {
+  if (selectedDeliveryMethod === 'pickup') return 0;
+
+  const user = getCurrentUser();
+  const personal = parseShopNumber(user?.deliveryFee);
+  if (personal !== null) return personal;
+
+  const settings = getSettings();
+  const def = parseShopNumber(settings?.defaultDeliveryFee);
+  return def !== null ? def : 0;
+}
+
+function buildDeliveryOpts() {
+  const title = document.getElementById('lbl-delivery-method');
+  if (title) title.textContent = deliveryText('method');
+
+  const optsEl = document.getElementById('delivery-opts');
+  if (!optsEl) return;
+
+  const opts = [
+    { val: 'delivery', icon: '🚚', label: deliveryText('delivery') },
+    { val: 'pickup', icon: '🏠', label: deliveryText('pickup') }
+  ];
+
+  optsEl.innerHTML = opts.map(o =>
+    `<div class="pay-opt ${o.val===selectedDeliveryMethod?'selected':''}" data-val="${o.val}" onclick="selectDeliveryMethod('${o.val}')">
+      <span class="pay-icon">${o.icon}</span><span>${o.label}</span>
+    </div>`).join('');
+
+  updateDeliveryNote();
+}
+
+window.selectDeliveryMethod = method => {
+  selectedDeliveryMethod = method === 'pickup' ? 'pickup' : 'delivery';
+  document.querySelectorAll('#delivery-opts .pay-opt').forEach(e => e.classList.toggle('selected', e.dataset.val === selectedDeliveryMethod));
+  updateDeliveryNote();
+  updateCheckoutTotals();
+};
+
+function updateDeliveryNote() {
+  const noteEl = document.getElementById('delivery-note');
+  if (noteEl) {
+    const user = getCurrentUser();
+    const base = selectedDeliveryMethod === 'pickup' ? deliveryText('pickupNote') : deliveryText('deliveryNote');
+    const fee = getDeliveryFee();
+    const notes = selectedDeliveryMethod === 'delivery' && user?.deliveryNotes ? ` ${user.deliveryNotes}` : '';
+    noteEl.innerHTML = selectedDeliveryMethod === 'delivery' ? `${base} <b>${formatPrice(fee)}</b>.${notes}` : base;
+    noteEl.style.display = 'block';
+  }
+
+  const addrWrap = document.getElementById('addr-wrap');
+  if (addrWrap) addrWrap.style.display = selectedDeliveryMethod === 'pickup' ? 'none' : 'block';
+
+  const deliveryRow = document.getElementById('delivery-fee-row');
+  if (deliveryRow) deliveryRow.style.display = selectedDeliveryMethod === 'pickup' ? 'none' : 'flex';
+}
+
+function updateCheckoutTotals(subtotal = null) {
+  const productsTotal = subtotal === null ? getCheckoutSubtotal() : subtotal;
+  const deliveryFee = getDeliveryFee();
+  const total = productsTotal + deliveryFee;
+
+  const productsLabel = document.getElementById('lbl-products-sum');
+  if (productsLabel) productsLabel.textContent = deliveryText('products');
+
+  const deliveryLabel = document.getElementById('lbl-delivery-fee');
+  if (deliveryLabel) deliveryLabel.textContent = deliveryText('deliveryFee');
+
+  const subtotalEl = document.getElementById('ch-subtotal');
+  if (subtotalEl) subtotalEl.textContent = formatPrice(productsTotal);
+
+  const deliveryEl = document.getElementById('ch-delivery-fee');
+  if (deliveryEl) deliveryEl.textContent = formatPrice(deliveryFee);
+
+  const totalEl = document.getElementById('ch-total');
+  if (totalEl) totalEl.textContent = formatPrice(total);
+
+  updateDeliveryNote();
+}
 
 const PAY_NOTES={
   bizum:()=>{const s=getSettings();return s.bizumNumber?`📱 Bizum: <b>${s.bizumNumber}</b> — ${t('bizumNote')}`:t('bizumNote');},
@@ -724,14 +863,16 @@ window.submitOrder = async () => {
       id:String(c.id),
       name:productName(p),
       qty:Number(c.qty || 0),
-      price:Number(clientPrice(p.price || 0))
+      price:Number(clientPrice(productUnitPrice(p)))
     };
   }).filter(Boolean);
 
   if(!items.length){showToast(t('cartEmpty'));return;}
 
-  const total=items.reduce((s,i)=>s+(i.price*i.qty),0);
+  const subtotal=items.reduce((s,i)=>s+(i.price*i.qty),0);
   const user=getCurrentUser();
+  const deliveryFee=getDeliveryFee();
+  const total=subtotal+deliveryFee;
 
   const order=cleanForFirestore({
     date:new Date().toISOString(),
@@ -745,9 +886,15 @@ window.submitOrder = async () => {
       userName:user?.name||user?.login||null
     },
     delivery:{
+      method:selectedDeliveryMethod,
       date,
-      time:document.getElementById('ch-time').value || ''
+      time:document.getElementById('ch-time').value || '',
+      address:selectedDeliveryMethod==='delivery'?address:'',
+      fee:deliveryFee,
+      notes:selectedDeliveryMethod==='delivery'?(user?.deliveryNotes||''):''
     },
+    subtotal,
+    deliveryFee,
     payment:selectedPay,
     invoiceDetails:selectedPay==='invoice'?invoiceDetails:null,
     items,
@@ -768,7 +915,8 @@ window.submitOrder = async () => {
         contactPhone,
         address,
         invoiceDetails,
-        preferredPayment:selectedPay
+        preferredPayment:selectedPay,
+        deliveryMethod:selectedDeliveryMethod
       });
 
       try {
