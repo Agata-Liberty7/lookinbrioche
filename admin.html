@@ -59,15 +59,29 @@
 
   <!-- ══ ORDERS ══════════════════════════════════════════════════════════════ -->
   <div id="tab-orders" class="admin-section active">
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px 6px">
-      <span style="font-size:12px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.5px">Filter</span>
-      <select id="order-filter" style="width:auto;padding:6px 10px;font-size:13px" onchange="renderOrders()">
-        <option value="">All orders</option>
-        <option value="new">🟡 New</option>
-        <option value="confirmed">🟢 Confirmed</option>
-        <option value="done">✅ Done</option>
-        <option value="cancelled">❌ Cancelled</option>
-      </select>
+    <div style="padding:12px 16px 8px">
+      <div style="font-size:12px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Filters</div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select id="order-filter" style="width:auto;padding:6px 10px;font-size:13px">
+          <option value="">All statuses</option>
+          <option value="new">🟡 New</option>
+          <option value="confirmed">🟢 Confirmed</option>
+          <option value="done">✅ Done</option>
+          <option value="cancelled">❌ Cancelled</option>
+        </select>
+
+        <input type="date" id="order-date-from" style="width:auto;padding:6px 10px;font-size:13px">
+        <input type="date" id="order-date-to" style="width:auto;padding:6px 10px;font-size:13px">
+
+        <button class="btn btn-sm btn-primary" onclick="applyOrderFilters()">Apply</button>
+
+        <button class="btn btn-sm btn-outline" onclick="setOrderDatePreset('today')">Today</button>
+        <button class="btn btn-sm btn-outline" onclick="setOrderDatePreset('tomorrow')">Tomorrow</button>
+        <button class="btn btn-sm btn-outline" onclick="setOrderDatePreset('week')">This week</button>
+        <button class="btn btn-sm btn-outline" onclick="setOrderDatePreset('month')">This month</button>
+        <button class="btn btn-sm btn-outline" onclick="setOrderDatePreset('reset')">Reset</button>
+      </div>
     </div>
     <div id="orders-list" style="padding:0 16px 100px"></div>
   </div>
@@ -462,13 +476,123 @@ function adminEscape(value) {
   }[ch]));
 }
 
+
+function adminLocalDateISO(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function adminParseDateOnly(value) {
+  if (!value) return null;
+
+  // Native input[type=date] gives YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
+    const [y,m,d] = String(value).split('-').map(Number);
+    return new Date(y, m - 1, d).getTime();
+  }
+
+  // Some old values may look like DD.MM.YYYY
+  if (/^\d{2}\.\d{2}\.\d{4}$/.test(String(value))) {
+    const [d,m,y] = String(value).split('.').map(Number);
+    return new Date(y, m - 1, d).getTime();
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+
+  return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate()).getTime();
+}
+
+function adminOrderDate(o) {
+  if (o.delivery?.date) return o.delivery.date;
+  if (o.date) return o.date;
+  return '';
+}
+
+function adminOrderMatchesDate(o, from, to) {
+  if (!from && !to) return true;
+
+  const orderMs = adminParseDateOnly(adminOrderDate(o));
+  const fromMs = adminParseDateOnly(from);
+  const toMs = adminParseDateOnly(to);
+
+  if (orderMs === null) return false;
+  if (fromMs !== null && orderMs < fromMs) return false;
+  if (toMs !== null && orderMs > toMs) return false;
+
+  return true;
+}
+
+window.setOrderDatePreset = preset => {
+  const fromEl = document.getElementById('order-date-from');
+  const toEl = document.getElementById('order-date-to');
+  const statusEl = document.getElementById('order-filter');
+  const today = new Date();
+
+  let from = '';
+  let to = '';
+
+  if (preset === 'today') {
+    from = to = adminLocalDateISO(today);
+  }
+
+  if (preset === 'tomorrow') {
+    const d = new Date(today);
+    d.setDate(d.getDate() + 1);
+    from = to = adminLocalDateISO(d);
+  }
+
+  if (preset === 'week') {
+    const start = new Date(today);
+    const day = start.getDay() || 7;
+    start.setDate(start.getDate() - day + 1);
+
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+
+    from = adminLocalDateISO(start);
+    to = adminLocalDateISO(end);
+  }
+
+  if (preset === 'month') {
+    const start = new Date(today.getFullYear(), today.getMonth(), 1);
+    const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+    from = adminLocalDateISO(start);
+    to = adminLocalDateISO(end);
+  }
+
+  if (preset === 'reset') {
+    if (statusEl) statusEl.value = '';
+    from = '';
+    to = '';
+  }
+
+  if (fromEl) fromEl.value = from;
+  if (toEl) toEl.value = to;
+
+  renderOrders();
+};
+
+window.applyOrderFilters = () => {
+  renderOrders();
+};
+
 async function renderOrders() {
   const filter=document.getElementById('order-filter').value;
+  const dateFrom=document.getElementById('order-date-from')?.value || '';
+  const dateTo=document.getElementById('order-date-to')?.value || '';
+
   showLoading('');
   try { _orders=await fbGetOrders(); } catch(e){}
   hideLoading();
+
   let orders=_orders;
   if(filter) orders=orders.filter(o=>o.status===filter);
+  if(dateFrom || dateTo) orders=orders.filter(o=>adminOrderMatchesDate(o,dateFrom,dateTo));
+
   const el=document.getElementById('orders-list');
   if(!orders.length){el.innerHTML='<div class="empty-state"><div class="eicon">📋</div><p>No orders</p></div>';return;}
   const STATUS_LABEL={new:'🟡 New',confirmed:'🟢 Confirmed',done:'✅ Done',cancelled:'❌ Cancelled'};
