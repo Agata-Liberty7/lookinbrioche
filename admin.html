@@ -243,16 +243,6 @@
       <div id="stats-chart"></div>
     </div>
 
-    <div style="padding:0 16px 16px">
-      <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">Top products</div>
-      <div id="top-items"></div>
-    </div>
-
-    <div style="padding:0 16px 16px">
-      <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">By payment method</div>
-      <div id="pay-stats"></div>
-    </div>
-
     <div style="padding:0 16px 100px">
       <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:12px">
         <div>
@@ -1472,21 +1462,27 @@ async function renderStats(){
     pays[p] = (pays[p] || 0) + adminOrderGrandTotal(o);
   });
 
-  const top = Object.entries(items).sort((a,b) => b[1] - a[1]).slice(0, 10);
-  document.getElementById('top-items').innerHTML = top.length ? top.map(([name,qty]) => `
-    <div class="info-box" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <span>${adminEscape(name)}</span>
-      <b>${adminEscape(qty)}</b>
-    </div>
-  `).join('') : '<div class="empty-state"><p>No product data</p></div>';
+  const topItemsEl = document.getElementById('top-items');
+  if (topItemsEl) {
+    const top = Object.entries(items).sort((a,b) => b[1] - a[1]).slice(0, 10);
+    topItemsEl.innerHTML = top.length ? top.map(([name,qty]) => `
+      <div class="info-box" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span>${adminEscape(name)}</span>
+        <b>${adminEscape(qty)}</b>
+      </div>
+    `).join('') : '<div class="empty-state"><p>No product data</p></div>';
+  }
 
-  const payRows = Object.entries(pays).sort((a,b) => b[1] - a[1]);
-  document.getElementById('pay-stats').innerHTML = payRows.length ? payRows.map(([name,sum]) => `
-    <div class="info-box" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <span>${adminEscape(name)}</span>
-      <b>${formatPrice(sum)}</b>
-    </div>
-  `).join('') : '<div class="empty-state"><p>No payment data</p></div>';
+  const payStatsEl = document.getElementById('pay-stats');
+  if (payStatsEl) {
+    const payRows = Object.entries(pays).sort((a,b) => b[1] - a[1]);
+    payStatsEl.innerHTML = payRows.length ? payRows.map(([name,sum]) => `
+      <div class="info-box" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span>${adminEscape(name)}</span>
+        <b>${formatPrice(sum)}</b>
+      </div>
+    `).join('') : '<div class="empty-state"><p>No payment data</p></div>';
+  }
 
   renderStatsOrdersTable(orders);
   renderStatsChart(orders);

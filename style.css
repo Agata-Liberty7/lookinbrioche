@@ -826,3 +826,61 @@ body{
   border-color:var(--brand);
   box-shadow:0 10px 24px rgba(228,106,36,.22);
 }
+
+
+/* Client stats chart */
+.client-chart-bars {
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.client-chart-row {
+  display:grid;
+  grid-template-columns:minmax(120px, 220px) 1fr auto;
+  gap:10px;
+  align-items:center;
+}
+
+.client-chart-label {
+  font-size:13px;
+  color:var(--text2);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.client-chart-track {
+  height:22px;
+  background:var(--bg2);
+  border-radius:999px;
+  overflow:hidden;
+  border:1px solid var(--bdr2);
+}
+
+.client-chart-fill {
+  height:100%;
+  min-width:3px;
+  background:var(--brand);
+  border-radius:999px;
+}
+
+.client-chart-value {
+  font-size:13px;
+  color:var(--text);
+  font-weight:800;
+  min-width:28px;
+  text-align:right;
+}
+
+@media (max-width:560px) {
+  .client-chart-row {
+    grid-template-columns:1fr auto;
+    gap:6px 10px;
+  }
+
+  .client-chart-label {
+    grid-column:1 / -1;
+    white-space:normal;
+  }
+}

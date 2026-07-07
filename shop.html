@@ -119,7 +119,49 @@
   <header class="app-header">
     <h1 style="font-size:18px" id="hdr-myorders"></h1>
   </header>
-  <div id="my-orders-list" style="padding:14px 16px 80px"></div>
+
+  <div style="padding:14px 16px 0">
+    <div class="info-box" style="margin-bottom:12px">
+      <div id="my-period-title" style="font-size:12px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Period</div>
+      <div class="form-grid">
+        <div class="form-group" style="margin-bottom:10px">
+          <label id="my-date-from-label">From</label>
+          <input type="date" id="my-date-from">
+        </div>
+        <div class="form-group" style="margin-bottom:10px">
+          <label id="my-date-to-label">To</label>
+          <input type="date" id="my-date-to">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button type="button" class="btn btn-sm btn-primary" onclick="renderMyOrders()" id="my-apply-period">Apply</button>
+        <button type="button" class="btn btn-sm btn-outline" onclick="setMyOrdersPeriod('month')" id="my-this-month">This month</button>
+        <button type="button" class="btn btn-sm btn-outline" onclick="setMyOrdersPeriod('last-month')" id="my-last-month">Last month</button>
+        <button type="button" class="btn btn-sm btn-ghost" onclick="setMyOrdersPeriod('reset')" id="my-reset-period">Reset</button>
+      </div>
+    </div>
+
+    <div id="my-stats-cards" class="stat-grid" style="padding:0;margin-bottom:12px"></div>
+
+    <div class="info-box" style="padding:14px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+        <div>
+          <div id="my-chart-title" style="font-size:12px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Chart</div>
+          <div id="my-chart-note" style="font-size:12px;color:var(--text3);margin-top:3px">Your order statistics</div>
+        </div>
+        <select id="my-stats-chart-data" style="width:auto;min-width:190px" onchange="renderMyOrders()">
+          <option value="favorite_qty">Favorite products</option>
+          <option value="spending_month">Spending by month</option>
+          <option value="orders_month">Orders by month</option>
+        </select>
+      </div>
+      <div id="my-stats-chart"></div>
+    </div>
+
+    <div id="my-history-title" style="font-size:12px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 10px">Order history</div>
+  </div>
+
+  <div id="my-orders-list" style="padding:0 16px 80px"></div>
 </div>
 
 <!-- Product detail sheet -->
@@ -941,16 +983,297 @@ window.submitOrder = async () => {
   }
 };
 
+function myStatsText(key) {
+  const lang = detectLang();
+  const dict = {
+    es: {
+      period:'Periodo', from:'Desde', to:'Hasta', apply:'Aplicar', thisMonth:'Este mes', lastMonth:'Mes anterior', reset:'Reset',
+      chart:'Gráfico', chartNote:'Tus estadísticas de pedidos', favorite:'Productos favoritos', spending:'Gasto por mes', ordersByMonth:'Pedidos por mes',
+      history:'Historial de pedidos', orders:'Pedidos', products:'Productos', productsTotal:'Productos', avg:'Pedido medio', noData:'No hay datos para este periodo'
+    },
+    ru: {
+      period:'Период', from:'С', to:'По', apply:'Применить', thisMonth:'Этот месяц', lastMonth:'Прошлый месяц', reset:'Сбросить',
+      chart:'Диаграмма', chartNote:'Ваша статистика заказов', favorite:'Любимые товары', spending:'Расходы по месяцам', ordersByMonth:'Заказы по месяцам',
+      history:'История заказов', orders:'Заказы', products:'Изделия', productsTotal:'Товары', avg:'Средний заказ', noData:'Нет данных за выбранный период'
+    },
+    en: {
+      period:'Period', from:'From', to:'To', apply:'Apply', thisMonth:'This month', lastMonth:'Last month', reset:'Reset',
+      chart:'Chart', chartNote:'Your order statistics', favorite:'Favorite products', spending:'Spending by month', ordersByMonth:'Orders by month',
+      history:'Order history', orders:'Orders', products:'Products', productsTotal:'Products', avg:'Average order', noData:'No data for selected period'
+    }
+  };
+  return (dict[lang] || dict.es)[key] || key;
+}
+
+function shopLocalDateISO(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth()+1).padStart(2,'0');
+  const d = String(date.getDate()).padStart(2,'0');
+  return `${y}-${m}-${d}`;
+}
+
+function shopParseDateOnly(value) {
+  if (!value) return null;
+  const str = String(value);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    const [y,m,d] = str.split('-').map(Number);
+    return new Date(y, m - 1, d).getTime();
+  }
+  const parsed = new Date(str);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate()).getTime();
+}
+
+function shopOrderReportDate(o) {
+  return o.delivery?.date || o.date || '';
+}
+
+function myOrderMatchesPeriod(o) {
+  const from = document.getElementById('my-date-from')?.value || '';
+  const to = document.getElementById('my-date-to')?.value || '';
+  if (!from && !to) return true;
+
+  const ms = shopParseDateOnly(shopOrderReportDate(o));
+  const fromMs = shopParseDateOnly(from);
+  const toMs = shopParseDateOnly(to);
+
+  if (ms === null) return false;
+  if (fromMs !== null && ms < fromMs) return false;
+  if (toMs !== null && ms > toMs) return false;
+  return true;
+}
+
+window.setMyOrdersPeriod = preset => {
+  const fromEl = document.getElementById('my-date-from');
+  const toEl = document.getElementById('my-date-to');
+  if (!fromEl || !toEl) return;
+
+  const now = new Date();
+
+  if (preset === 'reset') {
+    fromEl.value = '';
+    toEl.value = '';
+  }
+
+  if (preset === 'month') {
+    fromEl.value = shopLocalDateISO(new Date(now.getFullYear(), now.getMonth(), 1));
+    toEl.value = shopLocalDateISO(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+  }
+
+  if (preset === 'last-month') {
+    fromEl.value = shopLocalDateISO(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+    toEl.value = shopLocalDateISO(new Date(now.getFullYear(), now.getMonth(), 0));
+  }
+
+  renderMyOrders();
+};
+
+function myOrderProductsTotal(o) {
+  const n = Number(o.subtotal);
+  if (Number.isFinite(n)) return n;
+  return (o.items || []).reduce((sum,i) => sum + Number(i.price || 0) * Number(i.qty || 0), 0);
+}
+
+function myOrderGrandTotal(o) {
+  const n = Number(o.total);
+  if (Number.isFinite(n)) return n;
+  return myOrderProductsTotal(o) + Number(o.deliveryFee || o.delivery?.fee || 0);
+}
+
+function isClientReportProductItem(item, order) {
+  const name = String(item?.name || '').toLowerCase();
+  const payment = String(order?.payment || '').toLowerCase();
+  if (!name) return false;
+  if (name.startsWith('pedido sin cuenta')) return false;
+  if (name.startsWith('public request')) return false;
+  if (payment === 'public request') return false;
+  return true;
+}
+
+function shortProductLabel(name) {
+  return String(name || 'Product')
+    .replace(/^empanadillas?\s+(dulces\s+)?de\s+brioche\s+con\s+/i, '')
+    .replace(/^brioche\s+pirozhki\s+with\s+/i, '')
+    .replace(/^пирожки\s+с\s+/i, '')
+    .slice(0, 32);
+}
+
+function myMonthKey(value) {
+  const ms = shopParseDateOnly(value);
+  if (ms === null) return { key:'no-date', label:'No date', sort:0 };
+  const d = new Date(ms);
+  return {
+    key: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`,
+    label: d.toLocaleDateString(detectLang(), { month:'short', year:'numeric' }),
+    sort: new Date(d.getFullYear(), d.getMonth(), 1).getTime()
+  };
+}
+
+function renderMyStatsCards(orders) {
+  const el = document.getElementById('my-stats-cards');
+  if (!el) return;
+
+  const orderCount = orders.length;
+  const productsQty = orders.reduce((sum,o) => sum + (o.items || []).reduce((s,i) => isClientReportProductItem(i,o) ? s + Number(i.qty || 0) : s, 0), 0);
+  const productsTotal = orders.reduce((sum,o) => sum + myOrderProductsTotal(o), 0);
+  const avg = orderCount ? myOrderGrandTotal(orders[0]) && orders.reduce((sum,o) => sum + myOrderGrandTotal(o), 0) / orderCount : 0;
+
+  el.innerHTML = `
+    <div class="stat-card"><div class="stat-num">${orderCount}</div><div class="stat-label">${myStatsText('orders')}</div></div>
+    <div class="stat-card"><div class="stat-num">${productsQty}</div><div class="stat-label">${myStatsText('products')}</div></div>
+    <div class="stat-card"><div class="stat-num">${formatPrice(productsTotal)}</div><div class="stat-label">${myStatsText('productsTotal')}</div></div>
+    <div class="stat-card"><div class="stat-num">${formatPrice(avg)}</div><div class="stat-label">${myStatsText('avg')}</div></div>
+  `;
+}
+
+function buildMyChartRows(orders, kind) {
+  const map = new Map();
+
+  if (kind === 'favorite_qty') {
+    orders.forEach(o => {
+      (o.items || []).forEach(i => {
+        if (!isClientReportProductItem(i,o)) return;
+        const label = shortProductLabel(i.name);
+        map.set(label, (map.get(label) || 0) + Number(i.qty || 0));
+      });
+    });
+
+    return [...map.entries()]
+      .map(([label,value]) => ({ label, value }))
+      .filter(r => r.value > 0)
+      .sort((a,b) => b.value - a.value)
+      .slice(0, 8);
+  }
+
+  orders.forEach(o => {
+    const m = myMonthKey(shopOrderReportDate(o));
+    const current = map.get(m.key) || { label:m.label, value:0, sort:m.sort };
+
+    if (kind === 'spending_month') current.value += myOrderGrandTotal(o);
+    if (kind === 'orders_month') current.value += 1;
+
+    map.set(m.key, current);
+  });
+
+  return [...map.values()]
+    .filter(r => r.value > 0)
+    .sort((a,b) => a.sort - b.sort);
+}
+
+function myChartValueText(value, money) {
+  return money ? formatPrice(value) : String(Math.round(value));
+}
+
+function renderMyStatsChart(orders) {
+  const el = document.getElementById('my-stats-chart');
+  const select = document.getElementById('my-stats-chart-data');
+  if (!el || !select) return;
+
+  const kind = select.value || 'favorite_qty';
+  const rows = buildMyChartRows(orders, kind);
+  const money = kind === 'spending_month';
+  const isLine = kind !== 'favorite_qty';
+
+  if (!rows.length) {
+    el.innerHTML = `<div class="empty-state" style="padding:20px"><div class="eicon">📊</div><p>${myStatsText('noData')}</p></div>`;
+    return;
+  }
+
+  const max = Math.max(...rows.map(r => r.value), 1);
+  const w = 720;
+  const h = 240;
+  const padL = isLine ? 42 : 70;
+  const padR = 80;
+  const padT = 22;
+  const padB = 38;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+
+  if (isLine) {
+    const denom = Math.max(rows.length - 1, 1);
+    const points = rows.map((r,i) => {
+      const x = padL + plotW * i / denom;
+      const y = padT + plotH - plotH * r.value / max;
+      return { ...r, x, y };
+    });
+    const path = points.map((p,i) => `${i ? 'L' : 'M'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+
+    el.innerHTML = `
+      <svg viewBox="0 0 ${w} ${h}" style="width:100%;min-width:520px;display:block;color:var(--brand)">
+        <line x1="${padL}" y1="${padT + plotH}" x2="${padL + plotW}" y2="${padT + plotH}" stroke="currentColor" opacity=".25"/>
+        <path d="${path}" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        ${points.map(p => `
+          <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4" fill="currentColor">
+            <title>${p.label} · ${myChartValueText(p.value, money)}</title>
+          </circle>
+          <text x="${p.x.toFixed(1)}" y="${h - 14}" text-anchor="middle" font-size="11" fill="var(--text2)">${p.label}</text>
+        `).join('')}
+      </svg>
+    `;
+    return;
+  }
+
+  el.innerHTML = `
+    <div class="client-chart-bars">
+      ${rows.map(r => {
+        const value = myChartValueText(r.value, false);
+        const width = Math.max(4, Math.round(100 * r.value / max));
+        return `
+          <div class="client-chart-row" title="${r.label} · ${value}">
+            <div class="client-chart-label">${r.label}</div>
+            <div class="client-chart-track">
+              <div class="client-chart-fill" style="width:${width}%"></div>
+            </div>
+            <div class="client-chart-value">${value}</div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function updateMyOrdersLabels() {
+  const pairs = [
+    ['my-period-title','period'], ['my-date-from-label','from'], ['my-date-to-label','to'], ['my-apply-period','apply'],
+    ['my-this-month','thisMonth'], ['my-last-month','lastMonth'], ['my-reset-period','reset'],
+    ['my-chart-title','chart'], ['my-chart-note','chartNote'], ['my-history-title','history']
+  ];
+  pairs.forEach(([id,key]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = myStatsText(key);
+  });
+
+  const sel = document.getElementById('my-stats-chart-data');
+  if (sel) {
+    sel.querySelector('[value="favorite_qty"]').textContent = myStatsText('favorite');
+    sel.querySelector('[value="spending_month"]').textContent = myStatsText('spending');
+    sel.querySelector('[value="orders_month"]').textContent = myStatsText('ordersByMonth');
+  }
+}
+
 window.renderMyOrders = async () => {
   const user=getCurrentUser();
+  updateMyOrdersLabels();
+
   showLoading('Loading orders…');
   try { _orders=await fbGetOrders(); } catch(e){}
   hideLoading();
-  const mine=user&&!user.guest?_orders.filter(o=>o.customer?.userId===user.id):_orders;
+
+  const allMine=user&&!user.guest?_orders.filter(o=>o.customer?.userId===user.id):_orders;
+  const mine=allMine.filter(myOrderMatchesPeriod);
+
+  renderMyStatsCards(mine);
+  renderMyStatsChart(mine);
+
   const el=document.getElementById('my-orders-list');
   const SC={new:'badge-new',confirmed:'badge-confirmed',done:'badge-done',cancelled:'badge-cancelled'};
   const SL={new:t('statusNew'),confirmed:t('statusConfirmed'),done:t('statusDone'),cancelled:t('statusCancelled')};
-  if(!mine.length){el.innerHTML=`<div class="empty-state"><div class="eicon">📋</div><p>${t('noOrders')}</p></div>`;return;}
+
+  if(!mine.length){
+    el.innerHTML=`<div class="empty-state"><div class="eicon">📋</div><p>${t('noOrders')}</p></div>`;
+    return;
+  }
+
   el.innerHTML=mine.map(o=>{
     const d=new Date(o.date).toLocaleDateString(detectLang(),{day:'numeric',month:'short',year:'numeric'});
     const delD=o.delivery?.date?new Date(o.delivery.date).toLocaleDateString(detectLang(),{day:'numeric',month:'long'}):'';
@@ -958,7 +1281,7 @@ window.renderMyOrders = async () => {
       <div class="order-header" onclick="this.nextElementSibling.classList.toggle('open')">
         <div>
           <div style="font-size:12px;color:var(--text3);font-weight:700">#${String(o.id).slice(-6)} · ${d}</div>
-          <div style="font-size:16px;font-weight:700;margin-top:2px">${formatPrice(o.total)}</div>
+          <div style="font-size:16px;font-weight:700;margin-top:2px">${formatPrice(myOrderGrandTotal(o))}</div>
           ${delD?`<div style="font-size:13px;color:var(--text2);margin-top:2px">📅 ${delD}</div>`:''}
         </div>
         <span class="badge ${SC[o.status]||'badge-new'}">${SL[o.status]||o.status}</span>
