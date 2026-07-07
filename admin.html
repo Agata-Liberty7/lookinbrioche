@@ -217,13 +217,26 @@
   <!-- ══ STATS ═══════════════════════════════════════════════════════════════ -->
   <div id="tab-stats" class="admin-section">
     <div class="stat-grid" id="stat-grid"></div>
+
     <div style="padding:0 16px 16px">
       <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">Top products</div>
       <div id="top-items"></div>
     </div>
-    <div style="padding:0 16px 100px">
+
+    <div style="padding:0 16px 16px">
       <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">By payment method</div>
       <div id="pay-stats"></div>
+    </div>
+
+    <div style="padding:0 16px 100px">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:12px">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Orders table</div>
+          <div id="stats-filter-note" style="font-size:12px;color:var(--text3);margin-top:3px">Uses current Orders filters</div>
+        </div>
+        <button class="btn btn-sm btn-outline" onclick="exportStatsOrdersCsv()">Export CSV</button>
+      </div>
+      <div id="stats-orders-table"></div>
     </div>
   </div>
 </div>
@@ -1011,27 +1024,277 @@ window.saveSettingsForm = async () => {
 };
 
 // ── STATS ─────────────────────────────────────────────────────────────────────
+let _statsOrderRows = [];
+let _statsProductCols = [];
+
+function adminPaymentReportLabel(value) {
+  const labels = {
+    cash: 'Cash',
+    bizum: 'Bizum',
+    revolut: 'Revolut',
+    stripe: 'Stripe',
+    invoice: 'Factura',
+    'public request': 'Public request'
+  };
+  return labels[value] || value || '';
+}
+
+function adminDeliveryReportLabel(method) {
+  if (method === 'pickup') return 'Pickup';
+  if (method === 'delivery') return 'Delivery';
+  return '';
+}
+
+function adminIsReportProductItem(item, order) {
+  const name = String(item?.name || '').toLowerCase();
+  const payment = String(order?.payment || '').toLowerCase();
+
+  if (!name) return false;
+  if (name.startsWith('pedido sin cuenta')) return false;
+  if (name.startsWith('public request')) return false;
+  if (payment === 'public request') return false;
+
+  return true;
+}
+
+function adminProductReportLabel(name) {
+  const s = String(name || '').toLowerCase();
+
+  if (s.includes('pollo') || s.includes('chicken') || s.includes('куриц')) return 'Pollo';
+  if (s.includes('patata') || s.includes('potato') || s.includes('карто')) return 'Patata';
+  if (s.includes('repollo') || s.includes('cabbage') || s.includes('капуст') || /\bcol\b/.test(s)) return 'Repollo';
+  if (s.includes('manzana') || s.includes('apple') || s.includes('яблок')) return 'Manzana';
+  if (s.includes('frutos') || s.includes('berries') || s.includes('ягод')) return 'Frutos';
+  if (s.includes('pescado') || s.includes('fish') || s.includes('рыб')) return 'Pescado';
+  if (s.includes('huevo') || s.includes('egg') || s.includes('яйц') || s.includes('cebolla tierna') || s.includes('spring onion')) return 'Cebolla';
+  if (s.includes('ternera') || s.includes('carne') || s.includes('meat') || s.includes('гов') || s.includes('мяс')) return 'Carne';
+  if (s.includes('fresa') || s.includes('strawberry') || s.includes('клубник')) return 'Fresa';
+  if (s.includes('reques') || s.includes('curd') || s.includes('pasas') || s.includes('творог') || s.includes('изюм')) return 'Requesón';
+
+  return String(name || 'Producto')
+    .replace(/^empanadillas?\s+(dulces\s+)?de\s+brioche\s+con\s+/i, '')
+    .replace(/^brioche\s+pirozhki\s+with\s+/i, '')
+    .replace(/^пирожки\s+с\s+/i, '')
+    .slice(0, 32);
+}
+
+function adminProductColSort(a, b) {
+  const order = ['Pollo','Patata','Repollo','Manzana','Frutos','Pescado','Cebolla','Carne','Fresa','Requesón'];
+  const ai = order.includes(a) ? order.indexOf(a) : 999;
+  const bi = order.includes(b) ? order.indexOf(b) : 999;
+  return ai - bi || String(a).localeCompare(String(b), 'es');
+}
+
+function adminFormatReportDate(value) {
+  const ms = adminParseDateOnly(value);
+  if (ms === null) return '';
+  const d = new Date(ms);
+  return String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0');
+}
+
+function adminOrderItemSubtotal(o) {
+  return (o.items || []).reduce((sum, i) => sum + Number(i.price || 0) * Number(i.qty || 0), 0);
+}
+
+function adminOrderProductsTotal(o) {
+  const n = Number(o.subtotal);
+  return Number.isFinite(n) ? n : adminOrderItemSubtotal(o);
+}
+
+function adminOrderDeliveryFee(o) {
+  const raw = o.deliveryFee ?? o.delivery?.fee;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function adminOrderGrandTotal(o) {
+  const n = Number(o.total);
+  return Number.isFinite(n) ? n : adminOrderProductsTotal(o) + adminOrderDeliveryFee(o);
+}
+
+function adminStatsFilteredOrders(orders) {
+  const filter = document.getElementById('order-filter')?.value || '';
+  const dateFrom = document.getElementById('order-date-from')?.value || '';
+  const dateTo = document.getElementById('order-date-to')?.value || '';
+
+  let result = [...orders];
+  if (filter) result = result.filter(o => o.status === filter);
+  if (dateFrom || dateTo) result = result.filter(o => adminOrderMatchesDate(o, dateFrom, dateTo));
+
+  const note = document.getElementById('stats-filter-note');
+  if (note) {
+    const parts = [];
+    if (filter) parts.push('status: ' + filter);
+    if (dateFrom || dateTo) parts.push((dateFrom || '…') + ' — ' + (dateTo || '…'));
+    note.textContent = parts.length ? 'Filtered by ' + parts.join(' · ') : 'Uses current Orders filters';
+  }
+
+  return result;
+}
+
+function adminBuildStatsOrderRows(orders) {
+  const productCols = new Set();
+
+  const rows = orders.map(o => {
+    const products = {};
+
+    (o.items || []).forEach(item => {
+      if (!adminIsReportProductItem(item, o)) return;
+      const col = adminProductReportLabel(item.name);
+      productCols.add(col);
+      products[col] = (products[col] || 0) + Number(item.qty || 0);
+    });
+
+    const method = o.delivery?.method || (adminOrderDeliveryFee(o) > 0 ? 'delivery' : '');
+
+    return {
+      date: adminFormatReportDate(o.delivery?.date || o.date),
+      client: o.customer?.name || o.customer?.userName || '—',
+      payment: adminPaymentReportLabel(o.payment),
+      method: adminDeliveryReportLabel(method),
+      productsTotal: adminOrderProductsTotal(o),
+      deliveryFee: adminOrderDeliveryFee(o),
+      total: adminOrderGrandTotal(o),
+      products
+    };
+  });
+
+  const cols = [...productCols].sort(adminProductColSort);
+  return { rows, cols };
+}
+
+function renderStatsOrdersTable(orders) {
+  const el = document.getElementById('stats-orders-table');
+  if (!el) return;
+
+  const { rows, cols } = adminBuildStatsOrderRows(orders);
+  _statsOrderRows = rows;
+  _statsProductCols = cols;
+
+  if (!rows.length) {
+    el.innerHTML = '<div class="empty-state"><div class="eicon">📊</div><p>No orders for selected filters</p></div>';
+    return;
+  }
+
+  const headers = ['Fecha','Client','Pago','Method','Productos','Delivery','Total', ...cols];
+
+  el.innerHTML = `
+    <div style="overflow:auto;border:1px solid var(--border);border-radius:16px;background:var(--card)">
+      <table style="width:100%;min-width:${Math.max(860, 650 + cols.length * 105)}px;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr>
+            ${headers.map(h => `<th style="position:sticky;top:0;background:var(--card2);padding:10px 8px;text-align:left;border-bottom:1px solid var(--border);color:var(--text);font-weight:800;white-space:nowrap">${adminEscape(h)}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(row => `
+            <tr>
+              <td style="padding:9px 8px;border-bottom:1px solid var(--border);white-space:nowrap">${adminEscape(row.date)}</td>
+              <td style="padding:9px 8px;border-bottom:1px solid var(--border);font-weight:700;white-space:nowrap">${adminEscape(row.client)}</td>
+              <td style="padding:9px 8px;border-bottom:1px solid var(--border);white-space:nowrap">${adminEscape(row.payment)}</td>
+              <td style="padding:9px 8px;border-bottom:1px solid var(--border);white-space:nowrap">${adminEscape(row.method)}</td>
+              <td style="padding:9px 8px;border-bottom:1px solid var(--border);font-weight:700;text-align:right;white-space:nowrap">${formatPrice(row.productsTotal)}</td>
+              <td style="padding:9px 8px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap">${row.deliveryFee ? formatPrice(row.deliveryFee) : ''}</td>
+              <td style="padding:9px 8px;border-bottom:1px solid var(--border);font-weight:800;text-align:right;white-space:nowrap">${formatPrice(row.total)}</td>
+              ${cols.map(c => `<td style="padding:9px 8px;border-bottom:1px solid var(--border);text-align:center;font-weight:700">${row.products[c] ? adminEscape(row.products[c]) : ''}</td>`).join('')}
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function adminCsvCell(value) {
+  return `"${String(value ?? '').replace(/"/g, '""')}"`;
+}
+
+window.exportStatsOrdersCsv = () => {
+  if (!_statsOrderRows.length) {
+    showToast('Nothing to export');
+    return;
+  }
+
+  const headers = ['Fecha','Client','Pago','Method','Productos','Delivery','Total', ..._statsProductCols];
+
+  const lines = [
+    headers,
+    ..._statsOrderRows.map(row => [
+      row.date,
+      row.client,
+      row.payment,
+      row.method,
+      row.productsTotal.toFixed(2),
+      row.deliveryFee ? row.deliveryFee.toFixed(2) : '',
+      row.total.toFixed(2),
+      ..._statsProductCols.map(c => row.products[c] || '')
+    ])
+  ];
+
+  const csv = lines.map(line => line.map(adminCsvCell).join(';')).join('\n');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const today = adminLocalDateISO(new Date());
+  a.href = url;
+  a.download = `lookin-brioche-orders-${today}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+};
+
 async function renderStats(){
-  showLoading('');
-  try{_orders=await fbGetOrders();}catch(e){}
-  hideLoading();
-  const total=_orders.reduce((s,o)=>s+(o.total||0),0);
-  const newCnt=_orders.filter(o=>o.status==='new').length;
-  const doneCnt=_orders.filter(o=>o.status==='done').length;
-  document.getElementById('stat-grid').innerHTML=`
-    <div class="stat-card"><div class="stat-num">${_orders.length}</div><div class="stat-label">Total orders</div></div>
-    <div class="stat-card"><div class="stat-num">${formatPrice(total)}</div><div class="stat-label">Revenue</div></div>
+  try { _orders = await fbGetOrders(); } catch(e) {}
+
+  const orders = adminStatsFilteredOrders(_orders);
+
+  const productsRevenue = orders.reduce((sum,o) => sum + adminOrderProductsTotal(o), 0);
+  const deliveryRevenue = orders.reduce((sum,o) => sum + adminOrderDeliveryFee(o), 0);
+  const totalRevenue = orders.reduce((sum,o) => sum + adminOrderGrandTotal(o), 0);
+  const newCnt = orders.filter(o => o.status === 'new').length;
+  const doneCnt = orders.filter(o => o.status === 'done').length;
+
+  document.getElementById('stat-grid').innerHTML = `
+    <div class="stat-card"><div class="stat-num">${orders.length}</div><div class="stat-label">Orders</div></div>
+    <div class="stat-card"><div class="stat-num">${formatPrice(productsRevenue)}</div><div class="stat-label">Products</div></div>
+    <div class="stat-card"><div class="stat-num">${formatPrice(deliveryRevenue)}</div><div class="stat-label">Delivery</div></div>
+    <div class="stat-card"><div class="stat-num">${formatPrice(totalRevenue)}</div><div class="stat-label">Total</div></div>
     <div class="stat-card"><div class="stat-num" style="color:#856404">${newCnt}</div><div class="stat-label">New</div></div>
-    <div class="stat-card"><div class="stat-num">${doneCnt}</div><div class="stat-label">Done</div></div>`;
-  const freq={};
-  _orders.forEach(o=>(o.items||[]).forEach(i=>{freq[i.name]=(freq[i.name]||0)+i.qty;}));
-  const top=Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  const maxQ=top[0]?.[1]||1;
-  document.getElementById('top-items').innerHTML=top.length?top.map(([name,qty])=>`
-    <div style="margin-bottom:12px">
-      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:14px;font-weight:700">${name}</span><span style="font-size:13px;color:var(--text3)">${qty}</span></div>
-      <div style="height:6px;background:var(--bdr2);border-radius:4px;overflow:hidden"><div style="height:100%;width:${Math.round(qty/maxQ*100)}%;background:#2E6B3E;border-radius:4px"></div></div>
-    </div>`).join(''):`<p style="color:var(--text3);font-size:14px">No data</p>`;
+    <div class="stat-card"><div class="stat-num">${doneCnt}</div><div class="stat-label">Done</div></div>
+  `;
+
+  const items = {};
+  const pays = {};
+
+  orders.forEach(o => {
+    (o.items || []).forEach(i => {
+      if (!adminIsReportProductItem(i, o)) return;
+      const name = adminProductReportLabel(i.name);
+      items[name] = (items[name] || 0) + Number(i.qty || 0);
+    });
+
+    const p = adminPaymentReportLabel(o.payment || '—');
+    pays[p] = (pays[p] || 0) + adminOrderGrandTotal(o);
+  });
+
+  const top = Object.entries(items).sort((a,b) => b[1] - a[1]).slice(0, 10);
+  document.getElementById('top-items').innerHTML = top.length ? top.map(([name,qty]) => `
+    <div class="info-box" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span>${adminEscape(name)}</span>
+      <b>${adminEscape(qty)}</b>
+    </div>
+  `).join('') : '<div class="empty-state"><p>No product data</p></div>';
+
+  const payRows = Object.entries(pays).sort((a,b) => b[1] - a[1]);
+  document.getElementById('pay-stats').innerHTML = payRows.length ? payRows.map(([name,sum]) => `
+    <div class="info-box" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span>${adminEscape(name)}</span>
+      <b>${formatPrice(sum)}</b>
+    </div>
+  `).join('') : '<div class="empty-state"><p>No payment data</p></div>';
+
+  renderStatsOrdersTable(orders);
 }
 
 window.closeModal = id => document.getElementById(id).classList.remove('open');
