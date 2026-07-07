@@ -229,7 +229,11 @@
     <div class="form-group"><label>Name EN</label><input type="text" id="pm-name-en" placeholder="Brioche pirozhki with egg and spring onion"></div>
     <input type="hidden" id="pm-name">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div class="form-group"><label>Base price *</label><input type="number" id="pm-price" placeholder="55" step="0.01"></div>
+      <div class="form-group"><label>Pack qty</label><input type="number" id="pm-pack-qty" placeholder="6" min="1" step="1" oninput="syncPackPricing()"></div>
+      <div class="form-group"><label>Pack price €</label><input type="number" id="pm-pack-price" placeholder="9.50" min="0" step="0.01" oninput="syncPackPricing()"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-group"><label>Unit price €</label><input type="number" id="pm-price" placeholder="auto" step="0.0001"></div>
       <div class="form-group">
         <label>Unit</label>
         <select id="pm-unit"><option value="sht">шт / pcs / ud</option><option value="kg">кг / kg</option><option value="l">л / l</option><option value="up">уп / pack / paq</option></select>
@@ -557,6 +561,27 @@ function renderCatalog() {
   }).join('');
 }
 
+
+window.syncPackPricing = () => {
+  const packQtyEl = document.getElementById('pm-pack-qty');
+  const packPriceEl = document.getElementById('pm-pack-price');
+  const priceEl = document.getElementById('pm-price');
+  const minEl = document.getElementById('pm-min');
+
+  if (!packQtyEl || !packPriceEl || !priceEl) return;
+
+  const packQty = parseFloat(packQtyEl.value);
+  const packPrice = parseFloat(packPriceEl.value);
+
+  if (Number.isFinite(packQty) && packQty > 0 && Number.isFinite(packPrice) && packPrice > 0) {
+    priceEl.value = (packPrice / packQty).toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
+  }
+
+  if (minEl && Number.isFinite(packQty) && packQty > 0 && (!minEl.value || Number(minEl.value) === 1)) {
+    minEl.value = packQty;
+  }
+};
+
 let pmPhotoData=null;
 window.openProductModal = id => {
   pmPhotoData=null;
@@ -569,10 +594,15 @@ window.openProductModal = id => {
     document.getElementById('pm-name-ru').value=p.name_ru||p.name||'';
     document.getElementById('pm-name-en').value=p.name_en||'';
     document.getElementById('pm-name').value=p.name||'';
-    document.getElementById('pm-price').value=p.price;
-    document.getElementById('pm-unit').value=p.unit;
+    const packQty = Math.max(1, Number(p.packQty || p.minQty || 1));
+    const packPrice = Number(p.packPrice || 0);
+    document.getElementById('pm-pack-qty').value=packQty;
+    document.getElementById('pm-pack-price').value=packPrice>0?packPrice:'';
+    document.getElementById('pm-price').value=p.price||'';
+    document.getElementById('pm-unit').value=p.unit||'sht';
     document.getElementById('pm-cat').value=adminNormalizeCatKey(p.category);
-    document.getElementById('pm-min').value=p.minQty||1;
+    document.getElementById('pm-min').value=p.minQty||packQty||1;
+    syncPackPricing();
     document.getElementById('pm-avail').checked=p.available!==false;
     document.getElementById('pm-desc-es').value=p.description_es||'';
     document.getElementById('pm-desc-ru').value=p.description_ru||p.description||'';
@@ -581,8 +611,8 @@ window.openProductModal = id => {
     document.getElementById('pm-ing').value=p.ingredients||'';
     if(p.photo){pmPhotoData=p.photo;document.getElementById('pm-photo-preview').innerHTML=`<img src="${p.photo}" class="photo-preview">`;}
   } else {
-    ['pm-name-es','pm-name-ru','pm-name-en','pm-name','pm-price','pm-desc-es','pm-desc-ru','pm-desc-en','pm-desc','pm-ing'].forEach(i=>document.getElementById(i).value='');
-    document.getElementById('pm-unit').value='sht';document.getElementById('pm-cat').value='pirozhki';document.getElementById('pm-min').value='1';document.getElementById('pm-avail').checked=true;
+    ['pm-name-es','pm-name-ru','pm-name-en','pm-name','pm-pack-qty','pm-pack-price','pm-price','pm-desc-es','pm-desc-ru','pm-desc-en','pm-desc','pm-ing'].forEach(i=>document.getElementById(i).value='');
+    document.getElementById('pm-unit').value='sht';document.getElementById('pm-cat').value='pirozhki';document.getElementById('pm-min').value='';document.getElementById('pm-avail').checked=true;
   }
   document.getElementById('product-modal').classList.add('open');
 };
@@ -605,8 +635,18 @@ window.saveProduct = async () => {
   const description_en=document.getElementById('pm-desc-en').value.trim();
   const description=description_es||description_ru||description_en||document.getElementById('pm-desc').value.trim();
 
-  const price=parseFloat(document.getElementById('pm-price').value);
-  if(!name||isNaN(price)){showToast('Fill at least ES/RU/EN name and price');return;}
+  const packQtyRaw=parseFloat(document.getElementById('pm-pack-qty').value);
+  const packPriceRaw=parseFloat(document.getElementById('pm-pack-price').value);
+  const manualUnitPrice=parseFloat(document.getElementById('pm-price').value);
+
+  const packQty=Number.isFinite(packQtyRaw)&&packQtyRaw>0?packQtyRaw:1;
+  const hasPackPrice=Number.isFinite(packPriceRaw)&&packPriceRaw>0;
+  const price=hasPackPrice ? packPriceRaw / packQty : manualUnitPrice;
+
+  if(!name||!Number.isFinite(price)||price<=0){showToast('Fill at least ES/RU/EN name and price');return;}
+
+  const minQtyRaw=parseFloat(document.getElementById('pm-min').value);
+  const minQty=Number.isFinite(minQtyRaw)&&minQtyRaw>0?minQtyRaw:packQty;
 
   const data={
     name,
@@ -614,9 +654,12 @@ window.saveProduct = async () => {
     name_ru,
     name_en,
     price,
+    packQty,
+    packPrice: hasPackPrice ? packPriceRaw : null,
+    stepQty: packQty,
     unit:document.getElementById('pm-unit').value,
     category:document.getElementById('pm-cat').value||'other',
-    minQty:parseFloat(document.getElementById('pm-min').value)||1,
+    minQty,
     available:document.getElementById('pm-avail').checked,
     photo:pmPhotoData||null,
     description,

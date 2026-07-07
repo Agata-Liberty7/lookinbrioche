@@ -401,18 +401,18 @@ function renderCatalog() {
   el.innerHTML = items.map(p=>{
     const inCart=cart.find(c=>String(c.id)===String(p.id));
     const qty=inCart?inCart.qty:0;
-    const cp=clientPrice(p.price);
+    const cp=clientPrice(productUnitPrice(p));
     const emoji=categoryEmoji(p.category);
     const pName=productName(p);
     const discBadge=cp!==p.price?`<span class="discount-badge">−${Math.round((1-cp/p.price)*100)}%</span>`:'';
     const thumb=p.photo?`<div class="product-thumb"><img src="${p.photo}" alt="${pName}"></div>`:`<div class="product-thumb">${emoji}</div>`;
-    const minInfo=p.minQty>1?`<div class="product-meta">${t('minQty')} ${p.minQty} ${t('unit_'+p.unit)||p.unit}</div>`:'';
+    const minInfo=productPackMeta(p);
 
     return `<div class="product-card" onclick="openSheet('${p.id}')">
       ${thumb}
       <div class="product-info">
         <div class="product-name">${pName}</div>
-        <div class="product-price">${formatPrice(cp)} <span style="font-size:12px;color:var(--text3);font-weight:400">/ ${t('unit_'+p.unit)||p.unit}</span>${discBadge}</div>
+        <div class="product-price">${productPriceLine(p)}${discBadge}</div>
         ${minInfo}
       </div>
       <div class="qty-control" onclick="event.stopPropagation()" id="qc-${p.id}">
@@ -428,16 +428,69 @@ function renderCatalog() {
 
 window.selectCat = c => { currentCat=c; renderCatalog(); };
 
+
+function shopUnitLabel() {
+  const lang = detectLang();
+  if (lang === 'ru') return 'шт';
+  if (lang === 'en') return 'pcs';
+  return 'uds';
+}
+
+function shopPackLabel() {
+  const lang = detectLang();
+  if (lang === 'ru') return 'упаковка';
+  return 'pack';
+}
+
+function productPackQty(p) {
+  return Math.max(1, Number(p?.packQty || p?.minQty || 1));
+}
+
+function productUnitPrice(p) {
+  const packQty = productPackQty(p);
+  const packPrice = Number(p?.packPrice || 0);
+  if (packPrice > 0 && packQty > 0) return packPrice / packQty;
+  return Number(p?.price || 0);
+}
+
+function productDisplayUnitPrice(p) {
+  return clientPrice(productUnitPrice(p));
+}
+
+function productDisplayPackPrice(p) {
+  return productDisplayUnitPrice(p) * productPackQty(p);
+}
+
+function productPriceLine(p) {
+  const qty = productPackQty(p);
+  const suffix = qty > 1 ? shopPackLabel() : shopUnitLabel();
+  const value = qty > 1 ? productDisplayPackPrice(p) : productDisplayUnitPrice(p);
+  return `${formatPrice(value)} <span style="font-size:12px;color:var(--text3);font-weight:400">/ ${suffix}</span>`;
+}
+
+function productPriceText(p) {
+  const qty = productPackQty(p);
+  const suffix = qty > 1 ? shopPackLabel() : shopUnitLabel();
+  const value = qty > 1 ? productDisplayPackPrice(p) : productDisplayUnitPrice(p);
+  return `${formatPrice(value)} / ${suffix}`;
+}
+
+function productPackMeta(p) {
+  const qty = productPackQty(p);
+  if (qty <= 1) return '';
+  return `<div class="product-meta">Pack ${qty} ${shopUnitLabel()}</div>`;
+}
+
 window.openSheet = id => {
   const p=_catalog.find(x=>x.id===id); if(!p) return;
   sheetProductId=id;
-  const cp=clientPrice(p.price);
+  const cp=clientPrice(productUnitPrice(p));
   const emoji=categoryEmoji(p.category);
   document.getElementById('sheet-img-wrap').innerHTML=p.photo
     ?`<div class="sheet-img"><img src="${p.photo}" alt="${productName(p)}"></div>`
     :`<div class="sheet-img">${emoji}</div>`;
   document.getElementById('sheet-name').textContent=productName(p);
-  document.getElementById('sheet-price').textContent=formatPrice(cp)+' / '+(t('unit_'+p.unit)||p.unit);
+  document.getElementById('sheet-price').innerHTML=productPriceLine(p);
   document.getElementById('sheet-desc').textContent=productDesc(p);
   const ing=p.ingredients||'';
   document.getElementById('sheet-ing-block').style.display=ing?'block':'none';
@@ -559,7 +612,7 @@ window.renderCart = () => {
   let total=0,count=0;
   listEl.innerHTML=cart.map(item=>{
     const p=_catalog.find(x=>x.id===item.id);if(!p)return'';
-    const cp=clientPrice(p.price);const sub=cp*item.qty;total+=sub;count+=item.qty;
+    const cp=clientPrice(productUnitPrice(p));const sub=cp*item.qty;total+=sub;count+=item.qty;
     return `<div class="product-card">
       <div class="product-info">
         <div class="product-name">${productName(p)}</div>
