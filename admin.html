@@ -665,6 +665,13 @@ async function renderOrders() {
     const paymentLabel=PAY_LABEL[o.payment]||adminEscape(o.payment||'—');
     const invoiceDetails=o.invoiceDetails||customer.invoiceDetails||'';
 
+    const waPending = o.status === 'confirmed' && o.confirmationStatus === 'pending';
+    const waSent = o.status === 'confirmed' && o.confirmationStatus === 'sent';
+    const statusLabel = waPending ? '🟠 Confirmed · WA pending' : (waSent ? '🟢 Confirmed · WA sent' : (STATUS_LABEL[o.status]||o.status));
+    const statusClass = waPending ? 'badge-new' : (STATUS_CLS[o.status]||'badge-new');
+    const statusStyle = waPending ? 'background:#F59E0B;color:#1A1208' : '';
+    const shouldOpen = waPending || String(window._adminOpenOrderId || '') === String(o.id);
+
     const itemSubtotal=(o.items||[]).reduce((sum,i)=>sum+(Number(i.price||0)*Number(i.qty||0)),0);
     const subtotal=Number.isFinite(Number(o.subtotal))?Number(o.subtotal):itemSubtotal;
     const deliveryFeeRaw=o.deliveryFee??o.delivery?.fee;
@@ -698,18 +705,18 @@ async function renderOrders() {
     </div>`;
 
     return`<div class="order-card">
-      <div class="order-header" onclick="this.nextElementSibling.classList.toggle('open')">
+      <div class="order-header" data-locked="${waPending?'1':'0'}" onclick="if(this.dataset.locked!=='1')this.nextElementSibling.classList.toggle('open')">
         <div>
           <div style="font-size:11px;color:var(--text3);font-weight:700">#${String(o.id).slice(-6)} · ${d}</div>
           <div style="font-size:15px;font-weight:700;margin-top:2px">${adminEscape(customer.name||'—')}</div>
           <div style="font-size:12px;color:var(--text2);margin-top:2px">${customer.phone?adminEscape(customer.phone):''}${delD?' · 📅 '+adminEscape(delD):''}</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-          <span class="badge ${STATUS_CLS[o.status]||'badge-new'}">${STATUS_LABEL[o.status]||o.status}</span>
+          <span class="badge ${statusClass}"${statusStyle?` style="${statusStyle}"`:''}>${adminEscape(statusLabel)}</span>
           <span style="font-size:14px;font-weight:700;color:#2E6B3E">${formatPrice(total)}</span>
         </div>
       </div>
-      <div class="order-body">
+      <div class="order-body${shouldOpen?' open':''}">
         <ul style="font-size:13px;color:var(--text2);margin-bottom:10px;list-style:none;padding:0">
           ${(o.items||[]).map(i=>`<li>• ${adminEscape(i.name)} × ${i.qty} = ${formatPrice(i.price*i.qty)}</li>`).join('')}
         </ul>
@@ -727,6 +734,9 @@ async function renderOrders() {
           <select style="width:auto;padding:6px 10px;font-size:13px;border-radius:20px" onchange="changeOrderStatus('${o.id}',this.value)">
             ${['new','confirmed','done','cancelled'].map(s=>`<option value="${s}"${o.status===s?' selected':''}>${STATUS_LABEL[s]}</option>`).join('')}
           </select>
+          ${waPending&&adminConfirmWaUrl(o)?`<a class="btn btn-green" data-wa-order-id="${adminEscape(o.id)}" href="${adminEscape(adminConfirmWaUrl(o))}" target="_blank" rel="noopener">📲 Send WhatsApp confirmation</a>`:''}
+          ${waPending?`<button type="button" class="btn btn-primary btn-sm" onclick="markOrderWhatsAppSent('${o.id}')">✅ Mark as sent</button>`:''}
+          ${waSent?`<span class="badge badge-confirmed">WhatsApp sent ✓</span>`:''}
           <button class="btn btn-danger btn-sm" onclick="deleteOrder('${o.id}')">🗑</button>
         </div>
       </div>
@@ -735,8 +745,244 @@ async function renderOrders() {
 }
 document.getElementById('order-filter').addEventListener('change', renderOrders);
 
+
+function adminFindOrderById(id) {
+  const list = typeof orders !== 'undefined' ? orders : [];
+  return (list || []).find(o => String(o.id || o.orderId || '') === String(id)) || null;
+}
+
+function adminOrderPhone(o) {
+  const c = o?.customer || {};
+  return String(c.phone || c.contactPhone || o.phone || o.contactPhone || '').trim();
+}
+
+function adminOrderName(o) {
+  const c = o?.customer || {};
+  return String(c.name || c.contactPerson || o.name || '').trim();
+}
+
+function adminOrderDeliveryDate(o) {
+  return String(
+    o?.delivery?.date ||
+    o?.deliveryDate ||
+    o?.date ||
+    ''
+  ).trim();
+}
+
+function adminOrderTotal(o) {
+  const n = Number(o?.total || o?.grandTotal || 0);
+  if (!Number.isFinite(n) || n <= 0) return '';
+  try {
+    if (typeof formatPrice === 'function') return formatPrice(n);
+  } catch(e) {}
+  return n.toFixed(2) + ' €';
+}
+
+function adminOpenConfirmationWhatsApp(o, popupWin=null) {
+  const phoneRaw = adminOrderPhone(o);
+  const phone = phoneRaw.replace(/[^0-9]/g, '');
+
+  if (!phone) {
+    showToast('No phone number for WhatsApp');
+    if (popupWin) popupWin.close();
+    return;
+  }
+
+  const name = adminOrderName(o);
+  const date = adminOrderDeliveryDate(o);
+  const total = adminOrderTotal(o);
+
+  const lines = [
+    `Hola${name ? ' ' + name : ''} 👋`,
+    '',
+    'Tu pedido de Look-in Brioche está confirmado.',
+    date ? `Fecha de entrega: ${date}` : '',
+    total ? `Total: ${total}` : '',
+    '',
+    'Gracias 💛'
+  ].filter(Boolean);
+
+  const url = `https://wa.me/${phone}?text=${encodeURIComponent(lines.join('\n'))}`;
+
+  if (popupWin) {
+    popupWin.location.href = url;
+  } else {
+    window.open(url, '_blank', 'noopener');
+  }
+}
+
+
+
+function adminConfirmWaPhone(o) {
+  const c = o?.customer || {};
+  return String(c.phone || c.contactPhone || o.phone || o.contactPhone || '').replace(/[^0-9]/g, '');
+}
+
+function adminConfirmWaUrl(o) {
+  const phone = adminConfirmWaPhone(o);
+  if (!phone) return '';
+
+  const c = o?.customer || {};
+  const name = String(c.name || c.contactPerson || o.name || '').trim();
+  const date = String(o?.delivery?.date || o?.deliveryDate || o?.date || '').trim();
+
+  let total = '';
+  const n = Number(o?.total || o?.grandTotal || 0);
+  if (Number.isFinite(n) && n > 0) {
+    try {
+      total = typeof formatPrice === 'function' ? formatPrice(n) : n.toFixed(2) + ' €';
+    } catch(e) {
+      total = n.toFixed(2) + ' €';
+    }
+  }
+
+  const lines = [
+    `Hola${name ? ' ' + name : ''} 👋`,
+    '',
+    'Tu pedido de Look-in Brioche está confirmado.',
+    date ? `Fecha de entrega: ${date}` : '',
+    total ? `Total: ${total}` : '',
+    '',
+    'Gracias 💛'
+  ].filter(Boolean);
+
+  return `https://wa.me/${phone}?text=${encodeURIComponent(lines.join('\n'))}`;
+}
+
+
+
+function adminGetOrderById(id) {
+  const list = typeof orders !== 'undefined' ? orders : [];
+  return (list || []).find(o => String(o.id || o.orderId || '') === String(id)) || null;
+}
+
+function adminSafeSelectorValue(v) {
+  return String(v || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+function adminShowWaActionPanel(order) {
+  if (!order || typeof adminConfirmWaUrl !== 'function') return;
+
+  const url = adminConfirmWaUrl(order);
+  if (!url) {
+    showToast('No phone number for WhatsApp');
+    return;
+  }
+
+  let box = document.getElementById('admin-wa-action-panel');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'admin-wa-action-panel';
+    box.style.cssText = [
+      'position:fixed',
+      'right:18px',
+      'bottom:18px',
+      'z-index:99999',
+      'width:min(360px,calc(100vw - 36px))',
+      'background:#1f6f3a',
+      'color:#fff',
+      'border:1px solid rgba(255,255,255,.25)',
+      'border-radius:18px',
+      'box-shadow:0 18px 50px rgba(0,0,0,.35)',
+      'padding:14px',
+      'font-size:14px'
+    ].join(';');
+    document.body.appendChild(box);
+  }
+
+  const name = (order.customer && order.customer.name) || order.name || 'client';
+
+  box.innerHTML = `
+    <div style="display:flex;gap:10px;align-items:flex-start;justify-content:space-between">
+      <div>
+        <div style="font-weight:900;margin-bottom:4px">✅ Order confirmed</div>
+        <div style="opacity:.92;font-size:13px">Send WhatsApp confirmation to ${adminEscape(name)}</div>
+      </div>
+      <button type="button" onclick="document.getElementById('admin-wa-action-panel')?.remove()" style="background:transparent;border:0;color:#fff;font-size:20px;line-height:1;cursor:pointer">×</button>
+    </div>
+    <a href="${adminEscape(url)}" target="_blank" rel="noopener" style="display:block;margin-top:12px;background:#fff;color:#1f6f3a;text-align:center;text-decoration:none;font-weight:900;border-radius:12px;padding:12px">
+      📲 Send WhatsApp confirmation
+    </a>
+  `;
+}
+
+function adminFocusWaButton(orderId) {
+  const id = adminSafeSelectorValue(orderId);
+  const link = document.querySelector(`[data-wa-order-id="${id}"]`);
+  if (!link) return;
+
+  link.scrollIntoView({behavior:'smooth', block:'center'});
+  link.style.outline = '3px solid #f7c948';
+  link.style.boxShadow = '0 0 0 7px rgba(247,201,72,.25)';
+  link.textContent = '📲 Send WhatsApp confirmation';
+
+  setTimeout(() => {
+    link.style.outline = '';
+    link.style.boxShadow = '';
+  }, 3500);
+}
+
+
+
+function adminGetOrderForAction(id) {
+  const list = typeof _orders !== 'undefined' ? _orders : [];
+  return (list || []).find(o => String(o.id || o.orderId || '') === String(id)) || null;
+}
+
+window.markOrderWhatsAppSent = async id => {
+  const order = adminGetOrderForAction(id);
+  const patch = {
+    confirmationStatus: 'sent',
+    confirmationSentAt: new Date().toISOString()
+  };
+
+  try {
+    await fbUpdateOrder(id, patch);
+    if (order) Object.assign(order, patch);
+    if (String(window._adminOpenOrderId || '') === String(id)) window._adminOpenOrderId = '';
+    document.getElementById('admin-wa-action-panel')?.remove();
+    showToast('WhatsApp marked as sent ✓');
+    renderOrders();
+  } catch(e) {
+    console.error('WhatsApp sent update error:', e);
+    showToast('Error saving WhatsApp status');
+  }
+};
+
+
 window.changeOrderStatus = async (id,status) => {
-  try { await fbUpdateOrder(id,{status}); showToast('Status updated'); renderOrders(); } catch(e){ showToast('Error'); }
+  const order = adminGetOrderForAction(id);
+
+  const patch = { status };
+
+  if (status === 'confirmed') {
+    patch.confirmationStatus = 'pending';
+    patch.confirmationSentAt = '';
+    window._adminOpenOrderId = id;
+  } else {
+    patch.confirmationStatus = '';
+    patch.confirmationSentAt = '';
+    if (String(window._adminOpenOrderId || '') === String(id)) window._adminOpenOrderId = '';
+  }
+
+  try {
+    await fbUpdateOrder(id,patch);
+    if (order) Object.assign(order, patch);
+
+    showToast(status === 'confirmed' ? 'Order confirmed. Send WhatsApp confirmation.' : 'Status updated');
+    renderOrders();
+
+    if (status === 'confirmed') {
+      const updatedOrder = adminGetOrderForAction(id) || order;
+      setTimeout(() => {
+        if (typeof adminShowWaActionPanel === 'function') adminShowWaActionPanel(updatedOrder);
+      }, 80);
+    }
+  } catch(e) {
+    console.error('Order status update error:', e);
+    showToast('Error updating status');
+  }
 };
 window.deleteOrder = async id => {
   if(!confirm('Delete order?')) return;
