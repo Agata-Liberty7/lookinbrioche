@@ -967,6 +967,8 @@ async function notifyNewOrderInWhatsApp(order) {
 }
 
 
+let submitOrderInProgress = false;
+
 window.submitOrder = async () => {
   const name=document.getElementById('ch-name').value.trim();
   const phone=document.getElementById('ch-phone').value.trim();
@@ -1005,6 +1007,9 @@ window.submitOrder = async () => {
   if(!items.length){showToast(t('cartEmpty'));return;}
 
   const subtotal=items.reduce((s,i)=>s+(i.price*i.qty),0);
+  if (submitOrderInProgress) return;
+  submitOrderInProgress = true;
+
   const user=getCurrentUser();
   const deliveryFee=getDeliveryFee();
   const total=subtotal+deliveryFee;
@@ -1070,7 +1075,9 @@ window.submitOrder = async () => {
     const dFmt=new Date(date+'T00:00:00').toLocaleDateString(detectLang(),{day:'numeric',month:'long'});
     document.getElementById('success-msg').textContent=`${name} — ${formatPrice(total)}, ${dFmt}. ${t('orderSuccessMsg')}`;
     goPage('success');
+    submitOrderInProgress = false;
   } catch(e) {
+    submitOrderInProgress = false;
     console.error('Order save error:', e, order);
     hideLoading();
     showToast(`Error saving order: ${e?.message || e}`);
