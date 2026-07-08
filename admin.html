@@ -887,7 +887,7 @@ function adminOpenConfirmationWhatsApp(o, popupWin=null) {
 
 function adminConfirmWaPhone(o) {
   const c = o?.customer || {};
-  return String(c.phone || c.contactPhone || o.phone || o.contactPhone || '').replace(/[^0-9]/g, '');
+  return String(c.contactPhone || c.phone || o.contactPhone || o.phone || '').replace(/[^0-9]/g, '');
 }
 
 function adminConfirmWaUrl(o) {
@@ -896,27 +896,75 @@ function adminConfirmWaUrl(o) {
 
   const c = o?.customer || {};
   const name = String(c.name || c.contactPerson || o.name || '').trim();
-  const date = String(o?.delivery?.date || o?.deliveryDate || o?.date || '').trim();
 
-  let total = '';
-  const n = Number(o?.total || o?.grandTotal || 0);
-  if (Number.isFinite(n) && n > 0) {
+  const deliveryDateRaw = o?.delivery?.date || o?.deliveryDate || '';
+  let deliveryDate = deliveryDateRaw;
+  if (deliveryDateRaw) {
     try {
-      total = typeof formatPrice === 'function' ? formatPrice(n) : n.toFixed(2) + ' €';
-    } catch(e) {
-      total = n.toFixed(2) + ' €';
-    }
+      deliveryDate = new Date(deliveryDateRaw).toLocaleDateString('es-ES', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+    } catch(e) {}
   }
 
+  const deliveryTime = String(o?.delivery?.time || '').trim();
+  const deliveryMethod = o?.delivery?.method || '';
+  const deliveryAddress = o?.delivery?.address || c.address || '';
+  const payment = o?.payment || '';
+
+  const payLabel = {
+    cash: 'Pago al recibir',
+    bizum: 'Bizum',
+    revolut: 'Revolut',
+    stripe: 'Tarjeta',
+    invoice: 'Factura'
+  }[payment] || payment || '';
+
+  const deliveryMethodLabel = {
+    delivery: 'Entrega',
+    pickup: 'Recogida'
+  }[deliveryMethod] || deliveryMethod || '';
+
+  const items = (o.items || []).map(i => {
+    const itemName = String(i.name || 'Producto').trim();
+    const qty = Number(i.qty || 0);
+    const price = Number(i.price || 0);
+    const lineTotal = qty * price;
+
+    return `- ${itemName}: ${qty} x ${formatPrice(price)} = ${formatPrice(lineTotal)}`;
+  });
+
+  const itemSubtotal = (o.items || []).reduce((sum, i) => {
+    return sum + Number(i.price || 0) * Number(i.qty || 0);
+  }, 0);
+
+  const subtotal = Number.isFinite(Number(o.subtotal)) ? Number(o.subtotal) : itemSubtotal;
+  const deliveryFeeRaw = o.deliveryFee ?? o?.delivery?.fee;
+  const deliveryFee = Number.isFinite(Number(deliveryFeeRaw)) ? Number(deliveryFeeRaw) : 0;
+  const total = Number.isFinite(Number(o.total)) ? Number(o.total) : subtotal + deliveryFee;
+
   const lines = [
-    `Hola${name ? ' ' + name : ''} 👋`,
+    `Hola${name ? ' ' + name : ''},`,
     '',
     'Tu pedido de Look-in Brioche está confirmado.',
-    date ? `Fecha de entrega: ${date}` : '',
-    total ? `Total: ${total}` : '',
     '',
-    'Gracias 💛'
-  ].filter(Boolean);
+    deliveryDate ? `Fecha de entrega: ${deliveryDate}` : '',
+    deliveryTime ? `Hora: ${deliveryTime}` : '',
+    deliveryMethodLabel ? `Tipo: ${deliveryMethodLabel}` : '',
+    deliveryAddress && deliveryMethod !== 'pickup' ? `Dirección: ${deliveryAddress}` : '',
+    payLabel ? `Pago: ${payLabel}` : '',
+    '',
+    'Productos:',
+    ...(items.length ? items : ['- Productos del pedido']),
+    '',
+    `Subtotal: ${formatPrice(subtotal)}`,
+    deliveryFee > 0 ? `Entrega: ${formatPrice(deliveryFee)}` : '',
+    `Total: ${formatPrice(total)}`,
+    '',
+    'Gracias.'
+  ].filter(line => line !== '');
 
   return `https://wa.me/${phone}?text=${encodeURIComponent(lines.join('\n'))}`;
 }
