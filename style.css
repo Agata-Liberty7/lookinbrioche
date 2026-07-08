@@ -884,3 +884,19 @@ body{
     white-space:normal;
   }
 }
+
+
+/* Toast / popup contrast */
+.toast {
+  background:var(--text);
+  color:var(--bgc);
+  border:1px solid var(--bdr);
+  box-shadow:0 10px 30px rgba(0,0,0,.25);
+}
+
+.dark .toast {
+  background:#FFF4EA;
+  color:#1A1208;
+  border-color:#E2C1A8;
+  box-shadow:0 10px 30px rgba(0,0,0,.38);
+}

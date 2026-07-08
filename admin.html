@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#2E6B3E">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<link rel="manifest" href="manifest.json">
 <title>Look-in Brioche — Admin</title>
 <link rel="stylesheet" href="style.css">
 <style>
@@ -22,6 +21,10 @@
   .font-opt{display:inline-block;padding:8px 16px;border:1.5px solid var(--bdr);border-radius:20px;cursor:pointer;font-size:14px;margin:4px;background:var(--bgc);color:var(--text);transition:all .15s}
   .font-opt.active{border-color:#2E6B3E;background:#E5F2E9;color:#2E6B3E;font-weight:700}
 </style>
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png?v=4">
+  <link rel="shortcut icon" type="image/png" href="/icons/favicon-32.png?v=4">
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png?v=4">
+  <link rel="manifest" href="/manifest.json?v=4">
 </head>
 <body>
 
@@ -174,6 +177,12 @@
       <div class="form-group">
         <label>Bizum number</label>
         <input type="tel" id="s-bizum" placeholder="+34 600 000 000">
+        <div style="font-size:12px;color:var(--text3);margin-top:4px">Used for Bizum payment instructions</div>
+      </div>
+      <div class="form-group">
+        <label>WhatsApp number (with country code)</label>
+        <input type="tel" id="s-whatsapp" placeholder="+34 600 000 000">
+        <div style="font-size:12px;color:var(--text3);margin-top:4px">Used for WhatsApp buttons on the public website</div>
       </div>
       <div class="form-group">
         <label>Revolut handle</label>
@@ -205,11 +214,13 @@
       <div class="form-group">
         <label>Admin password</label>
         <input type="password" id="s-adminpass" placeholder="admin123">
+        <div style="font-size:12px;color:var(--text3);margin-top:4px">Leave empty to keep current password. The current password is never shown here.</div>
       </div>
 
-      <button class="btn btn-primary" style="width:100%;padding:13px;font-size:15px;margin-top:8px" onclick="saveSettingsForm()">
+      <button id="save-settings-btn" type="button" class="btn btn-primary" style="width:100%;padding:13px;font-size:15px;margin-top:8px" onclick="saveSettingsForm()">
         💾 Save settings
       </button>
+      <div id="settings-save-status" style="display:none;margin-top:10px;font-size:13px;font-weight:700"></div>
     </div>
   </div>
 
@@ -983,6 +994,12 @@ window.deleteClient = async id => {
   catch(e){hideLoading();showToast('Error');}
 };
 
+function parseAdminNumber(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const n = parseFloat(String(value).replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+}
+
 // ── SETTINGS ──────────────────────────────────────────────────────────────────
 function loadSettingsForm(){
   const s=getSettings();
@@ -991,6 +1008,7 @@ function loadSettingsForm(){
   document.getElementById('s-currency').value=s.currency||'EUR';
   document.getElementById('s-darkmode').value=s.darkMode||'system';
   document.getElementById('s-bizum').value=s.bizumNumber||'';
+  document.getElementById('s-whatsapp').value=s.whatsappNumber||s.bizumNumber||'';
   document.getElementById('s-revolut').value=s.revolutHandle||'';
   document.getElementById('s-invoice').value=s.invoiceDetails||'';
   document.getElementById('s-stripe').value=s.stripeKey||'';
@@ -1020,22 +1038,62 @@ window.uploadLogo = event => {
 };
 
 window.saveSettingsForm = async () => {
+  const btn=document.getElementById('save-settings-btn');
+  const status=document.getElementById('settings-save-status');
+  const originalText=btn?btn.innerHTML:'💾 Save settings';
+
+  const setStatus=(msg, ok=false) => {
+    if(!status) return;
+    status.textContent=msg;
+    status.style.display='block';
+    status.style.color=ok?'var(--green)':'var(--brand)';
+  };
+
   const s=getSettings();
   s.shopName=document.getElementById('s-name').value.trim()||'Panadería';
   s.shopTagline=document.getElementById('s-tagline').value.trim();
   s.currency=document.getElementById('s-currency').value;
   s.darkMode=document.getElementById('s-darkmode').value;
   s.bizumNumber=document.getElementById('s-bizum').value.trim();
+  s.whatsappNumber=document.getElementById('s-whatsapp').value.trim();
   s.revolutHandle=document.getElementById('s-revolut').value.trim();
   s.invoiceDetails=document.getElementById('s-invoice').value.trim();
   s.stripeKey=document.getElementById('s-stripe').value.trim();
   s.defaultDeliveryFee=parseAdminNumber(document.getElementById('s-default-delivery-fee').value)||0;
+
   const newPass=document.getElementById('s-adminpass').value.trim();
   if(newPass)s.adminPassword=newPass;
-  saveSettingsCache(s);
-  try{showLoading('Saving…');await fbSaveSettings(s);hideLoading();showToast('Settings saved ✓');}
-  catch(e){hideLoading();showToast('Saved locally (offline)');}
-  applyTheme();applyFont();
+
+  try {
+    if(btn){btn.disabled=true;btn.innerHTML='Saving…';}
+    setStatus('Saving…', true);
+    showLoading('Saving…');
+
+    await fbSaveSettings(s);
+
+    window._settings=Object.assign({},window._settings||{},s);
+    saveSettingsCache(window._settings);
+    applyTheme();
+    applyFont();
+
+    hideLoading();
+    if(btn) btn.innerHTML='Saved ✓';
+    setStatus('Saved ✓', true);
+    showToast('Settings saved ✓');
+
+    setTimeout(() => {
+      if(btn) btn.innerHTML=originalText;
+      if(status) status.style.display='none';
+    }, 1800);
+  } catch(e) {
+    console.error('Settings save error:', e);
+    hideLoading();
+    if(btn) btn.innerHTML=originalText;
+    setStatus('Error saving settings: '+(e?.message||e), false);
+    showToast('Error saving settings');
+  } finally {
+    if(btn) btn.disabled=false;
+  }
 };
 
 // ── STATS ─────────────────────────────────────────────────────────────────────

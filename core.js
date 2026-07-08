@@ -14,6 +14,7 @@ const DEFAULT_SETTINGS = {
   stripeKey: '',
   adminPassword: 'admin123',
   bizumNumber: '',
+  whatsappNumber: '',
   revolutHandle: '',
   invoiceDetails: '',
   fontFamily: 'PT Sans',

@@ -6,10 +6,12 @@
 <meta name="theme-color" content="#C4551A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
 <title>Look-in Brioche — Заказы</title>
 <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png?v=4">
+  <link rel="shortcut icon" type="image/png" href="/icons/favicon-32.png?v=4">
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png?v=4">
+  <link rel="manifest" href="/manifest.json?v=4">
 </head>
 <body>
 
@@ -94,6 +96,7 @@
     <div class="form-group invoice-details-wrap" id="invoice-details-wrap" style="display:none">
       <label id="lbl-invoice-details">Datos para factura</label>
       <textarea id="ch-invoice-details" rows="3" placeholder="Nombre fiscal, NIF/CIF, dirección fiscal, email"></textarea>
+      <div id="invoice-required-msg" style="display:none;color:var(--brand);font-size:13px;font-weight:700;margin-top:6px">Añade los datos para factura</div>
     </div>
     <div class="order-summary" style="margin:16px 0">
       <div class="sum-row"><span id="lbl-products-sum">Products</span><span id="ch-subtotal"></span></div>
@@ -863,8 +866,24 @@ function updatePayNote(){
   el.style.display=note?'block':'none';
 
   const invoiceBox=document.getElementById('invoice-details-wrap');
+  const invoiceEl=document.getElementById('ch-invoice-details');
+  const invoiceMsg=document.getElementById('invoice-required-msg');
+
   if(invoiceBox) invoiceBox.style.display=selectedPay==='invoice'?'block':'none';
+
+  if(selectedPay==='invoice' && invoiceEl && !invoiceEl.value.trim()){
+    const user=getCurrentUser();
+    if(user?.invoiceDetails) invoiceEl.value=user.invoiceDetails;
+  }
+
+  if(invoiceMsg) invoiceMsg.style.display='none';
 }
+
+
+document.getElementById('ch-invoice-details')?.addEventListener('input', () => {
+  const msg=document.getElementById('invoice-required-msg');
+  if(msg) msg.style.display='none';
+});
 
 window.openDatePicker = () => {
   const input = document.getElementById('ch-date');
@@ -898,6 +917,10 @@ window.submitOrder = async () => {
   if(!phone){showToast(t('fillPhone'));return;}
   if(!date){showToast(t('fillDate'));return;}
   if(selectedPay==='invoice' && !invoiceDetails){
+    const invoiceEl=document.getElementById('ch-invoice-details');
+    const invoiceMsg=document.getElementById('invoice-required-msg');
+    if(invoiceMsg) invoiceMsg.style.display='block';
+    if(invoiceEl) invoiceEl.focus();
     showToast('Añade los datos para factura');
     return;
   }
