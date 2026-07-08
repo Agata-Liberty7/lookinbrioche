@@ -198,7 +198,7 @@
 <script src="i18n.js"></script>
 <script src="core.js"></script>
 <script type="module">
-import { fbGetSettings, fbGetCatalog, fbFindClient, fbAddOrder, fbGetOrders, fbSaveClient } from './firebase.js';
+import { fbGetSettings, fbGetCatalog, fbFindClient, fbAddOrder, fbGetOrders, fbSaveClient, fbUpdateOrder } from './firebase.js';
 
 if (!getCurrentUser()) { window.location.href='login.html'; }
 
@@ -1322,6 +1322,116 @@ function updateMyOrdersLabels() {
   }
 }
 
+
+function shopEscape(v) {
+  return String(v ?? '')
+    .replace(/&/g,'&amp;')
+    .replace(/"/g,'&quot;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;');
+}
+
+function clientCanEditDelivery(o) {
+  return o && !['done','cancelled'].includes(o.status);
+}
+
+function clientDeliveryDateValue(o) {
+  return o?.delivery?.date || o?.deliveryDate || '';
+}
+
+function clientDeliveryTimeValue(o) {
+  return o?.delivery?.time || '';
+}
+
+function decorateMyOrdersDeliveryEditors(list=[]) {
+  const el = document.getElementById('my-orders-list');
+  if (!el) return;
+
+  Array.from(el.children).forEach((card, index) => {
+    const o = list[index];
+    if (!o || !clientCanEditDelivery(o)) return;
+    if (card.querySelector('[data-client-delivery-editor]')) return;
+
+    const wrap = document.createElement('div');
+    wrap.setAttribute('data-client-delivery-editor', '1');
+    wrap.className = 'info-box';
+    wrap.style.cssText = 'margin:10px 0;font-size:13px;line-height:1.5';
+
+    const date = clientDeliveryDateValue(o);
+    const time = clientDeliveryTimeValue(o);
+
+    wrap.innerHTML = `
+      <b>📅 Change delivery date / time</b>
+      <div style="display:grid;grid-template-columns:150px 1fr auto;gap:8px;margin-top:8px;align-items:center">
+        <input type="date" id="client-delivery-date-${String(o.id)}" value="${shopEscape(date)}">
+        <input type="text" id="client-delivery-time-${String(o.id)}" value="${shopEscape(time)}" placeholder="Time / window">
+        <button type="button" class="btn btn-primary btn-sm" onclick="saveClientOrderDelivery('${String(o.id)}')">Save</button>
+      </div>
+      ${o.status === 'confirmed' ? '<div style="font-size:12px;color:var(--text3);margin-top:6px">Changing delivery date will require confirmation again.</div>' : ''}
+    `;
+
+    const body = card.querySelector('.order-body') || card;
+    body.appendChild(wrap);
+  });
+}
+
+window.saveClientOrderDelivery = async id => {
+  const user = getCurrentUser();
+  if (!user || user.guest) return;
+
+  const order = (_orders || []).find(o => String(o.id) === String(id));
+  if (!order) {
+    showToast('Order not found');
+    return;
+  }
+
+  if (!clientCanEditDelivery(order)) {
+    showToast('This order cannot be edited');
+    return;
+  }
+
+  const dateEl = document.getElementById('client-delivery-date-' + id);
+  const timeEl = document.getElementById('client-delivery-time-' + id);
+
+  const date = dateEl ? dateEl.value : '';
+  const time = timeEl ? timeEl.value.trim() : '';
+
+  if (!date) {
+    showToast(t('fillDate'));
+    if (dateEl) dateEl.focus();
+    return;
+  }
+
+  const delivery = Object.assign({}, order.delivery || {}, { date, time });
+  const patch = { delivery };
+
+  if (order.status === 'confirmed') {
+    patch.confirmationStatus = 'pending';
+    patch.confirmationSentAt = '';
+  }
+
+  try {
+    await fbUpdateOrder(id, patch);
+
+    order.delivery = delivery;
+    if (patch.confirmationStatus !== undefined) {
+      order.confirmationStatus = patch.confirmationStatus;
+      order.confirmationSentAt = patch.confirmationSentAt;
+    }
+
+    showToast(order.status === 'confirmed'
+      ? 'Delivery updated. Awaiting confirmation.'
+      : 'Delivery updated ✓'
+    );
+
+    renderMyOrders();
+  } catch(e) {
+    console.error('Client delivery update error:', e);
+    showToast('Error saving delivery');
+  }
+};
+
+
 window.renderMyOrders = async () => {
   const user=getCurrentUser();
   updateMyOrdersLabels();
@@ -1364,6 +1474,7 @@ window.renderMyOrders = async () => {
       </div>
     </div>`;
   }).join('');
+  decorateMyOrdersDeliveryEditors(mine);
 };
 
 window.newOrder = () => { goPage('catalog'); renderCatalog(); };

@@ -648,6 +648,57 @@ window.applyOrderFilters = () => {
   renderOrders();
 };
 
+
+window.saveAdminOrderDelivery = async id => {
+  const order = typeof adminGetOrderForAction === 'function'
+    ? adminGetOrderForAction(id)
+    : ((_orders || []).find(o => String(o.id) === String(id)) || null);
+
+  const dateEl = document.getElementById('admin-delivery-date-' + id);
+  const timeEl = document.getElementById('admin-delivery-time-' + id);
+
+  const date = dateEl ? dateEl.value : '';
+  const time = timeEl ? timeEl.value.trim() : '';
+
+  if (!date) {
+    showToast('Delivery date required');
+    if (dateEl) dateEl.focus();
+    return;
+  }
+
+  const delivery = Object.assign({}, order?.delivery || {}, { date, time });
+  const patch = { delivery };
+
+  if (order?.status === 'confirmed') {
+    patch.confirmationStatus = 'pending';
+    patch.confirmationSentAt = '';
+    window._adminOpenOrderId = id;
+  }
+
+  try {
+    await fbUpdateOrder(id, patch);
+
+    if (order) {
+      order.delivery = delivery;
+      if (patch.confirmationStatus !== undefined) {
+        order.confirmationStatus = patch.confirmationStatus;
+        order.confirmationSentAt = patch.confirmationSentAt;
+      }
+    }
+
+    showToast(order?.status === 'confirmed'
+      ? 'Delivery updated. WhatsApp confirmation pending.'
+      : 'Delivery updated ✓'
+    );
+
+    renderOrders();
+  } catch(e) {
+    console.error('Delivery update error:', e);
+    showToast('Error saving delivery');
+  }
+};
+
+
 async function renderOrders() {
   const filter=document.getElementById('order-filter').value;
   const dateFrom=document.getElementById('order-date-from')?.value || '';
@@ -738,6 +789,17 @@ async function renderOrders() {
           ${deliveryAddress && deliveryMethod!=='pickup'?'<br>📍 '+adminEscape(deliveryAddress):''}
           ${o.delivery?.notes?'<br>📝 '+adminEscape(o.delivery.notes):''}
         </div>
+
+        <div class="info-box" style="margin:10px 0;font-size:13px;line-height:1.5">
+          <b>📅 Delivery date / time</b>
+          <div style="display:grid;grid-template-columns:150px 1fr auto;gap:8px;margin-top:8px;align-items:center">
+            <input type="date" id="admin-delivery-date-${adminEscape(o.id)}" value="${adminEscape(o.delivery?.date || '')}">
+            <input type="text" id="admin-delivery-time-${adminEscape(o.id)}" value="${adminEscape(o.delivery?.time || '')}" placeholder="Time / window">
+            <button type="button" class="btn btn-primary btn-sm" onclick="saveAdminOrderDelivery('${o.id}')">Save delivery</button>
+          </div>
+          ${o.status==='confirmed'?'<div style="font-size:12px;color:var(--text3);margin-top:6px">Changing delivery will require WhatsApp confirmation again.</div>':''}
+        </div>
+
         ${invoiceHtml}
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <select style="width:auto;padding:6px 10px;font-size:13px;border-radius:20px" onchange="changeOrderStatus('${o.id}',this.value)">
