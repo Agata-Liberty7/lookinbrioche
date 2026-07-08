@@ -1432,6 +1432,117 @@ window.saveClientOrderDelivery = async id => {
 };
 
 
+
+function repeatOrderLabel() {
+  const lang = detectLang();
+  return ({ es:'Repetir pedido', ru:'Повторить заказ', en:'Repeat order' }[lang]) || 'Repeat order';
+}
+
+window.repeatOrder = id => {
+  const order = (_orders || []).find(o => String(o.id) === String(id));
+  if (!order) {
+    showToast('Order not found');
+    return;
+  }
+
+  const nextCart = [];
+  let skipped = 0;
+
+  (order.items || []).forEach(item => {
+    const productId = String(item.id || '');
+    const p = _catalog.find(x => String(x.id) === productId);
+
+    if (!p || p.available === false) {
+      skipped++;
+      return;
+    }
+
+    const qty = Number(item.qty || 0);
+    if (!Number.isFinite(qty) || qty <= 0) {
+      skipped++;
+      return;
+    }
+
+    nextCart.push({ id: productId, qty });
+  });
+
+  if (!nextCart.length) {
+    showToast('No available products to repeat');
+    return;
+  }
+
+  saveCart(nextCart);
+  syncCartViews({ cart:true });
+  goPage('cart');
+
+  showToast(skipped
+    ? `${repeatOrderLabel()}: ${nextCart.length} items, ${skipped} skipped`
+    : repeatOrderLabel() + ' ✓'
+  );
+};
+
+
+
+function clientCanDeleteOrder(o) {
+  return o && o.status === 'new';
+}
+
+function clientDeleteOrderLabel() {
+  const lang = detectLang();
+  return ({ es:'Eliminar pedido', ru:'Удалить заказ', en:'Delete order' }[lang]) || 'Delete order';
+}
+
+function clientDeleteOrderConfirmText() {
+  const lang = detectLang();
+  return ({
+    es:'¿Eliminar este pedido? El equipo lo verá como cancelado.',
+    ru:'Удалить этот заказ? Для админа он будет отмечен как отменённый.',
+    en:'Delete this order? The team will see it as cancelled.'
+  }[lang]) || 'Delete this order?';
+}
+
+function clientDeleteOrderDoneText() {
+  const lang = detectLang();
+  return ({ es:'Pedido cancelado', ru:'Заказ отменён', en:'Order cancelled' }[lang]) || 'Order cancelled';
+}
+
+window.deleteClientOrder = async id => {
+  const user = getCurrentUser();
+  if (!user || user.guest) return;
+
+  const order = (_orders || []).find(o => String(o.id) === String(id));
+  if (!order || String(order.customer?.userId || '') !== String(user.id || '')) {
+    showToast('Order not found');
+    return;
+  }
+
+  if (!clientCanDeleteOrder(order)) {
+    showToast(clientDeleteOrderDoneText());
+    return;
+  }
+
+  if (!confirm(clientDeleteOrderConfirmText())) return;
+
+  const patch = {
+    status: 'cancelled',
+    cancelledAt: new Date().toISOString(),
+    cancelledBy: 'client',
+    confirmationStatus: '',
+    confirmationSentAt: ''
+  };
+
+  try {
+    await fbUpdateOrder(id, patch);
+    Object.assign(order, patch);
+    showToast(clientDeleteOrderDoneText());
+    renderMyOrders();
+  } catch(e) {
+    console.error('Client delete order error:', e);
+    showToast('Error deleting order');
+  }
+};
+
+
 window.renderMyOrders = async () => {
   const user=getCurrentUser();
   updateMyOrdersLabels();
@@ -1471,6 +1582,10 @@ window.renderMyOrders = async () => {
         <ul style="font-size:14px;color:var(--text2);margin-bottom:8px;list-style:none;padding:0">
           ${(o.items||[]).map(i=>`<li>• ${i.name} × ${i.qty} = ${formatPrice(i.price*i.qty)}</li>`).join('')}
         </ul>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+          <button type="button" class="btn btn-primary btn-sm" onclick="repeatOrder('${o.id}')">${repeatOrderLabel()}</button>
+          ${clientCanDeleteOrder(o)?`<button type="button" class="btn btn-danger btn-sm" onclick="deleteClientOrder('${o.id}')">${clientDeleteOrderLabel()}</button>`:''}
+        </div>
       </div>
     </div>`;
   }).join('');
