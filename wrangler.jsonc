@@ -2,6 +2,7 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "lookin-brioche",
   "compatibility_date": "2026-07-07",
+  "main": "worker.js",
   "assets": {
     "directory": "./dist"
   }

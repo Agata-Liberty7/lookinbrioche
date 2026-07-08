@@ -945,6 +945,28 @@ function cleanForFirestore(value) {
   return value;
 }
 
+
+async function notifyNewOrderInWhatsApp(order) {
+  try {
+    const res = await fetch('/api/notify-new-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'new_order',
+        createdAt: order?.date || new Date().toISOString()
+      })
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      console.warn('WhatsApp new order notification failed:', res.status, text);
+    }
+  } catch(e) {
+    console.warn('WhatsApp new order notification error:', e);
+  }
+}
+
+
 window.submitOrder = async () => {
   const name=document.getElementById('ch-name').value.trim();
   const phone=document.getElementById('ch-phone').value.trim();
@@ -1019,6 +1041,7 @@ window.submitOrder = async () => {
   try {
     showLoading('Sending order…');
     await fbAddOrder(order);
+    notifyNewOrderInWhatsApp(order);
 
     if (user && !user.guest && user.id) {
       const clientUpdate = cleanForFirestore({
