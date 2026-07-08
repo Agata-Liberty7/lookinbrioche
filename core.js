@@ -72,8 +72,18 @@ function clearCurrentUser()  { DB.del('currentUser'); }
 
 function clientPrice(basePrice) {
   const user = getCurrentUser();
-  if (!user) return basePrice;
-  return Math.round(basePrice * (user.coeff||1) * (1-(user.discount||0)/100) * 100) / 100;
+  const base = Number(basePrice || 0);
+  if (!user || user.guest) return base;
+
+  const coeffRaw = Number(user.coeff);
+  const discountRaw = Number(user.discount);
+
+  const coeff = Number.isFinite(coeffRaw) && coeffRaw > 0 && coeffRaw !== 1 ? coeffRaw : 1;
+  const discount = Number.isFinite(discountRaw) && discountRaw > 0 ? discountRaw : 0;
+
+  if (coeff === 1 && discount === 0) return base;
+
+  return base * coeff * (1 - discount / 100);
 }
 
 function loginAdmin(password) {

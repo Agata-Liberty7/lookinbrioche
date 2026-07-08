@@ -453,7 +453,12 @@ function renderCatalog() {
     const cp=clientPrice(productUnitPrice(p));
     const emoji=categoryEmoji(p.category);
     const pName=productName(p);
-    const discBadge=cp!==p.price?`<span class="discount-badge">−${Math.round((1-cp/p.price)*100)}%</span>`:'';
+    const badgeUser=getCurrentUser();
+    const badgeDiscount=Number(badgeUser?.discount);
+    const badgeCoeff=Number(badgeUser?.coeff);
+    const discBadge=Number.isFinite(badgeDiscount)&&badgeDiscount>0
+      ? `<span class="discount-badge">−${badgeDiscount}%</span>`
+      : (Number.isFinite(badgeCoeff)&&badgeCoeff>0&&badgeCoeff!==1 ? `<span class="discount-badge">×${badgeCoeff}</span>` : '');
     const thumb=p.photo?`<div class="product-thumb"><img src="${p.photo}" alt="${pName}"></div>`:`<div class="product-thumb">${emoji}</div>`;
     const minInfo=productPackMeta(p);
 
@@ -507,6 +512,8 @@ function productDisplayUnitPrice(p) {
 }
 
 function productDisplayPackPrice(p) {
+  const packPrice = Number(p.packPrice || 0);
+  if (Number.isFinite(packPrice) && packPrice > 0) return clientPrice(packPrice);
   return productDisplayUnitPrice(p) * productPackQty(p);
 }
 
@@ -634,7 +641,7 @@ window.chQty = (id,delta) => {
 function updateCartBadge(){document.getElementById('cart-count').textContent=getCart().reduce((s,c)=>s+c.qty,0);}
 function updateSticky(){
   const cart=getCart(); const n=cart.reduce((s,c)=>s+c.qty,0);
-  const total=cart.reduce((s,c)=>{const p=_catalog.find(x=>x.id===c.id);return s+(p?clientPrice(p.price)*c.qty:0);},0);
+  const total=cart.reduce((s,c)=>{const p=_catalog.find(x=>x.id===c.id);return s+(p?clientPrice(productUnitPrice(p))*c.qty:0);},0);
   const el=document.getElementById('sticky-cart');
   if(n>0){el.classList.add('visible');document.getElementById('sticky-label').textContent=t('checkout')+' · '+formatPrice(total);}
   else el.classList.remove('visible');
