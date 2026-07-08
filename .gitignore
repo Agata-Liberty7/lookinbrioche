@@ -4,3 +4,5 @@ dist/
 .DS_Store
 assets/images/product-brioche-rolls 2.jpeg
 assets/images/product-closeup-02 2.jpeg
+
+.wrangler/
