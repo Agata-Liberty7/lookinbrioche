@@ -393,6 +393,15 @@
         <option value="custom">Custom</option>
       </select>
     </div>
+
+    <div class="form-group">
+      <label>Personal product prices</label>
+      <div style="font-size:12px;color:var(--text3);margin-top:4px;margin-bottom:8px">
+        Optional. Set pack price for this client. Empty field = use base price / discount / coefficient.
+      </div>
+      <div id="cm-custom-prices" style="display:flex;flex-direction:column;gap:8px;max-height:260px;overflow:auto;border:1px solid var(--border);border-radius:14px;padding:10px;background:var(--card2)"></div>
+    </div>
+
     <div style="display:flex;gap:10px;margin-top:4px">
       <button class="btn btn-primary" style="flex:1;padding:13px" onclick="saveClient()">Save</button>
       <button class="btn btn-outline" onclick="closeModal('client-modal')">Cancel</button>
@@ -1156,6 +1165,81 @@ window.importCSV = event => {
 };
 
 // ── CLIENTS ───────────────────────────────────────────────────────────────────
+
+function adminAttrEscape(v) {
+  return String(v ?? '')
+    .replace(/&/g,'&amp;')
+    .replace(/"/g,'&quot;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;');
+}
+
+function adminProductDisplayName(p) {
+  return p.name || p.name_es || p.nameEs || p.name_ru || p.nameRu || p.name_en || p.nameEn || p.id || 'Product';
+}
+
+function adminProductPackQty(p) {
+  return Math.max(1, Number(p?.packQty || p?.minQty || 1));
+}
+
+function adminProductBasePackPrice(p) {
+  const packQty = adminProductPackQty(p);
+  const packPrice = Number(p?.packPrice || 0);
+  if (Number.isFinite(packPrice) && packPrice > 0) return packPrice;
+  return Number(p?.price || 0) * packQty;
+}
+
+function adminClientCustomPriceCount(c) {
+  const prices = c?.customPrices || {};
+  return Object.values(prices).filter(v => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0;
+  }).length;
+}
+
+function renderClientCustomPrices(customPrices={}) {
+  const el = document.getElementById('cm-custom-prices');
+  if (!el) return;
+
+  if (!_catalog || !_catalog.length) {
+    el.innerHTML = '<div style="font-size:13px;color:var(--text3)">Catalog is empty or not loaded</div>';
+    return;
+  }
+
+  el.innerHTML = _catalog.map(p => {
+    const id = String(p.id || '');
+    const basePack = adminProductBasePackPrice(p);
+    const packQty = adminProductPackQty(p);
+    const raw = customPrices?.[id];
+    const custom = Number(raw);
+    const value = Number.isFinite(custom) && custom > 0 ? custom : '';
+
+    return `<div style="display:grid;grid-template-columns:1fr 120px;gap:10px;align-items:center">
+      <div>
+        <div style="font-size:13px;font-weight:800">${adminEscape(adminProductDisplayName(p))}</div>
+        <div style="font-size:12px;color:var(--text3)">Base pack: ${formatPrice(basePack)} · pack ${packQty}</div>
+      </div>
+      <input type="number" min="0" step="0.01" data-client-price-product="${adminAttrEscape(id)}" value="${value}" placeholder="${basePack ? basePack.toFixed(2) : '0.00'}">
+    </div>`;
+  }).join('');
+}
+
+function collectClientCustomPrices() {
+  const prices = {};
+  document.querySelectorAll('[data-client-price-product]').forEach(input => {
+    const id = input.dataset.clientPriceProduct;
+    if (!id) return;
+
+    const raw = String(input.value || '').trim().replace(',','.');
+    const n = Number(raw);
+
+    // null intentionally clears old saved price when Firestore merges the client document
+    prices[id] = Number.isFinite(n) && n > 0 ? n : null;
+  });
+  return prices;
+}
+
+
 function renderClients(){
   const el=document.getElementById('clients-list');
   if(!_clients.length){el.innerHTML='<div class="empty-state"><div class="eicon">👥</div><p>No clients</p></div>';return;}
@@ -1163,7 +1247,7 @@ function renderClients(){
     <div class="client-row">
       <div class="client-info">
         <div class="client-name">${c.name||c.login}</div>
-        <div class="client-meta">@${c.login} · ${c.group||'retail'}${c.discount>0?' · −'+c.discount+'%':''}${c.coeff&&c.coeff!==1?' · ×'+c.coeff:''}</div>
+        <div class="client-meta">@${c.login} · ${c.group||'retail'}${c.discount>0?' · −'+c.discount+'%':''}${c.coeff&&c.coeff!==1?' · ×'+c.coeff:''}${adminClientCustomPriceCount(c)>0?' · special prices: '+adminClientCustomPriceCount(c):''}</div>
       </div>
       <div class="row-actions">
         <button class="btn-icon" onclick="openClientModal('${c.id}')">✏️</button>
@@ -1172,9 +1256,14 @@ function renderClients(){
     </div>`).join('');
 }
 
-window.openClientModal = id => {
+window.openClientModal = async id => {
   document.getElementById('cm-title').textContent=id?'Edit client':'Add client';
   document.getElementById('cm-id').value=id||'';
+
+  if (!_catalog || !_catalog.length) {
+    try { _catalog = await fbGetCatalog(); }
+    catch(e) { console.warn('Catalog load for client prices failed:', e); }
+  }
   if(id){
     const c=_clients.find(x=>x.id===id);if(!c)return;
     document.getElementById('cm-login').value=c.login;document.getElementById('cm-pass').value=c.password;
@@ -1191,12 +1280,14 @@ window.openClientModal = id => {
     document.getElementById('cm-lang').value=c.language||'es';
     document.getElementById('cm-notes').value=c.notes||'';
     document.getElementById('cm-coeff').value=c.coeff||1;document.getElementById('cm-group').value=c.group||'retail';
+    renderClientCustomPrices(c.customPrices || {});
   } else {
     ['cm-login','cm-pass','cm-name','cm-phone','cm-contact-person','cm-contact-phone','cm-address','cm-delivery-fee','cm-delivery-notes','cm-invoice','cm-notes'].forEach(i=>document.getElementById(i).value='');
     document.getElementById('cm-delivery-method').value='delivery';
     document.getElementById('cm-payment').value='';
     document.getElementById('cm-lang').value='es';
     document.getElementById('cm-disc').value='0';document.getElementById('cm-coeff').value='1';document.getElementById('cm-group').value='retail';
+    renderClientCustomPrices({});
   }
   document.getElementById('client-modal').classList.add('open');
 };
@@ -1224,7 +1315,8 @@ window.saveClient = async () => {
     notes:document.getElementById('cm-notes').value.trim(),
     discount:parseFloat(document.getElementById('cm-disc').value)||0,
     coeff:parseFloat(document.getElementById('cm-coeff').value)||1,
-    group:document.getElementById('cm-group').value};
+    group:document.getElementById('cm-group').value,
+    customPrices:collectClientCustomPrices()};
   const editId=document.getElementById('cm-id').value;
   try{
     showLoading('');
