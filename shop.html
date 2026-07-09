@@ -25,9 +25,9 @@
       <div style="position:relative">
         <button class="lang-btn" id="lang-toggle" onclick="toggleLangMenu()">🌐</button>
         <div id="lang-menu" style="display:none;position:absolute;right:0;top:38px;background:var(--bgc);border:1px solid var(--bdr);border-radius:var(--rsm);overflow:hidden;z-index:200;box-shadow:var(--sh)">
-          <button onclick="setLang('ru')" style="display:block;width:100%;padding:10px 18px;background:none;border:none;cursor:pointer;font-family:var(--font-body);font-weight:700;font-size:15px;text-align:left;color:var(--text)">🇷🇺 Русский</button>
-          <button onclick="setLang('en')" style="display:block;width:100%;padding:10px 18px;background:none;border:none;cursor:pointer;font-family:var(--font-body);font-weight:700;font-size:15px;text-align:left;color:var(--text)">🇬🇧 English</button>
-          <button onclick="setLang('es')" style="display:block;width:100%;padding:10px 18px;background:none;border:none;cursor:pointer;font-family:var(--font-body);font-weight:700;font-size:15px;text-align:left;color:var(--text)">🇪🇸 Español</button>
+          <button onclick="shopSetLang('ru')" style="display:block;width:100%;padding:10px 18px;background:none;border:none;cursor:pointer;font-family:var(--font-body);font-weight:700;font-size:15px;text-align:left;color:var(--text)">🇷🇺 Русский</button>
+          <button onclick="shopSetLang('en')" style="display:block;width:100%;padding:10px 18px;background:none;border:none;cursor:pointer;font-family:var(--font-body);font-weight:700;font-size:15px;text-align:left;color:var(--text)">🇬🇧 English</button>
+          <button onclick="shopSetLang('es')" style="display:block;width:100%;padding:10px 18px;background:none;border:none;cursor:pointer;font-family:var(--font-body);font-weight:700;font-size:15px;text-align:left;color:var(--text)">🇪🇸 Español</button>
         </div>
       </div>
     </div>
@@ -230,8 +230,7 @@ const CATEGORY_LABELS = {
 };
 
 function clientLang() {
-  const user = getCurrentUser?.();
-  const raw = user?.language || user?.lang || detectLang?.() || 'es';
+  const raw = detectLang?.() || 'es';
   const lang = String(raw).slice(0,2).toLowerCase();
   return ['es','ru','en'].includes(lang) ? lang : 'es';
 }
@@ -368,6 +367,25 @@ function accountSpecialPricesLabel() {
   return ({ es:'Precios especiales', ru:'Спеццены', en:'Special prices' }[lang]) || 'Special prices';
 }
 
+function refreshShopLanguage() {
+  initStrings();
+  renderCatalog();
+  syncCartViews();
+  if (document.getElementById('page-cart')?.classList.contains('active')) renderCart();
+  if (document.getElementById('page-orders')?.classList.contains('active')) renderMyOrders();
+  if (sheetProductId) updateSheetQty();
+}
+
+window.shopSetLang = function(lang) {
+  localStorage.setItem('lang', lang);
+  document.documentElement.lang = lang;
+  const menu = document.getElementById('lang-menu');
+  if (menu) menu.style.display = 'none';
+  refreshShopLanguage();
+};
+
+window.setLang = window.shopSetLang;
+
 
 function initStrings() {
   const s = getSettings();
@@ -375,8 +393,16 @@ function initStrings() {
   document.getElementById('hdr-tag').textContent  = s.shopTagline || t('appTagline');
   document.title = s.shopName || t('appName');
   if (s.logo) {
-    const img = document.createElement('img'); img.src=s.logo; img.className='logo-img';
-    document.getElementById('hdr-logo').replaceWith(img);
+    const logoEl = document.getElementById('hdr-logo');
+    const existingImg = document.querySelector('.logo-img');
+    if (existingImg) {
+      existingImg.src = s.logo;
+    } else if (logoEl) {
+      const img = document.createElement('img');
+      img.src = s.logo;
+      img.className = 'logo-img';
+      logoEl.replaceWith(img);
+    }
   }
   ['btn-back-cart','btn-back-co'].forEach(id=>document.getElementById(id).textContent=t('back'));
   document.getElementById('hdr-cart').textContent      = t('cart');
