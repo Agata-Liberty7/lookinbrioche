@@ -341,7 +341,9 @@
     <div class="form-group"><label>Name / company</label><input type="text" id="cm-name" placeholder="ООО Рога и Копыта"></div>
     <div class="form-grid">
       <div class="form-group"><label>Phone</label><input type="tel" id="cm-phone" placeholder="+34 600 000 000"></div>
-      <div class="form-group">
+      <!-- Preferred language temporarily disabled.
+           The stored client.language value is preserved for compatibility. -->
+      <div class="form-group" style="display:none">
         <label>Preferred language</label>
         <select id="cm-lang">
           <option value="es">ES</option>
