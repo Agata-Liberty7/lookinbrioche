@@ -1,7 +1,37 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="es" class="home-i18n-pending">
 <head>
   <meta charset="UTF-8">
+  <style>
+    html.home-i18n-pending body {
+      visibility: hidden;
+    }
+
+    html.home-i18n-pending::before {
+      content: "🥐";
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: #18120e;
+      font-size: 42px;
+      z-index: 99999;
+    }
+  </style>
+  <script>
+    (() => {
+      const supported = ['es', 'ru', 'en'];
+      const saved = localStorage.getItem('lang');
+      const browser = (navigator.language || 'es').slice(0, 2).toLowerCase();
+      document.documentElement.lang = supported.includes(saved)
+        ? saved
+        : (supported.includes(browser) ? browser : 'es');
+
+      window.setTimeout(() => {
+        document.documentElement.classList.remove('home-i18n-pending');
+      }, 3000);
+    })();
+  </script>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#FAF6F0">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1303,6 +1333,12 @@
         applyHomeLanguage();
       });
     });
+
+    try {
+      applyHomeLanguage();
+    } finally {
+      document.documentElement.classList.remove('home-i18n-pending');
+    }
 
     boot();
   </script>
