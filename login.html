@@ -37,7 +37,7 @@
 <script src="i18n.js"></script>
 <script src="core.js"></script>
 <script type="module">
-import { fbGetSettings, fbFindClient } from './firebase.js';
+import { fbGetSettings, fbFindClient, fbRecordClientLogin } from './firebase.js?v=login-stats1';
 
 applyTheme(); applyFont();
 
@@ -67,7 +67,15 @@ window.doLogin = async () => {
     showLoading('');
     const client = await fbFindClient(login, pass);
     hideLoading();
-    if (client) { setCurrentUser(client); window.location.href='shop.html'; }
+    if (client) {
+      setCurrentUser(client);
+      try {
+        await fbRecordClientLogin(client.id);
+      } catch (statsError) {
+        console.warn('Could not record client login:', statsError);
+      }
+      window.location.href='shop.html';
+    }
     else { err.textContent=t('loginError'); err.style.display='block'; }
   } catch(e) { hideLoading(); err.textContent=t('loginError'); err.style.display='block'; }
 };

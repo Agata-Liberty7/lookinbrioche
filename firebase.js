@@ -2,7 +2,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
 import {
   getFirestore, doc, getDoc, setDoc, collection,
-  getDocs, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy
+  getDocs, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy,
+  increment, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -100,4 +101,12 @@ export async function fbDeleteClient(id) {
 export async function fbFindClient(login, password) {
   const clients = await fbGetClients();
   return clients.find(c => c.login === login && c.password === password) || null;
+}
+
+export async function fbRecordClientLogin(clientId) {
+  if (!clientId) return;
+  await updateDoc(doc(db, 'clients', String(clientId)), {
+    lastLoginAt: serverTimestamp(),
+    loginCount: increment(1)
+  });
 }
