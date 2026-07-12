@@ -1869,7 +1869,7 @@ function renderStatsChart(orders) {
   const max = Math.max(...rows.map(r => r.value), 1);
   const w = 760;
   const h = 280;
-  const padL = 52;
+  const padL = type === 'bar' ? 180 : 52;
   const padR = type === 'bar' ? 110 : 18;
   const padT = 28;
   const padB = 54;
@@ -1924,7 +1924,10 @@ function renderStatsChart(orders) {
           const label = adminEscape(r.label);
           const value = adminEscape(adminStatsChartValueText(r.value, cfg.money));
           return `
-            <text x="0" y="${(y + barH * .72).toFixed(1)}" font-size="11" fill="currentColor" opacity=".85">${label.length > 18 ? label.slice(0,18) + '…' : label}</text>
+            <text x="${padL - 12}" y="${(y + barH * .72).toFixed(1)}" text-anchor="end" font-size="11" fill="currentColor" opacity=".85">
+              ${label.length > 26 ? label.slice(0,26) + '…' : label}
+              <title>${label}</title>
+            </text>
             <rect x="${padL}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${barH.toFixed(1)}" rx="7" fill="currentColor" opacity=".85">
               <title>${label} · ${value}</title>
             </rect>
