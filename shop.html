@@ -468,7 +468,6 @@ function initStrings() {
     let txt = '👤 '+displayName;
     if (userHasCustomPrices(user)) txt += ' · '+accountSpecialPricesLabel();
     else if (user.discount>0) txt += ' · '+t('discount')+': −'+user.discount+'%';
-    else if (user.coeff&&user.coeff!==1) txt += ' · ×'+user.coeff;
     const b=document.getElementById('user-banner'); b.textContent=txt; b.style.display='block';
   }
   buildPaymentOpts();
@@ -504,7 +503,7 @@ function renderCatalog() {
       ? `<span class="discount-badge">${specialPriceLabel()}</span>`
       : (Number.isFinite(badgeDiscount)&&badgeDiscount>0
         ? `<span class="discount-badge">−${badgeDiscount}%</span>`
-        : (Number.isFinite(badgeCoeff)&&badgeCoeff>0&&badgeCoeff!==1 ? `<span class="discount-badge">×${badgeCoeff}</span>` : ''));
+        : '');
     const thumb=p.photo?`<div class="product-thumb"><img src="${p.photo}" alt="${pName}"></div>`:`<div class="product-thumb">${emoji}</div>`;
     const minInfo=productPackMeta(p);
 
