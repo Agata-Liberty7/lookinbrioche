@@ -198,9 +198,21 @@
 <script src="i18n.js"></script>
 <script src="core.js"></script>
 <script type="module">
-import { fbGetSettings, fbGetCatalog, fbFindClient, fbAddOrder, fbGetOrders, fbSaveClient, fbUpdateOrder } from './firebase.js';
+import { fbGetSettings, fbGetCatalog, fbFindClient, fbAddOrder, fbGetOrders, fbSaveClient, fbUpdateOrder, fbRecordClientVisit } from './firebase.js';
 
-if (!getCurrentUser()) { window.location.href='login.html'; }
+const currentUser = getCurrentUser();
+if (!currentUser) {
+  window.location.href='login.html';
+} else {
+  const visitKey = `clientVisitRecorded:${currentUser.id}`;
+  if (!sessionStorage.getItem(visitKey)) {
+    sessionStorage.setItem(visitKey, '1');
+    fbRecordClientVisit(currentUser.id).catch(error => {
+      sessionStorage.removeItem(visitKey);
+      console.warn('Could not record client visit:', error);
+    });
+  }
+}
 
 const EMOJIS = {
   pan:'🍞',

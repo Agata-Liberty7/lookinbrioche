@@ -110,3 +110,11 @@ export async function fbRecordClientLogin(clientId) {
     loginCount: increment(1)
   });
 }
+
+export async function fbRecordClientVisit(clientId) {
+  if (!clientId) return;
+  await updateDoc(doc(db, 'clients', String(clientId)), {
+    lastVisitAt: serverTimestamp(),
+    visitCount: increment(1)
+  });
+}
