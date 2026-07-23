@@ -555,14 +555,11 @@ function shopPackLabel() {
 }
 
 function productPackQty(p) {
-  return Math.max(1, Number(p?.packQty || p?.minQty || 1));
+  return getDefaultVariant(p)?.packQty || 1;
 }
 
 function productUnitPrice(p) {
-  const packQty = productPackQty(p);
-  const packPrice = Number(p?.packPrice || 0);
-  if (packPrice > 0 && packQty > 0) return packPrice / packQty;
-  return Number(p?.price || 0);
+  return getDefaultVariant(p)?.price || 0;
 }
 
 function clientCustomPackPrice(p) {
@@ -668,11 +665,15 @@ window.closeSheet = () => document.getElementById('product-sheet').classList.rem
 window.addFromSheet = () => { addToCart(sheetProductId); updateSheetQty(); };
 
 function productMinQty(p) {
-  return Math.max(1, Number(p?.minQty || 1));
+  return getDefaultVariant(p)?.minQty || 1;
 }
 
 function productStepQty(p) {
-  return Math.max(1, Number(p?.stepQty || p?.minQty || 1));
+  const variant = getDefaultVariant(p);
+  return Math.max(
+    1,
+    Number(variant?.stepQty || p?.stepQty || variant?.packQty || variant?.minQty || 1)
+  );
 }
 
 function nextProductQty(p, currentQty, direction) {

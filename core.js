@@ -62,6 +62,83 @@ function formatPrice(n) {
   return cur.pos === 'before' ? cur.symbol+num : num+'\u00a0'+cur.symbol;
 }
 
+// ─── Product variants compatibility ──────────────────────────────────────────
+function getProductVariants(product) {
+  if (Array.isArray(product?.variants) && product.variants.length) {
+    return product.variants
+      .filter(variant => variant && variant.key)
+      .map(variant => {
+        const packQty = Math.max(1, Number(variant.packQty || 1));
+        const minQty = Math.max(1, Number(variant.minQty || packQty));
+        const packPrice = Number(variant.packPrice || 0);
+        const price = Number(
+          variant.price ||
+          (packPrice > 0 ? packPrice / packQty : 0)
+        );
+
+        return {
+          ...variant,
+          key: String(variant.key),
+          label: String(variant.label || variant.key),
+          weight: String(variant.weight || ''),
+          packQty,
+          minQty,
+          packPrice,
+          price,
+          available: variant.available !== false
+        };
+      });
+  }
+
+  const packQty = Math.max(
+    1,
+    Number(product?.packQty || product?.minQty || 1)
+  );
+  const minQty = Math.max(
+    1,
+    Number(product?.minQty || product?.packQty || 1)
+  );
+  const packPrice = Number(product?.packPrice || 0);
+  const price = Number(
+    product?.price ||
+    (packPrice > 0 ? packPrice / packQty : 0)
+  );
+
+  return [{
+    key: 'standard',
+    label: 'Standard',
+    weight: '',
+    packQty,
+    minQty,
+    packPrice,
+    price,
+    available: product?.available !== false
+  }];
+}
+
+function getDefaultVariant(product) {
+  return getProductVariants(product)[0] || null;
+}
+
+function productPackQty(product) {
+  return getDefaultVariant(product)?.packQty || 1;
+}
+
+function productMinQty(product) {
+  return getDefaultVariant(product)?.minQty || 1;
+}
+
+function productPackPrice(product) {
+  const variant = getDefaultVariant(product);
+  if (!variant) return 0;
+
+  if (Number.isFinite(variant.packPrice) && variant.packPrice > 0) {
+    return variant.packPrice;
+  }
+
+  return Number(variant.price || 0) * Number(variant.packQty || 1);
+}
+
 // ─── Cart (stays local per device) ───────────────────────────────────────────
 function getCart()    { return DB.get('cart') || []; }
 function saveCart(c)  { DB.set('cart', c); }
