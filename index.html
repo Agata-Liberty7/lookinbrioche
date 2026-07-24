@@ -17,6 +17,10 @@
       font-size: 42px;
       z-index: 99999;
     }
+    @media (max-width:420px){
+      .lb-occasions{grid-template-columns:1fr}
+      .lb-occasion{min-height:0}
+    }
   </style>
   <script>
     (() => {
@@ -149,6 +153,34 @@
     .lb-feature p{color:var(--lb-muted);line-height:1.65;margin:0 0 22px;max-width:460px}
     .lb-feature .lb-mini-img{position:absolute;right:-22px;bottom:-32px;width:220px;height:220px;object-fit:cover;border-radius:50%;opacity:.32}
     .lb-feature-content{position:relative;z-index:1}
+    .lb-occasions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+    .lb-occasion{
+      min-height:250px;
+      padding:28px;
+      display:flex;
+      flex-direction:column;
+      align-items:flex-start;
+    }
+    .lb-occasion-icon{
+      width:68px;
+      height:68px;
+      margin-bottom:24px;
+      color:var(--lb-text);
+    }
+    .lb-occasion-icon svg{display:block;width:100%;height:100%}
+    .lb-occasion h3{
+      font-family:var(--font-display,serif);
+      font-size:25px;
+      line-height:1.12;
+      margin:0 0 10px;
+      color:var(--lb-text);
+    }
+    .lb-occasion p{
+      margin:0;
+      color:var(--lb-muted);
+      font-size:14px;
+      line-height:1.6;
+    }
     .lb-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
     .lb-step{padding:24px;background:var(--lb-bg-card);border:1px solid var(--lb-line);border-radius:var(--lb-radius-sm)}
     .lb-step-num{width:36px;height:36px;border-radius:50%;background:rgba(159,91,47,.12);color:var(--lb-brand);display:flex;align-items:center;justify-content:center;font-weight:900;margin-bottom:16px}
@@ -203,6 +235,7 @@
       .lb-hero-photo{max-width:560px;margin:0 auto}
       .lb-grid-4{grid-template-columns:repeat(2,minmax(0,1fr))}
       .lb-product-list,.lb-steps{grid-template-columns:1fr}
+      .lb-occasions{grid-template-columns:repeat(2,minmax(0,1fr))}
       .lb-contact-actions{justify-content:flex-start}
     }
     @media (max-width:640px){
@@ -220,6 +253,11 @@
       .lb-section{padding:48px 0}
       .lb-section-head{display:block}
       .lb-feature{padding:24px;min-height:260px}
+      .lb-occasions{gap:12px}
+      .lb-occasion{min-height:230px;padding:20px}
+      .lb-occasion-icon{width:58px;height:58px;margin-bottom:18px}
+      .lb-occasion h3{font-size:21px}
+      .lb-occasion p{font-size:13px;line-height:1.5}
       .lb-contact{padding:24px;border-radius:26px}
       .lb-footer-inner{display:block}
       .lb-footer-inner div+div{margin-top:10px}
@@ -936,6 +974,145 @@
         </div>
       </section>
 
+      <section class="lb-section" id="catalog">
+        <div class="lb-container">
+          <div class="lb-section-head">
+            <div>
+              <h2 data-home="catalogTitle">Ассортимент</h2>
+              <p class="lb-section-lead" data-home="catalogLead">Пирожки, рогалики, булочки и сезонная выпечка из бриошного теста.</p>
+            </div>
+            <a class="lb-btn lb-btn-ghost" href="login.html" data-home="b2bPrices">B2B-цены после входа</a>
+          </div>
+
+
+          <div class="lb-dynamic" id="dynamic-catalog">
+            <div class="lb-category-tabs" id="dynamic-category-tabs" role="tablist" aria-label="Категории каталога"></div>
+            <div class="lb-product-list" id="dynamic-catalog-list"></div>
+          </div>
+
+        </div>
+      </section>
+
+      <section class="lb-section" aria-labelledby="occasions-title">
+        <div class="lb-container">
+          <div class="lb-section-head">
+            <div>
+              <h2 id="occasions-title" data-home="occasionsTitle">Para cualquier ocasión</h2>
+            </div>
+          </div>
+
+          <div class="lb-occasions">
+            <article class="lb-card lb-occasion" id="events">
+              <div class="lb-occasion-icon" aria-hidden="true">
+                <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                  <path d="M15 9h15l-2 13c-.7 4.8-4.4 8.4-9 8.4S10.7 26.8 10 22L8 9h7"/>
+                  <path d="M19 30.4V47M12 52h14M37 9h15l-2 13c-.7 4.8-4.4 8.4-9 8.4S32.7 26.8 32 22L30 9h7"/>
+                  <path d="M41 30.4V47M34 52h14M12 18h16M34 18h16"/>
+                </svg>
+              </div>
+              <h3 data-home="occasionPartyTitle">Para una fiesta</h3>
+              <p data-home="occasionPartyText">Piezas de brioche rellenas fáciles de compartir con los invitados.</p>
+            </article>
+
+            <article class="lb-card lb-occasion">
+              <div class="lb-occasion-icon" aria-hidden="true">
+                <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                  <path d="M12 52 28 24l12 12-28 16Z"/>
+                  <path d="m23 33 8 8M18 42l5 5M32 14l2-6M43 20l6-4M42 31l8 2M21 20l-3-6"/>
+                  <path d="M42 10c3 2 4 5 2 8M51 25c-3 0-5-2-6-5"/>
+                  <circle cx="51" cy="11" r="2"/>
+                </svg>
+              </div>
+              <h3 data-home="occasionBirthdayTitle">Para un cumpleaños</h3>
+              <p data-home="occasionBirthdayText">Bollería de brioche dulce y salada para celebraciones familiares y cumpleaños.</p>
+            </article>
+
+            <article class="lb-card lb-occasion">
+              <div class="lb-occasion-icon" aria-hidden="true">
+                <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                  <path d="M9 27h27v14a10 10 0 0 1-10 10h-7A10 10 0 0 1 9 41V27Z"/>
+                  <path d="M36 31h4a7 7 0 0 1 0 14h-4"/>
+                  <path d="M15 19c0-4 4-4 4-8M25 19c0-4 4-4 4-8"/>
+                  <circle cx="49" cy="20" r="9"/>
+                  <path d="M49 15v6l4 2"/>
+                </svg>
+              </div>
+              <h3 data-home="occasionCoffeeTitle">Para una pausa para el café</h3>
+              <p data-home="occasionCoffeeText">Cosas ricas ideales para oficinas, reuniones y pausas.</p>
+            </article>
+
+            <article class="lb-card lb-occasion">
+              <div class="lb-occasion-icon" aria-hidden="true">
+                <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                  <path d="m8 30 24-19 24 19"/>
+                  <path d="M14 27v26h36V27"/>
+                  <path d="M32 45s-10-5.7-10-12a5.5 5.5 0 0 1 10-3.2A5.5 5.5 0 0 1 42 33c0 6.3-10 12-10 12Z"/>
+                </svg>
+              </div>
+              <h3 data-home="occasionFamilyTitle">Para la mesa familiar</h3>
+              <p data-home="occasionFamilyText">Recién horneado para comidas y encuentros en familia.</p>
+            </article>
+
+            <article class="lb-card lb-occasion" id="shops">
+              <div class="lb-occasion-icon" aria-hidden="true">
+                <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                  <path d="M10 24h44l-4-13H14l-4 13Z"/>
+                  <path d="M10 24c0 4 3 7 7 7s7-3 7-7c0 4 4 7 8 7s8-3 8-7c0 4 3 7 7 7s7-3 7-7"/>
+                  <path d="M14 30v23h36V30M22 53V39h12v14M40 38h7v8h-7z"/>
+                </svg>
+              </div>
+              <h3 data-home="occasionShopTitle">Para tiendas</h3>
+              <p data-home="occasionShopText">Bollería de brioche artesanal para una vitrina atractiva cada día.</p>
+            </article>
+
+            <article class="lb-card lb-occasion">
+              <div class="lb-occasion-icon" aria-hidden="true">
+                <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                  <path d="M10 24h44l-4-13H14l-4 13Z"/>
+                  <path d="M10 24c0 4 3 7 7 7s7-3 7-7c0 4 4 7 8 7s8-3 8-7c0 4 3 7 7 7s7-3 7-7"/>
+                  <path d="M14 30v23h36V30"/>
+                  <path d="M21 53V39h11v14"/>
+                  <path d="M38 39h8v6a4 4 0 0 1-4 4h0a4 4 0 0 1-4-4v-6Z"/>
+                  <path d="M46 41h2a3 3 0 0 1 0 6h-2"/>
+                  <path d="M40 35c0-2 2-2 2-4M45 35c0-2 2-2 2-4"/>
+                </svg>
+              </div>
+              <h3 data-home="occasionCafeTitle">Para cafeterías</h3>
+              <p data-home="occasionCafeText">Empanadillas y brioche relleno que acompañan perfectamente el café y el té.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="lb-section">
+        <div class="lb-container">
+          <div class="lb-section-head">
+            <div>
+              <h2 data-home="howTitle">Как заказать</h2>
+              <p class="lb-section-lead" data-home="howLead">Выберите выпечку в каталоге и отправьте заявку — мы свяжемся с вами для подтверждения деталей.</p>
+            </div>
+          </div>
+
+          <div class="lb-steps">
+            <article class="lb-step">
+              <div class="lb-step-num">1</div>
+              <h3 data-home="step1Title">Выберите выпечку</h3>
+              <p data-home="step1Text">Посмотрите ассортимент и откройте карточки интересующих позиций.</p>
+            </article>
+            <article class="lb-step">
+              <div class="lb-step-num">2</div>
+              <h3 data-home="step2Title">Оставьте заявку</h3>
+              <p data-home="step2Text">Укажите количество, желаемую дату и контакт для ответа.</p>
+            </article>
+            <article class="lb-step">
+              <div class="lb-step-num">3</div>
+              <h3 data-home="step3Title">Подтвердите заказ</h3>
+              <p data-home="step3Text">Мы уточним наличие, итоговое количество, стоимость и детали получения.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
       <section class="lb-section lb-order-request" id="public-order">
         <div class="lb-container">
           <div class="lb-order-box">
@@ -977,76 +1154,6 @@
               <button class="lb-btn lb-btn-primary" type="submit" data-home="publicFormSubmit">Отправить заявку</button>
               <div class="lb-form-help" data-home="publicFormHelp">Мы свяжемся, чтобы подтвердить наличие, количество и дату. Цены для B2B остаются в личном кабинете.</div>
             </form>
-          </div>
-        </div>
-      </section>
-
-      <section class="lb-section" id="catalog">
-        <div class="lb-container">
-          <div class="lb-section-head">
-            <div>
-              <h2 data-home="catalogTitle">Ассортимент</h2>
-              <p class="lb-section-lead" data-home="catalogLead">Пирожки, рогалики, булочки и сезонная выпечка из бриошного теста.</p>
-            </div>
-            <a class="lb-btn lb-btn-ghost" href="login.html" data-home="b2bPrices">B2B-цены после входа</a>
-          </div>
-
-
-          <div class="lb-dynamic" id="dynamic-catalog">
-            <div class="lb-category-tabs" id="dynamic-category-tabs" role="tablist" aria-label="Категории каталога"></div>
-            <div class="lb-product-list" id="dynamic-catalog-list"></div>
-          </div>
-
-        </div>
-      </section>
-
-      <section class="lb-section">
-        <div class="lb-container lb-split">
-          <article class="lb-card lb-feature" id="shops">
-            <img class="lb-mini-img" src="assets/images/product-closeup-02.jpeg?v=coffee2" alt="">
-            <div class="lb-feature-content">
-              <h3 data-home="shopsTitle">Для магазинов</h3>
-              <p data-home="shopsText">Работаем с розничными партнёрами в Валенсии. В личном кабинете доступны специальные цены, актуальный каталог и быстрые повторные заказы.</p>
-              <a class="lb-btn lb-btn-primary" href="login.html" data-home="clientAccess">Вход для клиентов</a>
-            </div>
-          </article>
-
-          <article class="lb-card lb-feature" id="events">
-            <img class="lb-mini-img" src="assets/images/product-brioche-pies.jpeg?v=events1" alt="">
-            <div class="lb-feature-content">
-              <h3 data-home="eventsTitle">Для мероприятий</h3>
-              <p data-home="eventsText">Пирожки, рогалики и выпечка с начинками для встреч, праздников и небольших событий в Валенсии.</p>
-              <a class="lb-btn lb-btn-ghost lb-wa-link" href="#" target="_blank" rel="noopener" data-home="discussOrder">Обсудить заказ</a>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <section class="lb-section">
-        <div class="lb-container">
-          <div class="lb-section-head">
-            <div>
-              <h2 data-home="howTitle">Как заказать</h2>
-              <p class="lb-section-lead" data-home="howLead">Для гостей — через WhatsApp. Для партнёров — через личный кабинет.</p>
-            </div>
-          </div>
-
-          <div class="lb-steps">
-            <article class="lb-step">
-              <div class="lb-step-num">1</div>
-              <h3 data-home="step1Title">Выберите формат</h3>
-              <p data-home="step1Text">Магазин, мероприятие или индивидуальный заказ.</p>
-            </article>
-            <article class="lb-step">
-              <div class="lb-step-num">2</div>
-              <h3 data-home="step2Title">Уточните ассортимент</h3>
-              <p data-home="step2Text">Напишите нам или войдите в кабинет клиента.</p>
-            </article>
-            <article class="lb-step">
-              <div class="lb-step-num">3</div>
-              <h3 data-home="step3Title">Получите свежую выпечку</h3>
-              <p data-home="step3Text">Согласуем дату, объём и детали заказа.</p>
-            </article>
           </div>
         </div>
       </section>
@@ -1138,15 +1245,28 @@
         cat4Title:'Especiales de temporada', cat4Text:'Sabores especiales y lotes bajo pedido.',
         askAvailability:'Consultar disponibilidad →',
         liveCatalogTitle:'Productos disponibles', liveCatalogLead:'Mostramos productos del catálogo sin precios B2B.',
+        occasionsTitle:'Para cualquier ocasión',
+        occasionPartyTitle:'Para una fiesta',
+        occasionPartyText:'Piezas de brioche rellenas fáciles de compartir con los invitados.',
+        occasionBirthdayTitle:'Para un cumpleaños',
+        occasionBirthdayText:'Bollería de brioche dulce y salada para celebraciones familiares y cumpleaños.',
+        occasionCoffeeTitle:'Para una pausa para el café',
+        occasionCoffeeText:'Cosas ricas ideales para oficinas, reuniones y pausas.',
+        occasionFamilyTitle:'Para la mesa familiar',
+        occasionFamilyText:'Recién horneado para comidas y encuentros en familia.',
+        occasionShopTitle:'Para tiendas',
+        occasionShopText:'Bollería de brioche artesanal para una vitrina atractiva cada día.',
+        occasionCafeTitle:'Para cafeterías',
+        occasionCafeText:'Empanadillas y brioche relleno que acompañan perfectamente el café y el té.',
         shopsTitle:'Para cafeterías y tiendas',
         shopsText:'Productos artesanales para cafeterías, tiendas y puntos de venta, con condiciones especiales para clientes profesionales.',
         eventsTitle:'Para eventos',
         eventsText:'Bocados artesanales de brioche para celebraciones, reuniones y eventos privados en Valencia.',
         discussOrder:'Consultar pedido',
-        howTitle:'Cómo pedir', howLead:'Sin cuenta puedes dejar una solicitud en la web o escribir por WhatsApp. Los socios usan el acceso de clientes.',
-        step1Title:'Elige el formato', step1Text:'Cafetería, tienda, evento o pedido especial.',
-        step2Title:'Consulta el surtido', step2Text:'Escríbenos, deja una solicitud o entra en tu cuenta de cliente.',
-        step3Title:'Recibe brioche fresco', step3Text:'Acordamos fecha, cantidad y detalles del pedido.',
+        howTitle:'Cómo pedir', howLead:'Elige los productos del catálogo y envía una solicitud. Nos pondremos en contacto contigo para confirmar los detalles.',
+        step1Title:'Elige los productos', step1Text:'Consulta el catálogo y abre las fichas de los productos que te interesen.',
+        step2Title:'Envía una solicitud', step2Text:'Indica la cantidad, la fecha deseada y un contacto para responderte.',
+        step3Title:'Confirma el pedido', step3Text:'Confirmaremos la disponibilidad, la cantidad final, el precio y los detalles de entrega.',
         contactTitle:'Hablemos', contactText:'Cuéntanos qué necesitas: surtido para cafetería o tienda, catering para evento o pedido especial.',
         waMessage:'Hola! Me gustaría consultar un pedido de Look-in Brioche.',
         productMessage:'Hola! Me gustaría consultar disponibilidad de: '
@@ -1171,15 +1291,28 @@
         cat4Title:'Сезонные позиции', cat4Text:'Специальные вкусы и партии под заказ.',
         askAvailability:'Уточнить наличие →',
         liveCatalogTitle:'Актуальные позиции', liveCatalogLead:'Показываем позиции из каталога без B2B-цен.',
+        occasionsTitle:'Для любого повода',
+        occasionPartyTitle:'Для вечеринки',
+        occasionPartyText:'Пирожки и рогалики, которыми удобно угощать гостей.',
+        occasionBirthdayTitle:'Для дня рождения',
+        occasionBirthdayText:'Сладкая и солёная выпечка для дней рождения и семейных праздников.',
+        occasionCoffeeTitle:'Для кофе-брейка',
+        occasionCoffeeText:'Что-нибудь вкусное для офиса, деловой встречи или перерыва.',
+        occasionFamilyTitle:'Для семейного стола',
+        occasionFamilyText:'Свежая домашняя выпечка для обеда и встречи с близкими.',
+        occasionShopTitle:'Для магазина',
+        occasionShopText:'Свежая бриошная выпечка для привлекательной ежедневной витрины.',
+        occasionCafeTitle:'Для кофейни',
+        occasionCafeText:'Пирожки и бриошная выпечка, которые отлично сочетаются с кофе и чаем.',
         shopsTitle:'Для кафе и магазинов',
         shopsText:'Свежая выпечка для кафе, магазинов и точек продаж, со специальными условиями для профессиональных клиентов.',
         eventsTitle:'Для мероприятий',
         eventsText:'Домашние пирожки и выпечка для праздников, встреч и частных событий в Валенсии.',
         discussOrder:'Обсудить заказ',
-        howTitle:'Как заказать', howLead:'Без аккаунта можно оставить заявку на сайте или написать в WhatsApp. Партнёры используют личный кабинет.',
-        step1Title:'Выберите формат', step1Text:'Кафе, магазин, мероприятие или частный заказ.',
-        step2Title:'Уточните ассортимент', step2Text:'Напишите нам, оставьте заявку или войдите в кабинет клиента.',
-        step3Title:'Получите свежую выпечку', step3Text:'Согласуем дату, количество и детали заказа.',
+        howTitle:'Как заказать', howLead:'Выберите выпечку в каталоге и отправьте заявку — мы свяжемся с вами для подтверждения деталей.',
+        step1Title:'Выберите выпечку', step1Text:'Посмотрите ассортимент и откройте карточки интересующих позиций.',
+        step2Title:'Оставьте заявку', step2Text:'Укажите количество, желаемую дату и контакт для ответа.',
+        step3Title:'Подтвердите заказ', step3Text:'Мы уточним наличие, итоговое количество, стоимость и детали получения.',
         contactTitle:'Связаться', contactText:'Расскажите, что нужно: ассортимент для кафе или магазина, выпечка для мероприятия или индивидуальный заказ.',
         waMessage:'Здравствуйте! Хочу уточнить заказ Look-in Brioche.',
         productMessage:'Здравствуйте! Хочу уточнить наличие: '
@@ -1204,15 +1337,28 @@
         cat4Title:'Seasonal specials', cat4Text:'Special flavors and custom batches.',
         askAvailability:'Check availability →',
         liveCatalogTitle:'Available products', liveCatalogLead:'Catalog items are shown without B2B prices.',
+        occasionsTitle:'For every occasion',
+        occasionPartyTitle:'For a party',
+        occasionPartyText:'Filled brioche pastries that are easy to share with guests.',
+        occasionBirthdayTitle:'For a birthday',
+        occasionBirthdayText:'Sweet and savoury brioche pastries for birthdays and family celebrations.',
+        occasionCoffeeTitle:'For a coffee break',
+        occasionCoffeeText:'Something delicious for offices, meetings and coffee breaks.',
+        occasionFamilyTitle:'For the family table',
+        occasionFamilyText:'Freshly baked pastries for family meals and time together.',
+        occasionShopTitle:'For shops',
+        occasionShopText:'Artisan brioche pastries for an attractive everyday display.',
+        occasionCafeTitle:'For cafés',
+        occasionCafeText:'Pirozhki and filled brioche that pair perfectly with coffee and tea.',
         shopsTitle:'For cafés and shops',
         shopsText:'Fresh handmade bakery for cafés, shops and points of sale, with special terms for professional clients.',
         eventsTitle:'For events',
         eventsText:'Handmade brioche bites for celebrations, meetings and private events in Valencia.',
         discussOrder:'Discuss an order',
-        howTitle:'How to order', howLead:'Without an account, you can leave a website request or message us on WhatsApp. Partners use client access.',
-        step1Title:'Choose the format', step1Text:'Café, shop, event or custom order.',
-        step2Title:'Check the assortment', step2Text:'Message us, leave a request, or enter your client account.',
-        step3Title:'Receive fresh bakery', step3Text:'We agree the date, quantity and order details.',
+        howTitle:'How to order', howLead:'Choose products from the catalogue and send a request. We will contact you to confirm the details.',
+        step1Title:'Choose the products', step1Text:'Browse the catalogue and open the product cards that interest you.',
+        step2Title:'Send a request', step2Text:'Specify the quantity, preferred date and a contact for our reply.',
+        step3Title:'Confirm the order', step3Text:'We will confirm availability, final quantity, price and delivery details.',
         contactTitle:'Let’s talk', contactText:'Tell us what you need: assortment for a café or shop, event catering, or a custom order.',
         waMessage:'Hello! I would like to ask about a Look-in Brioche order.',
         productMessage:'Hello! I would like to check availability of: '
