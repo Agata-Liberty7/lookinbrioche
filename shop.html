@@ -216,33 +216,6 @@ if (!currentUser) {
   }
 }
 
-const EMOJIS = {
-  pan:'🍞',
-  pirozhki:'🥟',
-  rogaliki:'🥐',
-  buns:'🍞',
-  seasonal:'✨',
-  frozen:'❄️',
-  other:'🍴',
-  Pan:'🍞',
-  Piroski:'🥟',
-  Pirogi:'🥮',
-  Vypechka:'🍞',
-  Sladosti:'🍯',
-  Tartas:'🎂',
-  Other:'🍴'
-};
-
-const CATEGORY_LABELS = {
-  pan:      { es:'Pan brioche',       ru:'Бриошный хлеб',       en:'Brioche bread' },
-  pirozhki: { es:'Empanadillas',      ru:'Пирожки',             en:'Pirozhki' },
-  rogaliki: { es:'Brioche relleno',   ru:'Рогалики',            en:'Filled brioche' },
-  buns:     { es:'Bollería',          ru:'Булочки',             en:'Bakery' },
-  seasonal: { es:'Temporada',         ru:'Сезонные позиции',    en:'Seasonal' },
-  frozen:   { es:'Congelados',        ru:'Заморозка',           en:'Frozen' },
-  other:    { es:'Other',             ru:'Другое',              en:'Other' }
-};
-
 function clientLang() {
   const raw = detectLang?.() || 'es';
   const lang = String(raw).slice(0,2).toLowerCase();
@@ -272,54 +245,37 @@ function productDesc(p) {
 }
 
 function normalizeCatKey(category) {
-  const c = String(category || 'other').trim().toLowerCase();
-
-  const map = {
-    pan: 'pan',
-    bread: 'pan',
-    'беленый хлеб': 'pan',
-
-    piroski: 'pirozhki',
-    piroshki: 'pirozhki',
-    pirozhki: 'pirozhki',
-    pirogi: 'pirozhki',
-    empanadillas: 'pirozhki',
-    'пирожки': 'pirozhki',
-
-    rogaliki: 'rogaliki',
-    croissants: 'rogaliki',
-    'рогалики': 'rogaliki',
-    'brioche relleno': 'rogaliki',
-
-    buns: 'buns',
-    bolleria: 'buns',
-    'bollería': 'buns',
-    'булочки': 'buns',
-
-    seasonal: 'seasonal',
-    temporada: 'seasonal',
-    'сезонные позиции': 'seasonal',
-
-    frozen: 'frozen',
-    congelados: 'frozen',
-    'заморозка': 'frozen',
-
-    other: 'other',
-    другое: 'other'
-  };
-
-  return map[c] || c || 'other';
+  return normalizeProductCategoryKey(category);
 }
 
 function categoryLabel(category) {
-  const key = normalizeCatKey(category);
-  const lang = clientLang();
-  return CATEGORY_LABELS[key]?.[lang] || category || CATEGORY_LABELS.other[lang];
+  return productCategoryLabel(category, clientLang());
 }
 
 function categoryEmoji(category) {
-  const key = normalizeCatKey(category);
-  return EMOJIS[key] || EMOJIS[category] || '🍴';
+  return productCategoryEmoji(category);
+}
+
+function catalogCategoryKeys(catalog) {
+  const used = [
+    ...new Set(
+      catalog.map(product =>
+        normalizeProductCategoryKey(product.category)
+      )
+    )
+  ];
+
+  const configured = getProductCategories()
+    .map(category => category.key)
+    .filter(key => used.includes(key));
+
+  const configuredSet = new Set(configured);
+
+  const legacyOrUnknown = used.filter(
+    key => !configuredSet.has(key)
+  );
+
+  return ['all', ...configured, ...legacyOrUnknown];
 }
 let currentCat = null;
 let selectedPay = 'cash';
@@ -555,7 +511,7 @@ window.selectProductVariant = (id, variantKey, event) => {
 
 function renderCatalog() {
   const catalog = _catalog.filter(p=>p.available!==false);
-  const cats = ['all', ...new Set(catalog.map(p=>normalizeCatKey(p.category)))];
+  const cats = catalogCategoryKeys(catalog);
 
   document.getElementById('cat-tabs').innerHTML = cats.map(c => {
     const label = c === 'all' ? t('all') : `${categoryEmoji(c)} ${categoryLabel(c)}`;

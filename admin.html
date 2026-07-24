@@ -251,6 +251,30 @@
         <textarea id="s-business-hours" rows="3" placeholder="Orders by arrangement · Monday–Friday"></textarea>
       </div>
 
+
+      <div style="font-size:13px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:20px 0 12px">
+        Product categories
+      </div>
+
+      <div class="product-categories-settings">
+        <div class="product-categories-toolbar">
+          <div>
+            <div id="product-categories-count" class="product-categories-count"></div>
+            <div class="product-categories-help">
+              Add, rename, reorder or disable categories. Category names are shown in ES, RU and EN.
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="btn btn-outline btn-sm"
+            onclick="addProductCategory()"
+          >+ Add category</button>
+        </div>
+
+        <div id="product-categories-editor"></div>
+      </div>
+
       <div style="font-size:13px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:20px 0 12px">Delivery</div>
       <div class="form-group">
         <label>Default delivery fee €</label>
@@ -350,15 +374,7 @@
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="form-group">
         <label>Category key</label>
-        <select id="pm-cat">
-          <option value="pirozhki">🥟 pirozhki</option>
-          <option value="rogaliki">🥐 rogaliki</option>
-          <option value="buns">🍞 buns</option>
-          <option value="seasonal">✨ seasonal</option>
-          <option value="frozen">❄️ frozen</option>
-          <option value="pan">🍞 pan</option>
-          <option value="other">🍴 other</option>
-        </select>
+        <select id="pm-cat"></select>
       </div>
       <div class="form-group"><label>Min. order qty</label><input type="number" id="pm-min" placeholder="1" min="0" step="0.5"></div>
     </div>
@@ -472,43 +488,8 @@ let _orders  = [];
 let _clients = [];
 let _unsubOrders = null;
 
-const ADMIN_CATEGORY_LABELS = {
-  pan:      '🍞 Pan brioche / Бриошный хлеб',
-  pirozhki: '🥟 Empanadillas / Пирожки',
-  rogaliki: '🥐 Brioche relleno / Рогалики',
-  buns:     '🍞 Bollería / Булочки',
-  seasonal: '✨ Temporada / Сезонные',
-  frozen:   '❄️ Congelados / Заморозка',
-  other:    '🍴 Other / Другое'
-};
-
 function adminNormalizeCatKey(category) {
-  const c = String(category || 'other').trim().toLowerCase();
-  const map = {
-    pan:'pan',
-    piroski:'pirozhki',
-    piroshki:'pirozhki',
-    pirozhki:'pirozhki',
-    pirogi:'pirozhki',
-    empanadillas:'pirozhki',
-    'пирожки':'pirozhki',
-    rogaliki:'rogaliki',
-    'рогалики':'rogaliki',
-    'brioche relleno':'rogaliki',
-    buns:'buns',
-    bolleria:'buns',
-    'bollería':'buns',
-    'булочки':'buns',
-    seasonal:'seasonal',
-    temporada:'seasonal',
-    'сезонные позиции':'seasonal',
-    frozen:'frozen',
-    congelados:'frozen',
-    'заморозка':'frozen',
-    other:'other',
-    другое:'other'
-  };
-  return map[c] || c || 'other';
+  return normalizeProductCategoryKey(category);
 }
 
 function adminProductName(p) {
@@ -520,8 +501,14 @@ function adminProductDesc(p) {
 }
 
 function adminCategoryLabel(category) {
-  const key = adminNormalizeCatKey(category);
-  return ADMIN_CATEGORY_LABELS[key] || category || ADMIN_CATEGORY_LABELS.other;
+  const item = getProductCategory(category);
+
+  return [
+    item.emoji,
+    item.name_es,
+    '/',
+    item.name_ru
+  ].join(' ');
 }
 
 
@@ -1160,8 +1147,9 @@ window.deleteOrder = async id => {
 
 // ── CATALOG ───────────────────────────────────────────────────────────────────
 function renderCatalog() {
-  const cats=[...new Set(_catalog.map(p=>adminNormalizeCatKey(p.category)))];
-  document.getElementById('pm-cat-list').innerHTML=cats.map(c=>`<option value="${c}">`).join('');
+  refreshProductCategorySelect(
+    document.getElementById('pm-cat')?.value || ''
+  );
   const el=document.getElementById('catalog-list');
   if(!_catalog.length){el.innerHTML='<div class="empty-state"><div class="eicon">🥟</div><p>Catalog is empty</p></div>';return;}
   el.innerHTML=_catalog.map(p=>{
@@ -1219,7 +1207,7 @@ window.openProductModal = id => {
     document.getElementById('pm-pack-price').value=packPrice>0?packPrice:'';
     document.getElementById('pm-price').value=p.price||'';
     document.getElementById('pm-unit').value=p.unit||'sht';
-    document.getElementById('pm-cat').value=adminNormalizeCatKey(p.category);
+    refreshProductCategorySelect(adminNormalizeCatKey(p.category));
     document.getElementById('pm-min').value=p.minQty||packQty||1;
     syncPackPricing();
     document.getElementById('pm-avail').checked=p.available!==false;
@@ -1231,7 +1219,7 @@ window.openProductModal = id => {
     if(p.photo){pmPhotoData=p.photo;document.getElementById('pm-photo-preview').innerHTML=`<img src="${p.photo}" class="photo-preview">`;}
   } else {
     ['pm-name-es','pm-name-ru','pm-name-en','pm-name','pm-pack-qty','pm-pack-price','pm-price','pm-desc-es','pm-desc-ru','pm-desc-en','pm-desc','pm-ing'].forEach(i=>document.getElementById(i).value='');
-    document.getElementById('pm-unit').value='sht';document.getElementById('pm-cat').value='pirozhki';document.getElementById('pm-min').value='';document.getElementById('pm-avail').checked=true;
+    document.getElementById('pm-unit').value='sht';refreshProductCategorySelect(defaultAdminCategoryKey());document.getElementById('pm-min').value='';document.getElementById('pm-avail').checked=true;
   }
   document.getElementById('product-modal').classList.add('open');
 };
@@ -1498,7 +1486,327 @@ function parseAdminNumber(value) {
   return Number.isFinite(n) ? n : null;
 }
 
-// ── SETTINGS ──────────────────────────────────────────────────────────────────
+// ── SETTINGS ─
+function categoryEditorEscape(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function categoryEditorDrafts() {
+  return [
+    ...document.querySelectorAll(
+      '#product-categories-editor .product-category-editor-row'
+    )
+  ].map(row => {
+    const field = name =>
+      row.querySelector(`[data-category-field="${name}"]`);
+
+    return {
+      key: field('key')?.value || '',
+      emoji: field('emoji')?.value || '',
+      name_es: field('name_es')?.value || '',
+      name_ru: field('name_ru')?.value || '',
+      name_en: field('name_en')?.value || '',
+      sortOrder: field('sortOrder')?.value || '',
+      available: field('available')?.checked !== false
+    };
+  });
+}
+
+function renderProductCategoryEditor(categories) {
+  const editor = document.getElementById(
+    'product-categories-editor'
+  );
+
+  const count = document.getElementById(
+    'product-categories-count'
+  );
+
+  if (!editor) return;
+
+  const rows =
+    Array.isArray(categories) && categories.length
+      ? categories
+      : [{
+          key: '',
+          emoji: '🍴',
+          name_es: '',
+          name_ru: '',
+          name_en: '',
+          sortOrder: 10,
+          available: true
+        }];
+
+  const activeCount = rows.filter(
+    category => category.available !== false
+  ).length;
+
+  if (count) {
+    count.textContent =
+      `${rows.length} categories · ${activeCount} active`;
+  }
+
+  editor.innerHTML = rows.map((category, index) => `
+    <div
+      class="product-category-editor-row"
+      data-category-index="${index}"
+    >
+      <div class="product-category-editor-heading">
+        <strong>Category ${index + 1}</strong>
+
+        <button
+          type="button"
+          class="btn-icon"
+          title="Remove category"
+          onclick="removeProductCategory(${index})"
+        >×</button>
+      </div>
+
+      <div class="product-category-editor-grid">
+        <div class="form-group">
+          <label>Key *</label>
+          <input
+            type="text"
+            data-category-field="key"
+            value="${categoryEditorEscape(category.key)}"
+            placeholder="cakes"
+          >
+        </div>
+
+        <div class="form-group">
+          <label>Emoji</label>
+          <input
+            type="text"
+            data-category-field="emoji"
+            value="${categoryEditorEscape(category.emoji)}"
+            placeholder="🍴"
+          >
+        </div>
+
+        <div class="form-group">
+          <label>Order</label>
+          <input
+            type="number"
+            data-category-field="sortOrder"
+            value="${categoryEditorEscape(category.sortOrder)}"
+            step="1"
+          >
+        </div>
+
+        <div class="form-group">
+          <label>Availability</label>
+          <label class="product-category-available">
+            <input
+              type="checkbox"
+              data-category-field="available"
+              ${category.available !== false ? 'checked' : ''}
+            >
+            <span>Active</span>
+          </label>
+        </div>
+
+        <div class="form-group">
+          <label>Nombre ES *</label>
+          <input
+            type="text"
+            data-category-field="name_es"
+            value="${categoryEditorEscape(category.name_es)}"
+          >
+        </div>
+
+        <div class="form-group">
+          <label>Название RU *</label>
+          <input
+            type="text"
+            data-category-field="name_ru"
+            value="${categoryEditorEscape(category.name_ru)}"
+          >
+        </div>
+
+        <div class="form-group">
+          <label>Name EN *</label>
+          <input
+            type="text"
+            data-category-field="name_en"
+            value="${categoryEditorEscape(category.name_en)}"
+          >
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+window.addProductCategory = () => {
+  const categories = categoryEditorDrafts();
+
+  categories.push({
+    key: '',
+    emoji: '🍴',
+    name_es: '',
+    name_ru: '',
+    name_en: '',
+    sortOrder: (categories.length + 1) * 10,
+    available: true
+  });
+
+  renderProductCategoryEditor(categories);
+};
+
+window.removeProductCategory = index => {
+  const categories = categoryEditorDrafts();
+
+  if (categories.length <= 1) {
+    showToast('At least one category is required');
+    return;
+  }
+
+  const category = categories[index];
+  const key = normalizeProductCategoryKey(category?.key);
+
+  const usedByProducts = key && _catalog.some(product =>
+    normalizeProductCategoryKey(product.category) === key
+  );
+
+  if (usedByProducts) {
+    showToast(
+      'This category is used by products. Reassign them first.'
+    );
+    return;
+  }
+
+  categories.splice(index, 1);
+  renderProductCategoryEditor(categories);
+};
+
+function readProductCategoryEditor() {
+  const drafts = categoryEditorDrafts();
+
+  if (!drafts.length) {
+    showToast('Add at least one category');
+    return null;
+  }
+
+  const keys = new Set();
+  const categories = [];
+
+  for (let index = 0; index < drafts.length; index++) {
+    const draft = drafts[index];
+    const rowNumber = index + 1;
+
+    const key = normalizeProductCategoryKey(draft.key);
+    const emoji = String(draft.emoji || '🍴').trim() || '🍴';
+    const name_es = String(draft.name_es || '').trim();
+    const name_ru = String(draft.name_ru || '').trim();
+    const name_en = String(draft.name_en || '').trim();
+
+    const sortOrderRaw = parseAdminNumber(draft.sortOrder);
+    const sortOrder = sortOrderRaw === null
+      ? (index + 1) * 10
+      : sortOrderRaw;
+
+    if (!String(draft.key || '').trim()) {
+      showToast(`Category ${rowNumber}: fill Key`);
+      return null;
+    }
+
+    if (keys.has(key)) {
+      showToast(`Category ${rowNumber}: Key must be unique`);
+      return null;
+    }
+
+    if (!name_es || !name_ru || !name_en) {
+      showToast(
+        `Category ${rowNumber}: fill ES, RU and EN names`
+      );
+      return null;
+    }
+
+    keys.add(key);
+
+    categories.push({
+      key,
+      emoji,
+      name_es,
+      name_ru,
+      name_en,
+      available: draft.available !== false,
+      sortOrder
+    });
+  }
+
+  return categories.sort((a, b) =>
+    Number(a.sortOrder) - Number(b.sortOrder)
+  );
+}
+
+function defaultAdminCategoryKey() {
+  return (
+    getProductCategories().find(
+      category => category.available !== false
+    )?.key ||
+    getProductCategories({
+      includeUnavailable: true
+    })[0]?.key ||
+    'other'
+  );
+}
+
+function refreshProductCategorySelect(selectedKey = '') {
+  const select = document.getElementById('pm-cat');
+  if (!select) return;
+
+  const current = normalizeProductCategoryKey(
+    selectedKey || select.value || defaultAdminCategoryKey()
+  );
+
+  const categories = getProductCategories({
+    includeUnavailable: true
+  });
+
+  const knownKeys = new Set(
+    categories.map(category => category.key)
+  );
+
+  const rows = categories.map(category => ({
+    ...category,
+    temporary: false
+  }));
+
+  if (current && !knownKeys.has(current)) {
+    const fallback = getProductCategory(current);
+    rows.push({
+      ...fallback,
+      temporary: true
+    });
+  }
+
+  select.innerHTML = rows.map(category => {
+    const disabledLabel =
+      category.available === false ? ' · disabled' : '';
+
+    return `
+      <option value="${categoryEditorEscape(category.key)}">
+        ${categoryEditorEscape(category.emoji)}
+        ${categoryEditorEscape(category.name_es)}
+        / ${categoryEditorEscape(category.name_ru)}
+        / ${categoryEditorEscape(category.name_en)}
+        ${disabledLabel}
+      </option>
+    `;
+  }).join('');
+
+  select.value = current;
+
+  if (!select.value) {
+    select.value = defaultAdminCategoryKey();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
 function loadSettingsForm(){
   const s=getSettings();
   document.getElementById('s-name').value=s.shopName||'';
@@ -1521,6 +1829,10 @@ function loadSettingsForm(){
   document.getElementById('s-business-hours').value=s.businessHours||'';
   document.getElementById('s-default-delivery-fee').value=s.defaultDeliveryFee??'';
   document.getElementById('s-adminpass').value='';
+  renderProductCategoryEditor(
+    getProductCategories({ includeUnavailable: true })
+  );
+  refreshProductCategorySelect();
   if(s.logo){document.getElementById('logo-preview-wrap').innerHTML=`<img src="${s.logo}" class="photo-preview" style="width:100px;height:100px"><br><div style="font-size:12px;color:var(--text3);margin-top:6px">Click to replace</div>`;}
   applyTheme();applyFont();
 }
@@ -1556,7 +1868,11 @@ window.saveSettingsForm = async () => {
     status.style.color=ok?'var(--green)':'var(--brand)';
   };
 
+  const categories = readProductCategoryEditor();
+  if (!categories) return;
+
   const s=getSettings();
+  s.productCategories=categories;
   s.shopName=document.getElementById('s-name').value.trim()||'Panadería';
   s.shopTagline=document.getElementById('s-tagline').value.trim();
   s.currency=document.getElementById('s-currency').value;
@@ -1591,6 +1907,9 @@ window.saveSettingsForm = async () => {
     saveSettingsCache(window._settings);
     applyTheme();
     applyFont();
+    renderProductCategoryEditor(s.productCategories);
+    refreshProductCategorySelect();
+    renderCatalog();
 
     hideLoading();
     if(btn) btn.innerHTML='Saved ✓';

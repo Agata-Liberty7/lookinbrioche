@@ -6,6 +6,72 @@ const DB = {
 };
 
 // ─── Default settings (used as fallback before Firebase loads) ───────────────
+const DEFAULT_PRODUCT_CATEGORIES = [
+  {
+    key: 'pan',
+    emoji: '🍞',
+    name_es: 'Pan brioche',
+    name_ru: 'Бриошный хлеб',
+    name_en: 'Brioche bread',
+    available: true,
+    sortOrder: 10
+  },
+  {
+    key: 'pirozhki',
+    emoji: '🥟',
+    name_es: 'Empanadillas',
+    name_ru: 'Пирожки',
+    name_en: 'Pirozhki',
+    available: true,
+    sortOrder: 20
+  },
+  {
+    key: 'rogaliki',
+    emoji: '🥐',
+    name_es: 'Brioche relleno',
+    name_ru: 'Рогалики',
+    name_en: 'Filled brioche',
+    available: true,
+    sortOrder: 30
+  },
+  {
+    key: 'buns',
+    emoji: '🍞',
+    name_es: 'Bollería',
+    name_ru: 'Булочки',
+    name_en: 'Bakery',
+    available: true,
+    sortOrder: 40
+  },
+  {
+    key: 'seasonal',
+    emoji: '✨',
+    name_es: 'Temporada',
+    name_ru: 'Сезонные позиции',
+    name_en: 'Seasonal',
+    available: true,
+    sortOrder: 50
+  },
+  {
+    key: 'frozen',
+    emoji: '❄️',
+    name_es: 'Congelados',
+    name_ru: 'Заморозка',
+    name_en: 'Frozen',
+    available: true,
+    sortOrder: 60
+  },
+  {
+    key: 'other',
+    emoji: '🍴',
+    name_es: 'Other',
+    name_ru: 'Другое',
+    name_en: 'Other',
+    available: true,
+    sortOrder: 70
+  }
+];
+
 const DEFAULT_SETTINGS = {
   shopName: 'Look-in Brioche',
   shopTagline: 'Pan y Empanadillas Artesanos · Valencia',
@@ -19,6 +85,7 @@ const DEFAULT_SETTINGS = {
   invoiceDetails: '',
   fontFamily: 'PT Sans',
   darkMode: 'system',
+  productCategories: DEFAULT_PRODUCT_CATEGORIES.map(category => ({ ...category })),
 };
 
 // In-memory cache (populated from Firebase on load)
@@ -32,6 +99,166 @@ function getSettings() {
 function saveSettingsCache(s) {
   window._settings = s;
   DB.set('settings_cache', s); // local cache for offline
+}
+
+
+const LEGACY_PRODUCT_CATEGORY_KEYS = {
+  pan: 'pan',
+  bread: 'pan',
+  'беленый хлеб': 'pan',
+  'бриошный хлеб': 'pan',
+
+  piroski: 'pirozhki',
+  piroshki: 'pirozhki',
+  pirozhki: 'pirozhki',
+  pirogi: 'pirozhki',
+  empanadillas: 'pirozhki',
+  'пирожки': 'pirozhki',
+
+  rogaliki: 'rogaliki',
+  croissants: 'rogaliki',
+  'рогалики': 'rogaliki',
+  'brioche relleno': 'rogaliki',
+
+  buns: 'buns',
+  bolleria: 'buns',
+  'bollería': 'buns',
+  'булочки': 'buns',
+
+  seasonal: 'seasonal',
+  temporada: 'seasonal',
+  'сезонные позиции': 'seasonal',
+
+  frozen: 'frozen',
+  congelados: 'frozen',
+  'заморозка': 'frozen',
+
+  other: 'other',
+  другое: 'other'
+};
+
+function productCategoryKey(value) {
+  const raw = String(value || '').trim();
+  const lower = raw.toLowerCase();
+
+  if (LEGACY_PRODUCT_CATEGORY_KEYS[lower]) {
+    return LEGACY_PRODUCT_CATEGORY_KEYS[lower];
+  }
+
+  const slug = lower
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+  return slug || 'other';
+}
+
+function normalizeProductCategoryKey(value) {
+  return productCategoryKey(value);
+}
+
+function normalizeProductCategory(category, index = 0) {
+  const key = productCategoryKey(
+    category?.key || category?.name_es || `category-${index + 1}`
+  );
+
+  const sortOrderRaw = Number(category?.sortOrder);
+
+  return {
+    key,
+    emoji: String(category?.emoji || '🍴').trim() || '🍴',
+    name_es: String(
+      category?.name_es ||
+      category?.label_es ||
+      category?.label ||
+      key
+    ).trim(),
+    name_ru: String(
+      category?.name_ru ||
+      category?.label_ru ||
+      category?.name_es ||
+      category?.label ||
+      key
+    ).trim(),
+    name_en: String(
+      category?.name_en ||
+      category?.label_en ||
+      category?.name_es ||
+      category?.label ||
+      key
+    ).trim(),
+    available: category?.available !== false,
+    sortOrder: Number.isFinite(sortOrderRaw)
+      ? sortOrderRaw
+      : (index + 1) * 10
+  };
+}
+
+function getProductCategories(options = {}) {
+  const settings = getSettings();
+
+  const source =
+    Array.isArray(settings?.productCategories) &&
+    settings.productCategories.length
+      ? settings.productCategories
+      : DEFAULT_PRODUCT_CATEGORIES;
+
+  const seen = new Set();
+
+  const categories = source
+    .map(normalizeProductCategory)
+    .filter(category => {
+      if (!category.key || seen.has(category.key)) return false;
+      seen.add(category.key);
+      return true;
+    })
+    .sort((a, b) => {
+      const byOrder = Number(a.sortOrder) - Number(b.sortOrder);
+      if (byOrder) return byOrder;
+      return a.key.localeCompare(b.key);
+    });
+
+  return options.includeUnavailable
+    ? categories
+    : categories.filter(category => category.available !== false);
+}
+
+function getProductCategory(value) {
+  const key = productCategoryKey(value);
+
+  const category = getProductCategories({
+    includeUnavailable: true
+  }).find(item => item.key === key);
+
+  if (category) return category;
+
+  return {
+    key,
+    emoji: '🍴',
+    name_es: String(value || key),
+    name_ru: String(value || key),
+    name_en: String(value || key),
+    available: true,
+    sortOrder: 9999
+  };
+}
+
+function productCategoryLabel(value, language = 'es') {
+  const category = getProductCategory(value);
+  const lang = String(language || 'es').slice(0, 2).toLowerCase();
+
+  return (
+    category[`name_${lang}`] ||
+    category.name_es ||
+    category.name_en ||
+    category.name_ru ||
+    category.key
+  );
+}
+
+function productCategoryEmoji(value) {
+  return getProductCategory(value).emoji || '🍴';
 }
 
 // ─── Theme & Font ─────────────────────────────────────────────────────────────
