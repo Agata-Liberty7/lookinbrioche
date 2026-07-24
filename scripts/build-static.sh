@@ -4,7 +4,7 @@ set -euo pipefail
 rm -rf dist
 mkdir -p dist
 
-cp index.html login.html shop.html admin.html core.js firebase.js i18n.js analytics.js style.css sw.js manifest.json robots.txt sitemap.xml dist/
+cp index.html login.html shop.html admin.html core.js firebase.js i18n.js analytics.js install-prompt.js style.css sw.js manifest.json robots.txt sitemap.xml dist/
 
 if [ -d icons ]; then
   cp -R icons dist/icons
