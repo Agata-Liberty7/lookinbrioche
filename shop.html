@@ -174,7 +174,14 @@
     <div id="sheet-img-wrap"></div>
     <div class="sheet-body">
       <div class="sheet-name" id="sheet-name"></div>
-      <div class="sheet-price" id="sheet-price"></div>
+      <div class="sheet-price-row">
+        <div class="sheet-price" id="sheet-price"></div>
+        <span
+          class="discount-badge"
+          id="sheet-price-badge"
+          style="display:none"
+        ></span>
+      </div>
       <div class="variant-switch sheet-variant-switch" id="sheet-variants"></div>
       <div class="sheet-desc" id="sheet-desc"></div>
       <div class="ingredients-block" id="sheet-ing-block" style="display:none">
@@ -202,7 +209,7 @@
 <script type="module">
 import { fbGetSettings, fbGetCatalog, fbFindClient, fbAddOrder, fbGetOrders, fbSaveClient, fbUpdateOrder, fbRecordClientVisit } from './firebase.js';
 
-const currentUser = getCurrentUser();
+let currentUser = getCurrentUser();
 if (!currentUser) {
   window.location.href='login.html';
 } else {
@@ -284,6 +291,47 @@ let sheetProductId = null;
 let _catalog = [];
 let _orders = [];
 
+async function refreshCurrentClientSession() {
+  const sessionUser = getCurrentUser();
+
+  if (
+    !sessionUser ||
+    sessionUser.guest ||
+    !sessionUser.login ||
+    !sessionUser.password
+  ) {
+    return sessionUser;
+  }
+
+  try {
+    const freshClient = await fbFindClient(
+      sessionUser.login,
+      sessionUser.password
+    );
+
+    if (!freshClient) {
+      return sessionUser;
+    }
+
+    const refreshedUser = {
+      ...sessionUser,
+      ...freshClient
+    };
+
+    setCurrentUser(refreshedUser);
+    currentUser = refreshedUser;
+
+    return refreshedUser;
+  } catch (error) {
+    console.warn(
+      'Could not refresh current client session:',
+      error
+    );
+
+    return sessionUser;
+  }
+}
+
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 async function boot() {
   showLoading('Loading…');
@@ -294,6 +342,9 @@ async function boot() {
     const s = await fbGetSettings();
     if (s) { window._settings = Object.assign({}, window._settings||{}, s); saveSettingsCache(window._settings); }
     applyTheme(); applyFont();
+
+    // Refresh client data so prices and commercial terms stay current.
+    await refreshCurrentClientSession();
 
     // Load catalog
     _catalog = await fbGetCatalog();
@@ -645,27 +696,59 @@ function productUnitPrice(p, variantKey) {
   return getVariantByKey(p, variantKey)?.price || 0;
 }
 
+function variantCustomPriceStorageKey(productId, variantKey) {
+  return (
+    String(productId || '') +
+    '::' +
+    encodeURIComponent(String(variantKey || 'standard'))
+  );
+}
+
 function clientCustomPackPrice(p, variantKey) {
   const user = getCurrentUser();
-  if (!user || user.guest || !p?.id) return null;
 
-  const selectedVariant = getVariantByKey(p, variantKey);
-  const defaultVariant = getDefaultVariant(p);
-
-  // Existing customPrices[productId] belongs to the historical/default variant.
-  // Variant-specific personal prices will be implemented separately.
-  if (
-    !selectedVariant ||
-    !defaultVariant ||
-    String(selectedVariant.key) !== String(defaultVariant.key)
-  ) {
+  if (!user || user.guest || !p?.id) {
     return null;
   }
 
-  const prices = user.customPrices || {};
-  const n = Number(prices[String(p.id)]);
+  const selectedVariant = getVariantByKey(p, variantKey);
+  if (!selectedVariant) return null;
 
-  return Number.isFinite(n) && n > 0 ? n : null;
+  const prices = user.customPrices || {};
+
+  const specificKey = variantCustomPriceStorageKey(
+    p.id,
+    selectedVariant.key
+  );
+
+  const specificPrice = Number(prices[specificKey]);
+
+  if (
+    Number.isFinite(specificPrice) &&
+    specificPrice > 0
+  ) {
+    return specificPrice;
+  }
+
+  const defaultVariant = getDefaultVariant(p);
+
+  // Historical compatibility:
+  // customPrices[productId] belongs to the default variant.
+  if (
+    defaultVariant &&
+    String(selectedVariant.key) === String(defaultVariant.key)
+  ) {
+    const legacyPrice = Number(prices[String(p.id)]);
+
+    if (
+      Number.isFinite(legacyPrice) &&
+      legacyPrice > 0
+    ) {
+      return legacyPrice;
+    }
+  }
+
+  return null;
 }
 
 function hasClientCustomPrice(p, variantKey) {
@@ -679,6 +762,43 @@ function specialPriceLabel() {
     ru:'Спеццена',
     en:'Special price'
   }[lang]) || 'Special price';
+}
+
+function productPriceBadgeText(p, variantKey) {
+  if (hasClientCustomPrice(p, variantKey)) {
+    return specialPriceLabel();
+  }
+
+  const user = getCurrentUser();
+  const discount = Number(user?.discount);
+
+  return Number.isFinite(discount) && discount > 0
+    ? `−${discount}%`
+    : '';
+}
+
+function updateSheetPriceDisplay(p) {
+  const priceEl = document.getElementById('sheet-price');
+  const badgeEl = document.getElementById('sheet-price-badge');
+
+  if (priceEl) {
+    priceEl.innerHTML = productPriceLine(
+      p,
+      sheetVariantKey
+    );
+  }
+
+  if (!badgeEl) return;
+
+  const badgeText = productPriceBadgeText(
+    p,
+    sheetVariantKey
+  );
+
+  badgeEl.textContent = badgeText;
+  badgeEl.style.display = badgeText
+    ? 'inline-block'
+    : 'none';
 }
 
 function productDisplayUnitPrice(p, variantKey) {
@@ -787,8 +907,7 @@ window.selectSheetVariant = (variantKey, event) => {
   sheetVariantKey = String(variant.key);
   selectedVariantKeys[String(p.id)] = sheetVariantKey;
 
-  document.getElementById('sheet-price').innerHTML =
-    productPriceLine(p, sheetVariantKey);
+  updateSheetPriceDisplay(p);
 
   renderSheetVariants(p);
   updateSheetQty();
@@ -816,8 +935,7 @@ window.openSheet = (id, variantKey = null) => {
     : `<div class="sheet-img">${emoji}</div>`;
 
   document.getElementById('sheet-name').textContent = productName(p);
-  document.getElementById('sheet-price').innerHTML =
-    productPriceLine(p, sheetVariantKey);
+  updateSheetPriceDisplay(p);
   document.getElementById('sheet-desc').textContent = productDesc(p);
 
   const ing = p.ingredients || '';

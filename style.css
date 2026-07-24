@@ -1066,3 +1066,196 @@ body{
     grid-template-columns:1fr;
   }
 }
+
+/* Admin product variants */
+.product-variants-section{
+  margin:4px 0 18px;
+}
+
+.product-variants-toolbar{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+  margin-bottom:12px;
+}
+
+.product-variants-title{
+  font-size:13px;
+  font-weight:700;
+  color:var(--text3);
+  text-transform:uppercase;
+  letter-spacing:.5px;
+}
+
+.product-variants-count{
+  margin-top:5px;
+  font-size:14px;
+  font-weight:700;
+  color:var(--text);
+}
+
+.product-variants-help{
+  max-width:580px;
+  margin-top:4px;
+  font-size:12px;
+  line-height:1.45;
+  color:var(--text3);
+}
+
+#product-variants-editor{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+.product-variant-editor-row{
+  padding:14px;
+  border:1px solid var(--bdr);
+  border-radius:var(--r2);
+  background:var(--bg2);
+}
+
+.product-variant-editor-heading{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+
+.product-variant-unit-price{
+  margin-top:3px;
+  font-size:12px;
+  color:var(--text3);
+}
+
+.product-variant-actions{
+  display:flex;
+  align-items:center;
+  gap:5px;
+}
+
+.product-variant-actions .btn-icon:disabled{
+  opacity:.3;
+  cursor:default;
+}
+
+.product-variant-editor-grid{
+  display:grid;
+  grid-template-columns:
+    minmax(110px,.8fr)
+    minmax(130px,1fr)
+    minmax(100px,.7fr)
+    minmax(90px,.65fr);
+  gap:10px;
+}
+
+.product-variant-editor-grid .form-group{
+  margin-bottom:0;
+}
+
+.product-variant-available{
+  min-height:42px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin:0;
+  color:var(--text2);
+}
+
+.product-variant-available input{
+  width:auto;
+  flex:0 0 auto;
+  padding:0;
+}
+
+.product-variant-available span{
+  font-size:13px;
+  font-weight:500;
+}
+
+@media(max-width:760px){
+  .product-variants-toolbar{
+    flex-direction:column;
+  }
+
+  .product-variants-toolbar .btn{
+    width:100%;
+  }
+
+  .product-variant-editor-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+
+@media(max-width:440px){
+  .product-variant-editor-grid{
+    grid-template-columns:1fr;
+  }
+}
+
+/* Client prices by product variant */
+.client-product-prices{
+  padding:10px;
+  border:1px solid var(--bdr2);
+  border-radius:12px;
+  background:var(--bgc);
+}
+
+.client-product-prices + .client-product-prices{
+  margin-top:8px;
+}
+
+.client-product-prices-name{
+  margin-bottom:8px;
+  font-size:13px;
+  font-weight:800;
+  color:var(--text);
+}
+
+.client-variant-price-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 120px;
+  align-items:center;
+  gap:10px;
+  padding:7px 0;
+}
+
+.client-variant-price-row + .client-variant-price-row{
+  border-top:1px solid var(--bdr2);
+}
+
+.client-variant-price-info{
+  min-width:0;
+}
+
+.client-variant-price-caption{
+  font-size:12px;
+  font-weight:700;
+  color:var(--text2);
+}
+
+.client-variant-base-price{
+  margin-top:2px;
+  font-size:11px;
+  color:var(--text3);
+}
+
+.sheet-price-row{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-bottom:12px;
+}
+
+.sheet-price-row .sheet-price{
+  margin-bottom:0;
+}
+
+@media(max-width:440px){
+  .client-variant-price-row{
+    grid-template-columns:minmax(0,1fr) 100px;
+  }
+}

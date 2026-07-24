@@ -361,24 +361,41 @@
     <div class="form-group"><label>Name EN</label><input type="text" id="pm-name-en" placeholder="Brioche pirozhki with egg and spring onion"></div>
     <input type="hidden" id="pm-name">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div class="form-group"><label>Pack qty</label><input type="number" id="pm-pack-qty" placeholder="6" min="1" step="1" oninput="syncPackPricing()"></div>
-      <div class="form-group"><label>Pack price €</label><input type="number" id="pm-pack-price" placeholder="9.50" min="0" step="0.01" oninput="syncPackPricing()"></div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div class="form-group"><label>Unit price €</label><input type="number" id="pm-price" placeholder="auto" step="0.0001"></div>
       <div class="form-group">
         <label>Unit</label>
-        <select id="pm-unit"><option value="sht">шт / pcs / ud</option><option value="kg">кг / kg</option><option value="l">л / l</option><option value="up">уп / pack / paq</option></select>
+        <select id="pm-unit">
+          <option value="sht">шт / pcs / ud</option>
+          <option value="kg">кг / kg</option>
+          <option value="l">л / l</option>
+          <option value="up">уп / pack / paq</option>
+        </select>
       </div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+
       <div class="form-group">
-        <label>Category key</label>
+        <label>Category</label>
         <select id="pm-cat"></select>
       </div>
-      <div class="form-group"><label>Min. order qty</label><input type="number" id="pm-min" placeholder="1" min="0" step="0.5"></div>
     </div>
-    <datalist id="pm-cat-list"></datalist>
+
+    <div class="product-variants-section">
+      <div class="product-variants-toolbar">
+        <div>
+          <div class="product-variants-title">Product variants</div>
+          <div id="product-variants-count" class="product-variants-count"></div>
+          <div class="product-variants-help">
+            The first variant is the default. Its values are also saved in the legacy product fields for compatibility.
+          </div>
+        </div>
+
+        <button
+          type="button"
+          class="btn btn-outline btn-sm"
+          onclick="addProductVariant()"
+        >+ Add variant</button>
+      </div>
+
+      <div id="product-variants-editor"></div>
+    </div>
     <div class="form-group"><label>Descripción ES</label><textarea id="pm-desc-es" rows="2" placeholder="Descripción corta para clientes..."></textarea></div>
     <div class="form-group"><label>Описание RU</label><textarea id="pm-desc-ru" rows="2" placeholder="Короткое описание для клиентов..."></textarea></div>
     <div class="form-group"><label>Description EN</label><textarea id="pm-desc-en" rows="2" placeholder="Short description for clients..."></textarea></div>
@@ -1169,58 +1186,463 @@ function renderCatalog() {
 }
 
 
-window.syncPackPricing = () => {
-  const packQtyEl = document.getElementById('pm-pack-qty');
-  const packPriceEl = document.getElementById('pm-pack-price');
-  const priceEl = document.getElementById('pm-price');
-  const minEl = document.getElementById('pm-min');
+function variantEditorEscape(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
-  if (!packQtyEl || !packPriceEl || !priceEl) return;
+function normalizeProductVariantKey(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
 
-  const packQty = parseFloat(packQtyEl.value);
-  const packPrice = parseFloat(packPriceEl.value);
+function emptyProductVariantDraft(index = 0) {
+  return {
+    key: index === 0 ? 'standard' : '',
+    label: index === 0 ? 'Standard' : '',
+    weight: '',
+    packQty: 1,
+    minQty: 1,
+    packPrice: '',
+    available: true
+  };
+}
 
-  if (Number.isFinite(packQty) && packQty > 0 && Number.isFinite(packPrice) && packPrice > 0) {
-    priceEl.value = (packPrice / packQty).toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
+function productVariantsForEditor(product) {
+  return getProductVariants(product).map((variant, index) => {
+    const packQty = Math.max(1, Number(variant.packQty || 1));
+    const unitPrice = Number(variant.price || 0);
+    const storedPackPrice = Number(variant.packPrice || 0);
+
+    const packPrice = storedPackPrice > 0
+      ? storedPackPrice
+      : (unitPrice > 0 ? unitPrice * packQty : '');
+
+    return {
+      key: String(
+        variant.key ||
+        (index === 0 ? 'standard' : `variant-${index + 1}`)
+      ),
+      label: String(
+        variant.label ||
+        variant.key ||
+        (index === 0 ? 'Standard' : `Variant ${index + 1}`)
+      ),
+      weight: String(variant.weight || ''),
+      packQty,
+      minQty: Math.max(1, Number(variant.minQty || packQty)),
+      packPrice,
+      available: variant.available !== false
+    };
+  });
+}
+
+function productVariantDrafts() {
+  return [
+    ...document.querySelectorAll(
+      '#product-variants-editor .product-variant-editor-row'
+    )
+  ].map(row => {
+    const field = name =>
+      row.querySelector(`[data-variant-field="${name}"]`);
+
+    return {
+      key: field('key')?.value || '',
+      label: field('label')?.value || '',
+      weight: field('weight')?.value || '',
+      packQty: field('packQty')?.value || '',
+      minQty: field('minQty')?.value || '',
+      packPrice: field('packPrice')?.value || '',
+      available: field('available')?.checked !== false
+    };
+  });
+}
+
+function variantUnitPriceText(variant) {
+  const packQty = parseAdminNumber(variant?.packQty);
+  const packPrice = parseAdminNumber(variant?.packPrice);
+
+  if (
+    packQty === null ||
+    packQty <= 0 ||
+    packPrice === null ||
+    packPrice <= 0
+  ) {
+    return 'Unit price: —';
   }
 
-  if (minEl && Number.isFinite(packQty) && packQty > 0 && (!minEl.value || Number(minEl.value) === 1)) {
-    minEl.value = packQty;
+  return `Unit price: ${formatPrice(packPrice / packQty)}`;
+}
+
+function renderProductVariantEditor(variants) {
+  const editor = document.getElementById('product-variants-editor');
+  const count = document.getElementById('product-variants-count');
+
+  if (!editor) return;
+
+  const rows =
+    Array.isArray(variants) && variants.length
+      ? variants
+      : [emptyProductVariantDraft(0)];
+
+  const activeCount = rows.filter(
+    variant => variant.available !== false
+  ).length;
+
+  if (count) {
+    count.textContent =
+      `${rows.length} variant${rows.length === 1 ? '' : 's'} · ` +
+      `${activeCount} active`;
+  }
+
+  editor.innerHTML = rows.map((variant, index) => `
+    <div
+      class="product-variant-editor-row"
+      data-variant-index="${index}"
+    >
+      <div class="product-variant-editor-heading">
+        <div>
+          <strong>
+            Variant ${index + 1}${index === 0 ? ' · default' : ''}
+          </strong>
+          <div
+            class="product-variant-unit-price"
+            data-variant-unit-price
+          >${variantEditorEscape(variantUnitPriceText(variant))}</div>
+        </div>
+
+        <div class="product-variant-actions">
+          <button
+            type="button"
+            class="btn-icon"
+            title="Move up"
+            onclick="moveProductVariant(${index}, -1)"
+            ${index === 0 ? 'disabled' : ''}
+          >↑</button>
+
+          <button
+            type="button"
+            class="btn-icon"
+            title="Move down"
+            onclick="moveProductVariant(${index}, 1)"
+            ${index === rows.length - 1 ? 'disabled' : ''}
+          >↓</button>
+
+          <button
+            type="button"
+            class="btn-icon"
+            title="Remove variant"
+            onclick="removeProductVariant(${index})"
+          >×</button>
+        </div>
+      </div>
+
+      <div class="product-variant-editor-grid">
+        <div class="form-group">
+          <label>Key *</label>
+          <input
+            type="text"
+            data-variant-field="key"
+            value="${variantEditorEscape(variant.key)}"
+            placeholder="mini"
+          >
+        </div>
+
+        <div class="form-group">
+          <label>Label *</label>
+          <input
+            type="text"
+            data-variant-field="label"
+            value="${variantEditorEscape(variant.label)}"
+            placeholder="Mini"
+          >
+        </div>
+
+        <div class="form-group">
+          <label>Weight</label>
+          <input
+            type="text"
+            data-variant-field="weight"
+            value="${variantEditorEscape(variant.weight)}"
+            placeholder="500 g"
+          >
+        </div>
+
+        <div class="form-group">
+          <label>Pack qty *</label>
+          <input
+            type="number"
+            data-variant-field="packQty"
+            value="${variantEditorEscape(variant.packQty)}"
+            min="1"
+            step="1"
+            oninput="updateProductVariantPrice(${index})"
+          >
+        </div>
+
+        <div class="form-group">
+          <label>Min. order qty *</label>
+          <input
+            type="number"
+            data-variant-field="minQty"
+            value="${variantEditorEscape(variant.minQty)}"
+            min="0.01"
+            step="0.01"
+          >
+        </div>
+
+        <div class="form-group">
+          <label>Pack price € *</label>
+          <input
+            type="number"
+            data-variant-field="packPrice"
+            value="${variantEditorEscape(variant.packPrice)}"
+            min="0.01"
+            step="0.01"
+            oninput="updateProductVariantPrice(${index})"
+          >
+        </div>
+
+        <div class="form-group">
+          <label>Availability</label>
+          <label class="product-variant-available">
+            <input
+              type="checkbox"
+              data-variant-field="available"
+              ${variant.available !== false ? 'checked' : ''}
+            >
+            <span>Active</span>
+          </label>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+window.updateProductVariantPrice = index => {
+  const row = document.querySelector(
+    `.product-variant-editor-row[data-variant-index="${index}"]`
+  );
+
+  if (!row) return;
+
+  const packQty = row.querySelector(
+    '[data-variant-field="packQty"]'
+  )?.value;
+
+  const packPrice = row.querySelector(
+    '[data-variant-field="packPrice"]'
+  )?.value;
+
+  const output = row.querySelector('[data-variant-unit-price]');
+
+  if (output) {
+    output.textContent = variantUnitPriceText({
+      packQty,
+      packPrice
+    });
   }
 };
 
+window.addProductVariant = () => {
+  const variants = productVariantDrafts();
+  variants.push(emptyProductVariantDraft(variants.length));
+  renderProductVariantEditor(variants);
+};
+
+window.removeProductVariant = index => {
+  const variants = productVariantDrafts();
+
+  if (variants.length <= 1) {
+    showToast('At least one variant is required');
+    return;
+  }
+
+  variants.splice(index, 1);
+  renderProductVariantEditor(variants);
+};
+
+window.moveProductVariant = (index, direction) => {
+  const variants = productVariantDrafts();
+  const target = index + direction;
+
+  if (target < 0 || target >= variants.length) return;
+
+  [variants[index], variants[target]] = [
+    variants[target],
+    variants[index]
+  ];
+
+  renderProductVariantEditor(variants);
+};
+
+function readProductVariantEditor() {
+  const drafts = productVariantDrafts();
+
+  if (!drafts.length) {
+    showToast('Add at least one product variant');
+    return null;
+  }
+
+  const keys = new Set();
+  const variants = [];
+
+  for (let index = 0; index < drafts.length; index++) {
+    const draft = drafts[index];
+    const rowNumber = index + 1;
+
+    const rawKey = String(draft.key || '').trim();
+    const key = normalizeProductVariantKey(rawKey);
+    const label = String(draft.label || '').trim();
+    const weight = String(draft.weight || '').trim();
+
+    const packQty = parseAdminNumber(draft.packQty);
+    const minQty = parseAdminNumber(draft.minQty);
+    const packPrice = parseAdminNumber(draft.packPrice);
+
+    if (!rawKey || !key) {
+      showToast(`Variant ${rowNumber}: fill Key`);
+      return null;
+    }
+
+    if (keys.has(key)) {
+      showToast(`Variant ${rowNumber}: Key must be unique`);
+      return null;
+    }
+
+    if (!label) {
+      showToast(`Variant ${rowNumber}: fill Label`);
+      return null;
+    }
+
+    if (
+      packQty === null ||
+      packQty <= 0 ||
+      !Number.isInteger(packQty)
+    ) {
+      showToast(
+        `Variant ${rowNumber}: Pack qty must be a positive whole number`
+      );
+      return null;
+    }
+
+    if (minQty === null || minQty <= 0) {
+      showToast(
+        `Variant ${rowNumber}: Min. order qty must be positive`
+      );
+      return null;
+    }
+
+    if (packPrice === null || packPrice <= 0) {
+      showToast(
+        `Variant ${rowNumber}: Pack price must be positive`
+      );
+      return null;
+    }
+
+    keys.add(key);
+
+    variants.push({
+      key,
+      label,
+      weight,
+      packQty,
+      minQty,
+      packPrice,
+      price: packPrice / packQty,
+      available: draft.available !== false
+    });
+  }
+
+  if (variants[0].available === false) {
+    showToast('The first/default variant must be active');
+    return null;
+  }
+
+  if (!variants.some(variant => variant.available !== false)) {
+    showToast('At least one variant must be active');
+    return null;
+  }
+
+  return variants;
+}
+
 let pmPhotoData=null;
+
 window.openProductModal = id => {
   pmPhotoData=null;
-  document.getElementById('pm-title').textContent=id?'Edit product':'Add product';
+
+  document.getElementById('pm-title').textContent =
+    id ? 'Edit product' : 'Add product';
+
   document.getElementById('pm-id').value=id||'';
-  document.getElementById('pm-photo-preview').innerHTML='<div style="font-size:28px;margin-bottom:4px">📷</div><div style="font-size:13px;font-weight:700">Upload photo</div>';
+  document.getElementById('pm-photo-input').value='';
+
+  document.getElementById('pm-photo-preview').innerHTML =
+    '<div style="font-size:28px;margin-bottom:4px">📷</div>' +
+    '<div style="font-size:13px;font-weight:700">Upload photo</div>';
+
   if(id){
-    const p=_catalog.find(x=>x.id===id);if(!p)return;
+    const p=_catalog.find(x=>x.id===id);
+    if(!p)return;
+
     document.getElementById('pm-name-es').value=p.name_es||'';
     document.getElementById('pm-name-ru').value=p.name_ru||p.name||'';
     document.getElementById('pm-name-en').value=p.name_en||'';
     document.getElementById('pm-name').value=p.name||'';
-    const packQty = Math.max(1, Number(p.packQty || p.minQty || 1));
-    const packPrice = Number(p.packPrice || 0);
-    document.getElementById('pm-pack-qty').value=packQty;
-    document.getElementById('pm-pack-price').value=packPrice>0?packPrice:'';
-    document.getElementById('pm-price').value=p.price||'';
+
     document.getElementById('pm-unit').value=p.unit||'sht';
     refreshProductCategorySelect(adminNormalizeCatKey(p.category));
-    document.getElementById('pm-min').value=p.minQty||packQty||1;
-    syncPackPricing();
+
+    renderProductVariantEditor(
+      productVariantsForEditor(p)
+    );
+
     document.getElementById('pm-avail').checked=p.available!==false;
     document.getElementById('pm-desc-es').value=p.description_es||'';
     document.getElementById('pm-desc-ru').value=p.description_ru||p.description||'';
     document.getElementById('pm-desc-en').value=p.description_en||'';
     document.getElementById('pm-desc').value=p.description||'';
     document.getElementById('pm-ing').value=p.ingredients||'';
-    if(p.photo){pmPhotoData=p.photo;document.getElementById('pm-photo-preview').innerHTML=`<img src="${p.photo}" class="photo-preview">`;}
+
+    if(p.photo){
+      pmPhotoData=p.photo;
+      document.getElementById('pm-photo-preview').innerHTML=
+        `<img src="${p.photo}" class="photo-preview">`;
+    }
   } else {
-    ['pm-name-es','pm-name-ru','pm-name-en','pm-name','pm-pack-qty','pm-pack-price','pm-price','pm-desc-es','pm-desc-ru','pm-desc-en','pm-desc','pm-ing'].forEach(i=>document.getElementById(i).value='');
-    document.getElementById('pm-unit').value='sht';refreshProductCategorySelect(defaultAdminCategoryKey());document.getElementById('pm-min').value='';document.getElementById('pm-avail').checked=true;
+    [
+      'pm-name-es',
+      'pm-name-ru',
+      'pm-name-en',
+      'pm-name',
+      'pm-desc-es',
+      'pm-desc-ru',
+      'pm-desc-en',
+      'pm-desc',
+      'pm-ing'
+    ].forEach(id => {
+      document.getElementById(id).value='';
+    });
+
+    document.getElementById('pm-unit').value='sht';
+    refreshProductCategorySelect(defaultAdminCategoryKey());
+    document.getElementById('pm-avail').checked=true;
+
+    renderProductVariantEditor([
+      emptyProductVariantDraft(0)
+    ]);
   }
+
   document.getElementById('product-modal').classList.add('open');
 };
 
@@ -1235,53 +1657,88 @@ window.saveProduct = async () => {
   const name_es=document.getElementById('pm-name-es').value.trim();
   const name_ru=document.getElementById('pm-name-ru').value.trim();
   const name_en=document.getElementById('pm-name-en').value.trim();
-  const name=name_es||name_ru||name_en||document.getElementById('pm-name').value.trim();
 
-  const description_es=document.getElementById('pm-desc-es').value.trim();
-  const description_ru=document.getElementById('pm-desc-ru').value.trim();
-  const description_en=document.getElementById('pm-desc-en').value.trim();
-  const description=description_es||description_ru||description_en||document.getElementById('pm-desc').value.trim();
+  const name=
+    name_es||
+    name_ru||
+    name_en||
+    document.getElementById('pm-name').value.trim();
 
-  const packQtyRaw=parseFloat(document.getElementById('pm-pack-qty').value);
-  const packPriceRaw=parseFloat(document.getElementById('pm-pack-price').value);
-  const manualUnitPrice=parseFloat(document.getElementById('pm-price').value);
+  if(!name){
+    showToast('Fill at least ES/RU/EN name');
+    return;
+  }
 
-  const packQty=Number.isFinite(packQtyRaw)&&packQtyRaw>0?packQtyRaw:1;
-  const hasPackPrice=Number.isFinite(packPriceRaw)&&packPriceRaw>0;
-  const price=hasPackPrice ? packPriceRaw / packQty : manualUnitPrice;
+  const variants = readProductVariantEditor();
+  if (!variants) return;
 
-  if(!name||!Number.isFinite(price)||price<=0){showToast('Fill at least ES/RU/EN name and price');return;}
+  const defaultVariant = variants[0];
 
-  const minQtyRaw=parseFloat(document.getElementById('pm-min').value);
-  const minQty=Number.isFinite(minQtyRaw)&&minQtyRaw>0?minQtyRaw:packQty;
+  const description_es=
+    document.getElementById('pm-desc-es').value.trim();
+
+  const description_ru=
+    document.getElementById('pm-desc-ru').value.trim();
+
+  const description_en=
+    document.getElementById('pm-desc-en').value.trim();
+
+  const description=
+    description_es||
+    description_ru||
+    description_en||
+    document.getElementById('pm-desc').value.trim();
 
   const data={
     name,
     name_es,
     name_ru,
     name_en,
-    price,
-    packQty,
-    packPrice: hasPackPrice ? packPriceRaw : null,
-    stepQty: packQty,
+
+    variants,
+
+    // Legacy/default fields remain synchronized with the first variant.
+    price:defaultVariant.price,
+    packQty:defaultVariant.packQty,
+    packPrice:defaultVariant.packPrice,
+    stepQty:defaultVariant.packQty,
+    minQty:defaultVariant.minQty,
+
     unit:document.getElementById('pm-unit').value,
     category:document.getElementById('pm-cat').value||'other',
-    minQty,
     available:document.getElementById('pm-avail').checked,
     photo:pmPhotoData||null,
+
     description,
     description_es,
     description_ru,
     description_en,
+
     ingredients:document.getElementById('pm-ing').value.trim()
   };
+
   const editId=document.getElementById('pm-id').value;
+
   try {
     showLoading('Saving…');
-    const newId=await fbSaveProduct(editId?{id:editId,...data}:{...data});
+
+    await fbSaveProduct(
+      editId
+        ? {id:editId,...data}
+        : {...data}
+    );
+
     _catalog=await fbGetCatalog();
-    hideLoading();closeModal('product-modal');renderCatalog();showToast('Saved ✓');
-  } catch(e){hideLoading();showToast('Error saving');}
+
+    hideLoading();
+    closeModal('product-modal');
+    renderCatalog();
+    showToast('Saved ✓');
+  } catch(e) {
+    console.error('Product save error:', e);
+    hideLoading();
+    showToast('Error saving');
+  }
 };
 
 window.deleteProduct = async id => {
@@ -1333,57 +1790,223 @@ function adminProductPackQty(p) {
 function adminProductBasePackPrice(p) {
   const packQty = adminProductPackQty(p);
   const packPrice = Number(p?.packPrice || 0);
-  if (Number.isFinite(packPrice) && packPrice > 0) return packPrice;
+
+  if (Number.isFinite(packPrice) && packPrice > 0) {
+    return packPrice;
+  }
+
   return Number(p?.price || 0) * packQty;
 }
 
-function adminClientCustomPriceCount(c) {
-  const prices = c?.customPrices || {};
-  return Object.values(prices).filter(v => {
-    const n = Number(v);
-    return Number.isFinite(n) && n > 0;
-  }).length;
+function clientVariantPriceStorageKey(productId, variantKey) {
+  return (
+    String(productId || '') +
+    '::' +
+    encodeURIComponent(String(variantKey || 'standard'))
+  );
 }
 
-function renderClientCustomPrices(customPrices={}) {
+function adminVariantBasePackPrice(variant) {
+  const packQty = Math.max(1, Number(variant?.packQty || 1));
+  const packPrice = Number(variant?.packPrice || 0);
+
+  if (Number.isFinite(packPrice) && packPrice > 0) {
+    return packPrice;
+  }
+
+  const unitPrice = Number(variant?.price || 0);
+
+  return Number.isFinite(unitPrice) && unitPrice > 0
+    ? unitPrice * packQty
+    : 0;
+}
+
+function adminVariantCaption(variant, index) {
+  const parts = [
+    variant?.label || variant?.key || `Variant ${index + 1}`,
+    variant?.weight || '',
+    `pack ${Math.max(1, Number(variant?.packQty || 1))}`
+  ];
+
+  if (index === 0) parts.push('default');
+  if (variant?.available === false) parts.push('disabled');
+
+  return parts.filter(Boolean).join(' · ');
+}
+
+function adminClientVariantCustomPrice(
+  customPrices,
+  product,
+  variant,
+  variantIndex
+) {
+  const productId = String(product?.id || '');
+  const variantKey = String(variant?.key || 'standard');
+
+  const specificKey = clientVariantPriceStorageKey(
+    productId,
+    variantKey
+  );
+
+  const specific = Number(customPrices?.[specificKey]);
+
+  if (Number.isFinite(specific) && specific > 0) {
+    return specific;
+  }
+
+  // Historical compatibility:
+  // customPrices[productId] belongs to the default variant.
+  if (variantIndex === 0) {
+    const legacy = Number(customPrices?.[productId]);
+
+    if (Number.isFinite(legacy) && legacy > 0) {
+      return legacy;
+    }
+  }
+
+  return null;
+}
+
+function adminClientCustomPriceCount(client) {
+  const customPrices = client?.customPrices || {};
+
+  if (!Array.isArray(_catalog) || !_catalog.length) {
+    return Object.values(customPrices).filter(value => {
+      const number = Number(value);
+      return Number.isFinite(number) && number > 0;
+    }).length;
+  }
+
+  let count = 0;
+
+  _catalog.forEach(product => {
+    getProductVariants(product).forEach((variant, index) => {
+      if (
+        adminClientVariantCustomPrice(
+          customPrices,
+          product,
+          variant,
+          index
+        ) !== null
+      ) {
+        count += 1;
+      }
+    });
+  });
+
+  return count;
+}
+
+function renderClientCustomPrices(customPrices = {}) {
   const el = document.getElementById('cm-custom-prices');
   if (!el) return;
 
   if (!_catalog || !_catalog.length) {
-    el.innerHTML = '<div style="font-size:13px;color:var(--text3)">Catalog is empty or not loaded</div>';
+    el.innerHTML =
+      '<div style="font-size:13px;color:var(--text3)">' +
+      'Catalog is empty or not loaded' +
+      '</div>';
     return;
   }
 
-  el.innerHTML = _catalog.map(p => {
-    const id = String(p.id || '');
-    const basePack = adminProductBasePackPrice(p);
-    const packQty = adminProductPackQty(p);
-    const raw = customPrices?.[id];
-    const custom = Number(raw);
-    const value = Number.isFinite(custom) && custom > 0 ? custom : '';
+  el.innerHTML = _catalog.map(product => {
+    const productId = String(product.id || '');
+    const variants = getProductVariants(product);
 
-    return `<div style="display:grid;grid-template-columns:1fr 120px;gap:10px;align-items:center">
-      <div>
-        <div style="font-size:13px;font-weight:800">${adminEscape(adminProductDisplayName(p))}</div>
-        <div style="font-size:12px;color:var(--text3)">Base pack: ${formatPrice(basePack)} · pack ${packQty}</div>
+    const variantRows = variants.map((variant, index) => {
+      const variantKey = String(variant.key || 'standard');
+      const basePackPrice = adminVariantBasePackPrice(variant);
+
+      const savedPrice = adminClientVariantCustomPrice(
+        customPrices,
+        product,
+        variant,
+        index
+      );
+
+      const value = savedPrice === null ? '' : savedPrice;
+
+      return `
+        <div class="client-variant-price-row">
+          <div class="client-variant-price-info">
+            <div class="client-variant-price-caption">
+              ${adminEscape(adminVariantCaption(variant, index))}
+            </div>
+
+            <div class="client-variant-base-price">
+              Base pack: ${formatPrice(basePackPrice)}
+            </div>
+          </div>
+
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            data-client-price-product="${adminAttrEscape(productId)}"
+            data-client-price-variant="${adminAttrEscape(variantKey)}"
+            data-client-price-default="${index === 0 ? '1' : '0'}"
+            value="${value}"
+            placeholder="${basePackPrice
+              ? basePackPrice.toFixed(2)
+              : '0.00'}"
+          >
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="client-product-prices">
+        <div class="client-product-prices-name">
+          ${adminEscape(adminProductDisplayName(product))}
+        </div>
+
+        ${variantRows}
       </div>
-      <input type="number" min="0" step="0.01" data-client-price-product="${adminAttrEscape(id)}" value="${value}" placeholder="${basePack ? basePack.toFixed(2) : '0.00'}">
-    </div>`;
+    `;
   }).join('');
 }
 
 function collectClientCustomPrices() {
   const prices = {};
-  document.querySelectorAll('[data-client-price-product]').forEach(input => {
-    const id = input.dataset.clientPriceProduct;
-    if (!id) return;
 
-    const raw = String(input.value || '').trim().replace(',','.');
-    const n = Number(raw);
+  document.querySelectorAll(
+    '[data-client-price-product][data-client-price-variant]'
+  ).forEach(input => {
+    const productId = String(
+      input.dataset.clientPriceProduct || ''
+    );
 
-    // null intentionally clears old saved price when Firestore merges the client document
-    prices[id] = Number.isFinite(n) && n > 0 ? n : null;
+    const variantKey = String(
+      input.dataset.clientPriceVariant || 'standard'
+    );
+
+    if (!productId) return;
+
+    const raw = String(input.value || '')
+      .trim()
+      .replace(',', '.');
+
+    const number = Number(raw);
+
+    const value =
+      Number.isFinite(number) && number > 0
+        ? number
+        : null;
+
+    const specificKey = clientVariantPriceStorageKey(
+      productId,
+      variantKey
+    );
+
+    // Every variant receives its own key.
+    prices[specificKey] = value;
+
+    // Keep the historical field synchronized with the default variant.
+    if (input.dataset.clientPriceDefault === '1') {
+      prices[productId] = value;
+    }
   });
+
   return prices;
 }
 
