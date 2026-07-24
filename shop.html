@@ -175,6 +175,7 @@
     <div class="sheet-body">
       <div class="sheet-name" id="sheet-name"></div>
       <div class="sheet-price" id="sheet-price"></div>
+      <div class="variant-switch sheet-variant-switch" id="sheet-variants"></div>
       <div class="sheet-desc" id="sheet-desc"></div>
       <div class="ingredients-block" id="sheet-ing-block" style="display:none">
         <div class="ingredients-title">Ingredientes / Состав</div>
@@ -489,6 +490,69 @@ function initStrings() {
   document.getElementById('ch-date').min=new Date().toISOString().split('T')[0];
 }
 
+
+const selectedVariantKeys = Object.create(null);
+let sheetVariantKey = null;
+
+function getAvailableProductVariants(p) {
+  return getProductVariants(p).filter(
+    variant => variant && variant.available !== false
+  );
+}
+
+function getVariantByKey(p, variantKey) {
+  const variants = getAvailableProductVariants(p);
+  const key = variantKey === null || variantKey === undefined
+    ? ''
+    : String(variantKey);
+
+  return variants.find(variant => String(variant.key) === key)
+    || variants[0]
+    || getDefaultVariant(p);
+}
+
+function getSelectedVariantKey(p) {
+  const productId = String(p?.id || '');
+  const selected = selectedVariantKeys[productId];
+  const variant = getVariantByKey(p, selected);
+  const key = String(variant?.key || 'standard');
+
+  selectedVariantKeys[productId] = key;
+  return key;
+}
+
+function getCartVariantKey(p, item) {
+  const variant = getVariantByKey(p, item?.variantKey);
+  return String(variant?.key || 'standard');
+}
+
+function cartItemMatches(item, p, variantKey) {
+  if (String(item?.id) !== String(p?.id)) return false;
+
+  const targetVariant = getVariantByKey(p, variantKey);
+  const targetKey = String(targetVariant?.key || 'standard');
+
+  return getCartVariantKey(p, item) === targetKey;
+}
+
+function variantCaption(variant) {
+  if (!variant) return '';
+  return [variant.label, variant.weight].filter(Boolean).join(' · ');
+}
+
+window.selectProductVariant = (id, variantKey, event) => {
+  if (event) event.stopPropagation();
+
+  const p = _catalog.find(x => String(x.id) === String(id));
+  if (!p) return;
+
+  const variant = getVariantByKey(p, variantKey);
+  if (!variant) return;
+
+  selectedVariantKeys[String(p.id)] = String(variant.key);
+  renderCatalog();
+};
+
 function renderCatalog() {
   const catalog = _catalog.filter(p=>p.available!==false);
   const cats = ['all', ...new Set(catalog.map(p=>normalizeCatKey(p.category)))];
@@ -498,47 +562,110 @@ function renderCatalog() {
     return `<button class="cat-tab ${c===currentCat?'active':''}" onclick="selectCat('${c.replace(/'/g,"\\'")}')">${label}</button>`;
   }).join('');
 
-  const items = currentCat==='all' ? catalog : catalog.filter(p=>normalizeCatKey(p.category)===currentCat);
+  const items = currentCat==='all'
+    ? catalog
+    : catalog.filter(p=>normalizeCatKey(p.category)===currentCat);
+
   const cart = getCart();
   const el = document.getElementById('product-list');
-  if (!items.length){el.innerHTML='<div class="empty-state"><div class="eicon">😔</div></div>';return;}
 
-  el.innerHTML = items.map(p=>{
-    const inCart=cart.find(c=>String(c.id)===String(p.id));
-    const qty=inCart?inCart.qty:0;
-    const cp=productDisplayUnitPrice(p);
-    const emoji=categoryEmoji(p.category);
-    const pName=productName(p);
-    const badgeUser=getCurrentUser();
-    const badgeDiscount=Number(badgeUser?.discount);
-    const badgeCoeff=Number(badgeUser?.coeff);
-    const discBadge=hasClientCustomPrice(p)
+  if (!items.length) {
+    el.innerHTML='<div class="empty-state"><div class="eicon">😔</div></div>';
+    return;
+  }
+
+  el.innerHTML = items.map(p => {
+    const selectedKey = getSelectedVariantKey(p);
+    const selectedVariant = getVariantByKey(p, selectedKey);
+    const variants = getAvailableProductVariants(p);
+    const inCart = cart.find(c => cartItemMatches(c, p, selectedKey));
+    const qty = inCart ? Number(inCart.qty || 0) : 0;
+    const emoji = categoryEmoji(p.category);
+    const pName = productName(p);
+    const badgeUser = getCurrentUser();
+    const badgeDiscount = Number(badgeUser?.discount);
+    const discBadge = hasClientCustomPrice(p, selectedKey)
       ? `<span class="discount-badge">${specialPriceLabel()}</span>`
-      : (Number.isFinite(badgeDiscount)&&badgeDiscount>0
+      : (Number.isFinite(badgeDiscount) && badgeDiscount > 0
         ? `<span class="discount-badge">−${badgeDiscount}%</span>`
         : '');
-    const thumb=p.photo?`<div class="product-thumb"><img src="${p.photo}" alt="${pName}"></div>`:`<div class="product-thumb">${emoji}</div>`;
-    const minInfo=productPackMeta(p);
 
-    return `<div class="product-card" onclick="openSheet('${p.id}')">
+    const thumb = p.photo
+      ? `<div class="product-thumb"><img src="${p.photo}" alt="${pName}"></div>`
+      : `<div class="product-thumb">${emoji}</div>`;
+
+    const minInfo = productPackMeta(p, selectedKey);
+    const productIdEncoded = encodeURIComponent(String(p.id));
+    const selectedKeyEncoded = encodeURIComponent(selectedKey);
+
+    const variantControls = variants.length > 1
+      ? `<div class="variant-switch" onclick="event.stopPropagation()">
+          ${variants.map(variant => {
+            const key = String(variant.key);
+            const keyEncoded = encodeURIComponent(key);
+            const active = key === selectedKey ? 'active' : '';
+            const weight = variant.weight
+              ? `<span class="variant-weight">${variant.weight}</span>`
+              : '';
+
+            return `<button
+              type="button"
+              class="variant-option ${active}"
+              onclick="selectProductVariant(
+                decodeURIComponent('${productIdEncoded}'),
+                decodeURIComponent('${keyEncoded}'),
+                event
+              )"
+            ><span>${variant.label}</span>${weight}</button>`;
+          }).join('')}
+        </div>`
+      : '';
+
+    return `<div class="product-card"
+      onclick="openSheet(
+        decodeURIComponent('${productIdEncoded}'),
+        decodeURIComponent('${selectedKeyEncoded}')
+      )">
       ${thumb}
       <div class="product-info">
         <div class="product-name">${pName}</div>
-        <div class="product-price">${productPriceLine(p)}${discBadge}</div>
+        ${variantControls}
+        <div class="product-price">${productPriceLine(p, selectedKey)}${discBadge}</div>
         ${minInfo}
       </div>
+
       <div class="qty-control" onclick="event.stopPropagation()" id="qc-${p.id}">
-        ${qty===0
-          ?`<button class="btn btn-primary btn-sm" onclick="addToCart('${p.id}')">${t('addToCart')}</button>`
-          :`<button class="qty-btn" onclick="chQty('${p.id}',-1)">−</button><span class="qty-num">${qty}</span><button class="qty-btn" onclick="chQty('${p.id}',1)">+</button>`}
+        ${qty === 0
+          ? `<button class="btn btn-primary btn-sm"
+              onclick="addToCart(
+                decodeURIComponent('${productIdEncoded}'),
+                decodeURIComponent('${selectedKeyEncoded}')
+              )">${t('addToCart')}</button>`
+          : `<button class="qty-btn"
+              onclick="chQty(
+                decodeURIComponent('${productIdEncoded}'),
+                decodeURIComponent('${selectedKeyEncoded}'),
+                -1
+              )">−</button>
+             <span class="qty-num">${qty}</span>
+             <button class="qty-btn"
+              onclick="chQty(
+                decodeURIComponent('${productIdEncoded}'),
+                decodeURIComponent('${selectedKeyEncoded}'),
+                1
+              )">+</button>`}
       </div>
     </div>`;
   }).join('');
 
-  updateCartBadge(); updateSticky();
+  updateCartBadge();
+  updateSticky();
 }
 
-window.selectCat = c => { currentCat=c; renderCatalog(); };
+window.selectCat = c => {
+  currentCat = c;
+  renderCatalog();
+};
 
 
 function shopUnitLabel() {
@@ -554,17 +681,30 @@ function shopPackLabel() {
   return 'pack';
 }
 
-function productPackQty(p) {
-  return getDefaultVariant(p)?.packQty || 1;
+function productPackQty(p, variantKey) {
+  return getVariantByKey(p, variantKey)?.packQty || 1;
 }
 
-function productUnitPrice(p) {
-  return getDefaultVariant(p)?.price || 0;
+function productUnitPrice(p, variantKey) {
+  return getVariantByKey(p, variantKey)?.price || 0;
 }
 
-function clientCustomPackPrice(p) {
+function clientCustomPackPrice(p, variantKey) {
   const user = getCurrentUser();
   if (!user || user.guest || !p?.id) return null;
+
+  const selectedVariant = getVariantByKey(p, variantKey);
+  const defaultVariant = getDefaultVariant(p);
+
+  // Existing customPrices[productId] belongs to the historical/default variant.
+  // Variant-specific personal prices will be implemented separately.
+  if (
+    !selectedVariant ||
+    !defaultVariant ||
+    String(selectedVariant.key) !== String(defaultVariant.key)
+  ) {
+    return null;
+  }
 
   const prices = user.customPrices || {};
   const n = Number(prices[String(p.id)]);
@@ -572,113 +712,258 @@ function clientCustomPackPrice(p) {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-function hasClientCustomPrice(p) {
-  return clientCustomPackPrice(p) !== null;
+function hasClientCustomPrice(p, variantKey) {
+  return clientCustomPackPrice(p, variantKey) !== null;
 }
 
 function specialPriceLabel() {
   const lang = detectLang();
-  return ({ es:'Precio especial', ru:'Спеццена', en:'Special price' }[lang]) || 'Special price';
+  return ({
+    es:'Precio especial',
+    ru:'Спеццена',
+    en:'Special price'
+  }[lang]) || 'Special price';
 }
 
-function productDisplayUnitPrice(p) {
-  const customPackPrice = clientCustomPackPrice(p);
-  if (customPackPrice !== null) return customPackPrice / productPackQty(p);
-  return clientPrice(productUnitPrice(p));
+function productDisplayUnitPrice(p, variantKey) {
+  const customPackPrice = clientCustomPackPrice(p, variantKey);
+
+  if (customPackPrice !== null) {
+    return customPackPrice / productPackQty(p, variantKey);
+  }
+
+  return clientPrice(productUnitPrice(p, variantKey));
 }
 
-function productDisplayPackPrice(p) {
-  const customPackPrice = clientCustomPackPrice(p);
+function productDisplayPackPrice(p, variantKey) {
+  const customPackPrice = clientCustomPackPrice(p, variantKey);
   if (customPackPrice !== null) return customPackPrice;
 
-  const packPrice = Number(p.packPrice || 0);
-  if (Number.isFinite(packPrice) && packPrice > 0) return clientPrice(packPrice);
-  return productDisplayUnitPrice(p) * productPackQty(p);
+  const variant = getVariantByKey(p, variantKey);
+  const packPrice = Number(variant?.packPrice || 0);
+
+  if (Number.isFinite(packPrice) && packPrice > 0) {
+    return clientPrice(packPrice);
+  }
+
+  return productDisplayUnitPrice(p, variantKey)
+    * productPackQty(p, variantKey);
 }
 
-function productPriceLine(p) {
-  const qty = productPackQty(p);
+function productPriceLine(p, variantKey) {
+  const qty = productPackQty(p, variantKey);
   const suffix = qty > 1 ? shopPackLabel() : shopUnitLabel();
-  const value = qty > 1 ? productDisplayPackPrice(p) : productDisplayUnitPrice(p);
+  const value = qty > 1
+    ? productDisplayPackPrice(p, variantKey)
+    : productDisplayUnitPrice(p, variantKey);
+
   return `${formatPrice(value)} <span style="font-size:12px;color:var(--text3);font-weight:400">/ ${suffix}</span>`;
 }
 
-function productPriceText(p) {
-  const qty = productPackQty(p);
+function productPriceText(p, variantKey) {
+  const qty = productPackQty(p, variantKey);
   const suffix = qty > 1 ? shopPackLabel() : shopUnitLabel();
-  const value = qty > 1 ? productDisplayPackPrice(p) : productDisplayUnitPrice(p);
+  const value = qty > 1
+    ? productDisplayPackPrice(p, variantKey)
+    : productDisplayUnitPrice(p, variantKey);
+
   return `${formatPrice(value)} / ${suffix}`;
 }
 
-function productPackMeta(p) {
-  const qty = productPackQty(p);
-  if (qty <= 1) return '';
-  return `<div class="product-meta">Pack ${qty} ${shopUnitLabel()}</div>`;
+function productPackMeta(p, variantKey) {
+  const variant = getVariantByKey(p, variantKey);
+  if (!variant) return '';
+
+  const parts = [];
+  const qty = Number(variant.packQty || 1);
+
+  if (variant.weight) parts.push(variant.weight);
+  if (qty > 1) parts.push(`Pack ${qty} ${shopUnitLabel()}`);
+
+  return parts.length
+    ? `<div class="product-meta">${parts.join(' · ')}</div>`
+    : '';
 }
 
-window.openSheet = id => {
-  const p=_catalog.find(x=>x.id===id); if(!p) return;
-  sheetProductId=id;
-  const cp=productDisplayUnitPrice(p);
-  const emoji=categoryEmoji(p.category);
-  document.getElementById('sheet-img-wrap').innerHTML=p.photo
-    ?`<div class="sheet-img"><img src="${p.photo}" alt="${productName(p)}"></div>`
-    :`<div class="sheet-img">${emoji}</div>`;
-  document.getElementById('sheet-name').textContent=productName(p);
-  document.getElementById('sheet-price').innerHTML=productPriceLine(p);
-  document.getElementById('sheet-desc').textContent=productDesc(p);
-  const ing=p.ingredients||'';
-  document.getElementById('sheet-ing-block').style.display=ing?'block':'none';
-  document.getElementById('sheet-ing').textContent=ing;
-  document.getElementById('sheet-add-btn').textContent=t('addToCart');
+function renderSheetVariants(p) {
+  const wrap = document.getElementById('sheet-variants');
+  if (!wrap) return;
+
+  const variants = getAvailableProductVariants(p);
+
+  if (variants.length <= 1) {
+    wrap.style.display = 'none';
+    wrap.innerHTML = '';
+    return;
+  }
+
+  wrap.style.display = 'flex';
+  wrap.innerHTML = variants.map(variant => {
+    const key = String(variant.key);
+    const keyEncoded = encodeURIComponent(key);
+    const active = key === String(sheetVariantKey) ? 'active' : '';
+    const weight = variant.weight
+      ? `<span class="variant-weight">${variant.weight}</span>`
+      : '';
+
+    return `<button
+      type="button"
+      class="variant-option ${active}"
+      onclick="selectSheetVariant(
+        decodeURIComponent('${keyEncoded}'),
+        event
+      )"
+    ><span>${variant.label}</span>${weight}</button>`;
+  }).join('');
+}
+
+window.selectSheetVariant = (variantKey, event) => {
+  if (event) event.stopPropagation();
+
+  const p = _catalog.find(
+    x => String(x.id) === String(sheetProductId)
+  );
+  if (!p) return;
+
+  const variant = getVariantByKey(p, variantKey);
+  if (!variant) return;
+
+  sheetVariantKey = String(variant.key);
+  selectedVariantKeys[String(p.id)] = sheetVariantKey;
+
+  document.getElementById('sheet-price').innerHTML =
+    productPriceLine(p, sheetVariantKey);
+
+  renderSheetVariants(p);
+  updateSheetQty();
+  renderCatalog();
+};
+
+window.openSheet = (id, variantKey = null) => {
+  const p = _catalog.find(x => String(x.id) === String(id));
+  if (!p) return;
+
+  sheetProductId = String(p.id);
+
+  const variant = getVariantByKey(
+    p,
+    variantKey || getSelectedVariantKey(p)
+  );
+
+  sheetVariantKey = String(variant?.key || 'standard');
+  selectedVariantKeys[String(p.id)] = sheetVariantKey;
+
+  const emoji = categoryEmoji(p.category);
+
+  document.getElementById('sheet-img-wrap').innerHTML = p.photo
+    ? `<div class="sheet-img"><img src="${p.photo}" alt="${productName(p)}"></div>`
+    : `<div class="sheet-img">${emoji}</div>`;
+
+  document.getElementById('sheet-name').textContent = productName(p);
+  document.getElementById('sheet-price').innerHTML =
+    productPriceLine(p, sheetVariantKey);
+  document.getElementById('sheet-desc').textContent = productDesc(p);
+
+  const ing = p.ingredients || '';
+  document.getElementById('sheet-ing-block').style.display =
+    ing ? 'block' : 'none';
+  document.getElementById('sheet-ing').textContent = ing;
+
+  renderSheetVariants(p);
+
+  document.getElementById('sheet-add-btn').textContent = t('addToCart');
   updateSheetQty();
   document.getElementById('product-sheet').classList.add('open');
 };
 
 function updateSheetQty() {
-  const cart=getCart(); const inCart=cart.find(c=>c.id===sheetProductId);
-  const qty=inCart?inCart.qty:0;
-  const ctrl=document.getElementById('sheet-qty-control');
-  const btn=document.getElementById('sheet-add-btn');
+  const p = _catalog.find(
+    x => String(x.id) === String(sheetProductId)
+  );
+  if (!p) return;
 
-  ctrl.innerHTML=qty>0
-    ?`<button class="qty-btn" onclick="chQty('${sheetProductId}',-1)">−</button><span class="qty-num">${qty}</span><button class="qty-btn" onclick="chQty('${sheetProductId}',1)">+</button>`
-    :'';
+  const variant = getVariantByKey(p, sheetVariantKey);
+  if (!variant) return;
 
-  if (btn) {
-    if (qty > 0) {
-      const labels = {
-        es:'Ir a la cesta',
-        ru:'Перейти в корзину',
-        en:'Go to cart'
-      };
-      btn.textContent = labels[detectLang()] || labels.es;
-      btn.onclick = () => goPage('cart');
-    } else {
-      btn.textContent = t('addToCart');
-      btn.onclick = () => addFromSheet();
-    }
+  sheetVariantKey = String(variant.key);
+
+  const cart = getCart();
+  const inCart = cart.find(
+    item => cartItemMatches(item, p, sheetVariantKey)
+  );
+  const qty = inCart ? Number(inCart.qty || 0) : 0;
+  const ctrl = document.getElementById('sheet-qty-control');
+  const btn = document.getElementById('sheet-add-btn');
+
+  const productIdEncoded = encodeURIComponent(String(p.id));
+  const variantKeyEncoded = encodeURIComponent(sheetVariantKey);
+
+  ctrl.innerHTML = qty > 0
+    ? `<button class="qty-btn"
+        onclick="chQty(
+          decodeURIComponent('${productIdEncoded}'),
+          decodeURIComponent('${variantKeyEncoded}'),
+          -1
+        )">−</button>
+       <span class="qty-num">${qty}</span>
+       <button class="qty-btn"
+        onclick="chQty(
+          decodeURIComponent('${productIdEncoded}'),
+          decodeURIComponent('${variantKeyEncoded}'),
+          1
+        )">+</button>`
+    : '';
+
+  if (!btn) return;
+
+  if (qty > 0) {
+    const labels = {
+      es:'Ir a la cesta',
+      ru:'Перейти в корзину',
+      en:'Go to cart'
+    };
+
+    btn.textContent = labels[detectLang()] || labels.es;
+    btn.onclick = () => goPage('cart');
+  } else {
+    btn.textContent = t('addToCart');
+    btn.onclick = () => addFromSheet();
   }
 }
-window.updateSheetQty = updateSheetQty;
-window.closeSheet = () => document.getElementById('product-sheet').classList.remove('open');
-window.addFromSheet = () => { addToCart(sheetProductId); updateSheetQty(); };
 
-function productMinQty(p) {
-  return getDefaultVariant(p)?.minQty || 1;
+window.updateSheetQty = updateSheetQty;
+
+window.closeSheet = () => {
+  document.getElementById('product-sheet').classList.remove('open');
+};
+
+window.addFromSheet = () => {
+  addToCart(sheetProductId, sheetVariantKey);
+  updateSheetQty();
+};
+
+function productMinQty(p, variantKey) {
+  return getVariantByKey(p, variantKey)?.minQty || 1;
 }
 
-function productStepQty(p) {
-  const variant = getDefaultVariant(p);
+function productStepQty(p, variantKey) {
+  const variant = getVariantByKey(p, variantKey);
+  const hasExplicitVariants =
+    Array.isArray(p?.variants) && p.variants.length > 0;
+
+  const fallbackStep = hasExplicitVariants
+    ? (variant?.packQty || variant?.minQty || 1)
+    : (p?.stepQty || variant?.packQty || variant?.minQty || 1);
+
   return Math.max(
     1,
-    Number(variant?.stepQty || p?.stepQty || variant?.packQty || variant?.minQty || 1)
+    Number(variant?.stepQty || fallbackStep)
   );
 }
 
-function nextProductQty(p, currentQty, direction) {
-  const minQ = productMinQty(p);
-  const step = productStepQty(p);
+function nextProductQty(p, variantKey, currentQty, direction) {
+  const minQ = productMinQty(p, variantKey);
+  const step = productStepQty(p, variantKey);
   const current = Number(currentQty || 0);
 
   if (direction > 0) {
@@ -686,7 +971,10 @@ function nextProductQty(p, currentQty, direction) {
     if (current < minQ) return minQ;
 
     const offset = current - minQ;
-    if (offset % step !== 0) return minQ + Math.ceil(offset / step) * step;
+
+    if (offset % step !== 0) {
+      return minQ + Math.ceil(offset / step) * step;
+    }
 
     return current + step;
   }
@@ -694,40 +982,116 @@ function nextProductQty(p, currentQty, direction) {
   if (current <= minQ) return 0;
 
   const offset = current - minQ;
-  if (offset % step !== 0) return minQ + Math.floor(offset / step) * step;
+
+  if (offset % step !== 0) {
+    return minQ + Math.floor(offset / step) * step;
+  }
 
   return current - step;
 }
 
-window.addToCart = id => {
-  const p=_catalog.find(x=>x.id===id);
-  if(!p) return;
+window.addToCart = (id, variantKey = null) => {
+  const p = _catalog.find(x => String(x.id) === String(id));
+  if (!p) return;
 
-  let cart=getCart(); const ex=cart.find(c=>c.id===id);
-  if(ex){ex.qty=nextProductQty(p, ex.qty, 1);}
-  else{cart.push({id,qty:productMinQty(p)});}
+  const variant = getVariantByKey(p, variantKey);
+  if (!variant) return;
 
-  saveCart(cart); syncCartViews();
-};
+  const resolvedKey = String(variant.key);
+  let cart = getCart();
 
-window.chQty = (id,delta) => {
-  let cart=getCart(); const item=cart.find(c=>c.id===id);
-  const p=_catalog.find(x=>x.id===id);
-  if(item && p){
-    const next = nextProductQty(p, item.qty, delta);
-    if(next <= 0) cart=cart.filter(c=>c.id!==id);
-    else item.qty = next;
+  const existing = cart.find(
+    item => cartItemMatches(item, p, resolvedKey)
+  );
+
+  if (existing) {
+    existing.variantKey = resolvedKey;
+    existing.qty = nextProductQty(
+      p,
+      resolvedKey,
+      existing.qty,
+      1
+    );
+  } else {
+    cart.push({
+      id: String(p.id),
+      variantKey: resolvedKey,
+      qty: productMinQty(p, resolvedKey)
+    });
   }
-  saveCart(cart); syncCartViews();
+
+  saveCart(cart);
+  syncCartViews();
 };
 
+window.chQty = (id, variantKey, delta) => {
+  // Compatibility with historical chQty(id, delta) calls.
+  if (delta === undefined) {
+    delta = variantKey;
+    variantKey = null;
+  }
+
+  const p = _catalog.find(x => String(x.id) === String(id));
+  if (!p) return;
+
+  const variant = getVariantByKey(p, variantKey);
+  if (!variant) return;
+
+  const resolvedKey = String(variant.key);
+  let cart = getCart();
+
+  const item = cart.find(
+    entry => cartItemMatches(entry, p, resolvedKey)
+  );
+
+  if (item) {
+    const next = nextProductQty(
+      p,
+      resolvedKey,
+      item.qty,
+      Number(delta)
+    );
+
+    if (next <= 0) {
+      cart = cart.filter(
+        entry => !cartItemMatches(entry, p, resolvedKey)
+      );
+    } else {
+      item.variantKey = resolvedKey;
+      item.qty = next;
+    }
+  }
+
+  saveCart(cart);
+  syncCartViews();
+};
 function updateCartBadge(){document.getElementById('cart-count').textContent=getCart().reduce((s,c)=>s+c.qty,0);}
-function updateSticky(){
-  const cart=getCart(); const n=cart.reduce((s,c)=>s+c.qty,0);
-  const total=cart.reduce((s,c)=>{const p=_catalog.find(x=>x.id===c.id);return s+(p?productDisplayUnitPrice(p)*c.qty:0);},0);
-  const el=document.getElementById('sticky-cart');
-  if(n>0){el.classList.add('visible');document.getElementById('sticky-label').textContent=t('checkout')+' · '+formatPrice(total);}
-  else el.classList.remove('visible');
+function updateSticky() {
+  const cart = getCart();
+  const n = cart.reduce((sum, item) => sum + Number(item.qty || 0), 0);
+
+  const total = cart.reduce((sum, item) => {
+    const p = _catalog.find(
+      x => String(x.id) === String(item.id)
+    );
+    if (!p) return sum;
+
+    const variantKey = getCartVariantKey(p, item);
+
+    return sum
+      + productDisplayUnitPrice(p, variantKey)
+      * Number(item.qty || 0);
+  }, 0);
+
+  const el = document.getElementById('sticky-cart');
+
+  if (n > 0) {
+    el.classList.add('visible');
+    document.getElementById('sticky-label').textContent =
+      t('checkout') + ' · ' + formatPrice(total);
+  } else {
+    el.classList.remove('visible');
+  }
 }
 
 function syncCartViews(opts={}) {
@@ -743,47 +1107,129 @@ function syncCartViews(opts={}) {
 }
 
 window.renderCart = () => {
-  const cart=getCart(); const listEl=document.getElementById('cart-list');
-  const emptyEl=document.getElementById('cart-empty');
-  const sumEl=document.getElementById('cart-summary'); const ctaEl=document.getElementById('cart-cta');
+  const cart = getCart();
+  const listEl = document.getElementById('cart-list');
+  const emptyEl = document.getElementById('cart-empty');
+  const sumEl = document.getElementById('cart-summary');
+  const ctaEl = document.getElementById('cart-cta');
+
   buildDeliveryOpts();
   updateCheckoutTotals();
 
-  if(!cart.length){emptyEl.style.display='block';listEl.style.display='none';sumEl.style.display='none';ctaEl.innerHTML='';return;}
-  emptyEl.style.display='none';listEl.style.display='flex';sumEl.style.display='block';
-  let total=0,count=0;
-  listEl.innerHTML=cart.map(item=>{
-    const p=_catalog.find(x=>x.id===item.id);if(!p)return'';
-    const cp=productDisplayUnitPrice(p);const sub=cp*item.qty;total+=sub;count+=item.qty;
+  if (!cart.length) {
+    emptyEl.style.display = 'block';
+    listEl.style.display = 'none';
+    sumEl.style.display = 'none';
+    ctaEl.innerHTML = '';
+    return;
+  }
+
+  emptyEl.style.display = 'none';
+  listEl.style.display = 'flex';
+  sumEl.style.display = 'block';
+
+  let total = 0;
+  let count = 0;
+
+  listEl.innerHTML = cart.map(item => {
+    const p = _catalog.find(
+      x => String(x.id) === String(item.id)
+    );
+    if (!p) return '';
+
+    const variant = getVariantByKey(p, item.variantKey);
+    if (!variant) return '';
+
+    const variantKey = String(variant.key);
+    const cp = productDisplayUnitPrice(p, variantKey);
+    const qty = Number(item.qty || 0);
+    const sub = cp * qty;
+
+    total += sub;
+    count += qty;
+
+    const productIdEncoded = encodeURIComponent(String(p.id));
+    const variantKeyEncoded = encodeURIComponent(variantKey);
+    const meta = variantCaption(variant);
+
     return `<div class="product-card">
       <div class="product-info">
         <div class="product-name">${productName(p)}</div>
-        <div style="font-size:14px;color:var(--text2);margin-top:4px">${item.qty} × ${formatPrice(cp)} = ${formatPrice(sub)}</div>
+        ${meta ? `<div class="product-meta">${meta}</div>` : ''}
+        <div style="font-size:14px;color:var(--text2);margin-top:4px">
+          ${qty} × ${formatPrice(cp)} = ${formatPrice(sub)}
+        </div>
       </div>
+
       <div class="qty-control">
-        <button class="qty-btn" onclick="cartChQty('${p.id}',-1)">−</button>
-        <span class="qty-num">${item.qty}</span>
-        <button class="qty-btn" onclick="cartChQty('${p.id}',1)">+</button>
+        <button class="qty-btn"
+          onclick="cartChQty(
+            decodeURIComponent('${productIdEncoded}'),
+            decodeURIComponent('${variantKeyEncoded}'),
+            -1
+          )">−</button>
+        <span class="qty-num">${qty}</span>
+        <button class="qty-btn"
+          onclick="cartChQty(
+            decodeURIComponent('${productIdEncoded}'),
+            decodeURIComponent('${variantKeyEncoded}'),
+            1
+          )">+</button>
       </div>
     </div>`;
   }).join('');
-  document.getElementById('sum-items').textContent=count;
-  document.getElementById('sum-total').textContent=formatPrice(total);
+
+  document.getElementById('sum-items').textContent = count;
+  document.getElementById('sum-total').textContent = formatPrice(total);
   updateCheckoutTotals(total);
-  ctaEl.innerHTML=`<button class="btn btn-primary" style="width:100%;font-size:16px;padding:14px;border-radius:var(--r)" onclick="goPage('checkout')">${t('checkout')} →</button>`;
+
+  ctaEl.innerHTML =
+    `<button class="btn btn-primary"
+      style="width:100%;font-size:16px;padding:14px;border-radius:var(--r)"
+      onclick="goPage('checkout')">${t('checkout')} →</button>`;
 };
 
-window.cartChQty = (id,delta) => {
-  let cart=getCart();const item=cart.find(c=>c.id===id);
-  const p=_catalog.find(x=>x.id===id);
-  if(item && p){
-    const next = nextProductQty(p, item.qty, delta);
-    if(next <= 0) cart=cart.filter(c=>c.id!==id);
-    else item.qty = next;
+window.cartChQty = (id, variantKey, delta) => {
+  // Compatibility with historical cartChQty(id, delta) calls.
+  if (delta === undefined) {
+    delta = variantKey;
+    variantKey = null;
   }
-  saveCart(cart); syncCartViews({cart:true});
-};
 
+  const p = _catalog.find(x => String(x.id) === String(id));
+  if (!p) return;
+
+  const variant = getVariantByKey(p, variantKey);
+  if (!variant) return;
+
+  const resolvedKey = String(variant.key);
+  let cart = getCart();
+
+  const item = cart.find(
+    entry => cartItemMatches(entry, p, resolvedKey)
+  );
+
+  if (item) {
+    const next = nextProductQty(
+      p,
+      resolvedKey,
+      item.qty,
+      Number(delta)
+    );
+
+    if (next <= 0) {
+      cart = cart.filter(
+        entry => !cartItemMatches(entry, p, resolvedKey)
+      );
+    } else {
+      item.variantKey = resolvedKey;
+      item.qty = next;
+    }
+  }
+
+  saveCart(cart);
+  syncCartViews({cart:true});
+};
 function deliveryText(key) {
   const lang = detectLang();
   const dict = {
@@ -826,10 +1272,18 @@ function parseShopNumber(value) {
 
 function getCheckoutSubtotal() {
   const cart = getCart();
+
   return cart.reduce((sum, item) => {
-    const p = _catalog.find(x => x.id === item.id);
+    const p = _catalog.find(
+      x => String(x.id) === String(item.id)
+    );
     if (!p) return sum;
-    return sum + productDisplayUnitPrice(p) * Number(item.qty || 0);
+
+    const variantKey = getCartVariantKey(p, item);
+
+    return sum
+      + productDisplayUnitPrice(p, variantKey)
+      * Number(item.qty || 0);
   }, 0);
 }
 
@@ -1032,14 +1486,33 @@ window.submitOrder = async () => {
   const cart=getCart();
   if(!cart.length){showToast(t('cartEmpty'));return;}
 
-  const items=cart.map(c=>{
-    const p=_catalog.find(x=>x.id===c.id);
-    if(!p) return null;
+  const items = cart.map(c => {
+    const p = _catalog.find(
+      x => String(x.id) === String(c.id)
+    );
+    if (!p) return null;
+
+    const variant = getVariantByKey(p, c.variantKey);
+    if (!variant) return null;
+
+    const variantKey = String(variant.key);
+    const baseName = productName(p);
+    const hasExplicitVariants =
+      Array.isArray(p.variants) && p.variants.length > 0;
+
     return {
-      id:String(c.id),
-      name:productName(p),
-      qty:Number(c.qty || 0),
-      price:Number(productDisplayUnitPrice(p))
+      id: String(p.id),
+      productName: baseName,
+      name: hasExplicitVariants
+        ? `${baseName} · ${variantCaption(variant)}`
+        : baseName,
+      variantKey,
+      variantLabel: String(variant.label || variantKey),
+      weight: String(variant.weight || ''),
+      packQty: Number(variant.packQty || 1),
+      minQty: Number(variant.minQty || 1),
+      qty: Number(c.qty || 0),
+      price: Number(productDisplayUnitPrice(p, variantKey))
     };
   }).filter(Boolean);
 
@@ -1508,7 +1981,10 @@ function repeatOrderLabel() {
 }
 
 window.repeatOrder = id => {
-  const order = (_orders || []).find(o => String(o.id) === String(id));
+  const order = (_orders || []).find(
+    o => String(o.id) === String(id)
+  );
+
   if (!order) {
     showToast('Order not found');
     return;
@@ -1519,20 +1995,52 @@ window.repeatOrder = id => {
 
   (order.items || []).forEach(item => {
     const productId = String(item.id || '');
-    const p = _catalog.find(x => String(x.id) === productId);
+    const p = _catalog.find(
+      x => String(x.id) === productId
+    );
 
     if (!p || p.available === false) {
       skipped++;
       return;
     }
 
+    let variant = null;
+
+    if (item.variantKey !== null && item.variantKey !== undefined) {
+      variant = getAvailableProductVariants(p).find(
+        candidate =>
+          String(candidate.key) === String(item.variantKey)
+      ) || null;
+    } else {
+      variant = getVariantByKey(p, null);
+    }
+
+    if (!variant) {
+      skipped++;
+      return;
+    }
+
     const qty = Number(item.qty || 0);
+
     if (!Number.isFinite(qty) || qty <= 0) {
       skipped++;
       return;
     }
 
-    nextCart.push({ id: productId, qty });
+    const variantKey = String(variant.key);
+    const existing = nextCart.find(
+      cartItem => cartItemMatches(cartItem, p, variantKey)
+    );
+
+    if (existing) {
+      existing.qty += qty;
+    } else {
+      nextCart.push({
+        id: productId,
+        variantKey,
+        qty
+      });
+    }
   });
 
   if (!nextCart.length) {
@@ -1541,16 +2049,15 @@ window.repeatOrder = id => {
   }
 
   saveCart(nextCart);
-  syncCartViews({ cart:true });
+  syncCartViews({cart:true});
   goPage('cart');
 
-  showToast(skipped
-    ? `${repeatOrderLabel()}: ${nextCart.length} items, ${skipped} skipped`
-    : repeatOrderLabel() + ' ✓'
+  showToast(
+    skipped
+      ? `${repeatOrderLabel()}: ${nextCart.length} items, ${skipped} skipped`
+      : repeatOrderLabel() + ' ✓'
   );
 };
-
-
 
 function clientCanDeleteOrder(o) {
   return o && o.status === 'new';
