@@ -28,6 +28,17 @@
       <a href="admin.html" style="font-size:13px;color:var(--text3);text-decoration:none">🔑 Admin</a>
     </div>
   </div>
+
+  <button
+    type="button"
+    class="btn btn-outline"
+    data-install-app
+    style="width:100%;margin-top:14px;padding:10px 14px"
+  >
+    <span aria-hidden="true">⬇</span>
+    <span data-install-app-label>Instalar</span>
+  </button>
+
   <div style="margin-top:16px;display:flex;gap:8px">
     <button class="lang-btn" onclick="setLang('ru')">RU</button>
     <button class="lang-btn" onclick="setLang('en')">EN</button>
@@ -37,6 +48,7 @@
 <div id="toast" class="toast"></div>
 <script src="i18n.js"></script>
 <script src="core.js"></script>
+<script src="install-prompt.js"></script>
 <script type="module">
 import { fbGetSettings, fbFindClient, fbRecordClientLogin } from './firebase.js?v=login-stats1';
 

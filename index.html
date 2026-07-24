@@ -928,6 +928,16 @@
             <button type="button" data-lang="ru">RU</button>
             <button type="button" data-lang="en">EN</button>
           </div>
+
+          <button
+            type="button"
+            class="lb-btn lb-btn-ghost install-app-btn-header"
+            data-install-app
+          >
+            <span aria-hidden="true">⬇</span>
+            <span data-install-app-label>Установить</span>
+          </button>
+
           <a class="lb-btn lb-btn-ghost" href="login.html" data-home="clientAccess">Вход для клиентов</a>
         </div>
       </div>
@@ -1219,6 +1229,7 @@
 
   <script src="i18n.js"></script>
   <script src="core.js"></script>
+<script src="install-prompt.js"></script>
   <script type="module">
     import { fbGetSettings, fbGetCatalog, fbAddOrder } from './firebase.js';
 

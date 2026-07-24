@@ -19,9 +19,20 @@
 <div id="page-catalog" class="page active page-wrap">
   <header class="app-header" id="main-header">
     <div id="hdr-logo" class="logo-emoji">🥮</div>
-    <div><h1 id="hdr-name">…</h1><div class="subtitle" id="hdr-tag"></div></div>
+    <div class="header-title">
+      <h1 id="hdr-name">…</h1>
+      <div class="subtitle" id="hdr-tag"></div>
+    </div>
     <div class="header-right">
-      <button class="cart-icon-btn" onclick="goPage('cart');renderCart()">🛒 <span class="cart-cnt" id="cart-count">0</span></button>
+      <button
+        type="button"
+        class="btn-ghost install-app-btn-shop"
+        data-install-app
+      >
+        <span aria-hidden="true">⬇</span>
+        <span data-install-app-label>Установить</span>
+      </button>
+
       <button class="btn-ghost" onclick="doLogout()" style="font-size:16px;padding:6px 10px" title="Выйти">↩</button>
       <div style="position:relative">
         <button class="lang-btn" id="lang-toggle" onclick="toggleLangMenu()">🌐</button>
@@ -198,7 +209,17 @@
 
 <nav class="bottom-nav">
   <a href="#" onclick="goPage('catalog');return false" id="nav-catalog" class="active"><span class="ni">🛍️</span><span id="nav-catalog-lbl"></span></a>
-  <a href="#" onclick="goPage('cart');renderCart();return false" id="nav-cart"><span class="ni">🛒</span><span id="nav-cart-lbl"></span></a>
+  <a href="#" onclick="goPage('cart');renderCart();return false" id="nav-cart">
+    <span class="ni nav-cart-icon">
+      🛒
+      <span
+        class="bottom-cart-count"
+        id="nav-cart-count"
+        hidden
+      >0</span>
+    </span>
+    <span id="nav-cart-lbl"></span>
+  </a>
   <a href="#" onclick="goPage('orders');renderMyOrders();return false" id="nav-orders"><span class="ni">📋</span><span id="nav-orders-lbl"></span></a>
 </nav>
 
@@ -206,6 +227,7 @@
 
 <script src="i18n.js"></script>
 <script src="core.js"></script>
+<script src="install-prompt.js"></script>
 <script type="module">
 import { fbGetSettings, fbGetCatalog, fbFindClient, fbAddOrder, fbGetOrders, fbSaveClient, fbUpdateOrder, fbRecordClientVisit } from './firebase.js';
 
@@ -1139,7 +1161,25 @@ window.chQty = (id, variantKey, delta) => {
   saveCart(cart);
   syncCartViews();
 };
-function updateCartBadge(){document.getElementById('cart-count').textContent=getCart().reduce((s,c)=>s+c.qty,0);}
+function updateCartBadge() {
+  const count = getCart().reduce(
+    (sum, item) => sum + Number(item.qty || 0),
+    0
+  );
+
+  const headerBadge = document.getElementById('cart-count');
+
+  if (headerBadge) {
+    headerBadge.textContent = count;
+  }
+
+  const bottomBadge = document.getElementById('nav-cart-count');
+
+  if (bottomBadge) {
+    bottomBadge.textContent = count;
+    bottomBadge.hidden = count <= 0;
+  }
+}
 function updateSticky() {
   const cart = getCart();
   const n = cart.reduce((sum, item) => sum + Number(item.qty || 0), 0);

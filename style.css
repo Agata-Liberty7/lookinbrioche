@@ -1259,3 +1259,38 @@ body{
     grid-template-columns:minmax(0,1fr) 100px;
   }
 }
+
+/* === Bottom navigation cart counter === */
+
+.bottom-nav .nav-cart-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bottom-cart-count {
+  position: absolute;
+  top: -7px;
+  right: -13px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--bgc);
+}
+
+.bottom-cart-count[hidden] {
+  display: none;
+}
+
+.dark .bottom-cart-count {
+  box-shadow: 0 0 0 2px var(--bgc);
+}
+
