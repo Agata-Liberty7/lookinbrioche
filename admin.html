@@ -193,14 +193,62 @@
         <textarea id="s-invoice" rows="3" placeholder="Company SL&#10;CIF: B12345678&#10;Calle Mayor 1, Madrid"></textarea>
       </div>
       <div class="form-group">
-        <label>WhatsApp number (with country code)</label>
+        <label>Backup WhatsApp</label>
         <input type="tel" id="s-wanumber" placeholder="34600000000">
-        <div style="font-size:12px;color:var(--text3);margin-top:4px">Used for order buttons on the showcase page</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:4px">Secondary contact number. Not shown publicly.</div>
       </div>
       <div class="form-group">
         <label>Stripe Publishable Key</label>
         <input type="text" id="s-stripe" placeholder="pk_live_...">
         <div style="font-size:12px;color:var(--text3);margin-top:4px">Leave empty to hide Stripe option from clients</div>
+      </div>
+
+      <div style="font-size:13px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:20px 0 12px">Public business information</div>
+
+      <div class="form-group">
+        <label>Business description</label>
+        <textarea id="s-business-description" rows="3" placeholder="Artisan brioche pastries for shops, events and special orders in Valencia"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>Service area</label>
+        <input type="text" id="s-service-area" placeholder="Valencia">
+      </div>
+
+      <div class="form-group">
+        <label>Production address (optional)</label>
+        <textarea id="s-public-address" rows="2" placeholder="Address of the shared kitchen"></textarea>
+      </div>
+
+      <div class="form-group">
+        <div class="toggle-wrap">
+          <label class="toggle">
+            <input type="checkbox" id="s-show-public-address">
+            <span class="toggle-slider"></span>
+          </label>
+          <span>Show production address publicly</span>
+        </div>
+        <div style="font-size:12px;color:var(--text3);margin-top:4px">Leave disabled if customers should not visit this address.</div>
+      </div>
+
+      <div class="form-group">
+        <label>Public email</label>
+        <input type="email" id="s-public-email" placeholder="hello@example.com">
+      </div>
+
+      <div class="form-group">
+        <label>Instagram URL</label>
+        <input type="url" id="s-instagram-url" placeholder="https://www.instagram.com/...">
+      </div>
+
+      <div class="form-group">
+        <label>Facebook URL</label>
+        <input type="url" id="s-facebook-url" placeholder="https://www.facebook.com/...">
+      </div>
+
+      <div class="form-group">
+        <label>Business hours</label>
+        <textarea id="s-business-hours" rows="3" placeholder="Orders by arrangement · Monday–Friday"></textarea>
       </div>
 
       <div style="font-size:13px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:20px 0 12px">Delivery</div>
@@ -1459,9 +1507,18 @@ function loadSettingsForm(){
   document.getElementById('s-darkmode').value=s.darkMode||'system';
   document.getElementById('s-bizum').value=s.bizumNumber||'';
   document.getElementById('s-whatsapp').value=s.whatsappNumber||s.bizumNumber||'';
+  document.getElementById('s-wanumber').value=s.backupWhatsappNumber||'';
   document.getElementById('s-revolut').value=s.revolutHandle||'';
   document.getElementById('s-invoice').value=s.invoiceDetails||'';
   document.getElementById('s-stripe').value=s.stripeKey||'';
+  document.getElementById('s-business-description').value=s.businessDescription||'';
+  document.getElementById('s-service-area').value=s.serviceArea||'Valencia';
+  document.getElementById('s-public-address').value=s.publicAddress||'';
+  document.getElementById('s-show-public-address').checked=s.showPublicAddress===true;
+  document.getElementById('s-public-email').value=s.publicEmail||'';
+  document.getElementById('s-instagram-url').value=s.instagramUrl||'';
+  document.getElementById('s-facebook-url').value=s.facebookUrl||'';
+  document.getElementById('s-business-hours').value=s.businessHours||'';
   document.getElementById('s-default-delivery-fee').value=s.defaultDeliveryFee??'';
   document.getElementById('s-adminpass').value='';
   if(s.logo){document.getElementById('logo-preview-wrap').innerHTML=`<img src="${s.logo}" class="photo-preview" style="width:100px;height:100px"><br><div style="font-size:12px;color:var(--text3);margin-top:6px">Click to replace</div>`;}
@@ -1506,9 +1563,18 @@ window.saveSettingsForm = async () => {
   s.darkMode=document.getElementById('s-darkmode').value;
   s.bizumNumber=document.getElementById('s-bizum').value.trim();
   s.whatsappNumber=document.getElementById('s-whatsapp').value.trim();
+  s.backupWhatsappNumber=document.getElementById('s-wanumber').value.trim();
   s.revolutHandle=document.getElementById('s-revolut').value.trim();
   s.invoiceDetails=document.getElementById('s-invoice').value.trim();
   s.stripeKey=document.getElementById('s-stripe').value.trim();
+  s.businessDescription=document.getElementById('s-business-description').value.trim();
+  s.serviceArea=document.getElementById('s-service-area').value.trim();
+  s.publicAddress=document.getElementById('s-public-address').value.trim();
+  s.showPublicAddress=document.getElementById('s-show-public-address').checked;
+  s.publicEmail=document.getElementById('s-public-email').value.trim();
+  s.instagramUrl=document.getElementById('s-instagram-url').value.trim();
+  s.facebookUrl=document.getElementById('s-facebook-url').value.trim();
+  s.businessHours=document.getElementById('s-business-hours').value.trim();
   s.defaultDeliveryFee=parseAdminNumber(document.getElementById('s-default-delivery-fee').value)||0;
 
   const newPass=document.getElementById('s-adminpass').value.trim();
