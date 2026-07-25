@@ -226,7 +226,7 @@
     .lb-contact-actions{display:flex;flex-wrap:wrap;gap:12px;justify-content:flex-end}
     .lb-footer{padding:34px 0 44px;color:var(--lb-muted);font-size:14px}
     .lb-footer-inner{display:flex;align-items:center;justify-content:space-between;gap:18px;border-top:1px solid var(--lb-line);padding-top:22px}
-    .lb-wa-float{position:fixed;right:22px;bottom:calc(22px + env(safe-area-inset-bottom));z-index:80;width:58px;height:58px;border-radius:50%;background:#25D366;color:#fff!important;display:flex;align-items:center;justify-content:center;text-decoration:none;box-shadow:0 12px 32px rgba(37,211,102,.34);font-size:25px}
+    .lb-wa-float{position:fixed;right:22px;bottom:calc(22px + env(safe-area-inset-bottom));z-index:80;width:58px;height:58px;border-radius:50%;background:#2E6B3E;color:#fff!important;display:flex;align-items:center;justify-content:center;text-decoration:none;box-shadow:0 12px 32px rgba(37,211,102,.34);font-size:25px}
 
     @media (max-width:960px){
       .lb-nav-links{display:none}
@@ -899,6 +899,149 @@
       }
     }
 
+
+    /* SEMANTIC CTA COLORS
+       Orange = client account.
+       Green = request / WhatsApp / contact. */
+    .lb-btn.lb-btn-client {
+      min-height:48px;
+      padding:0 24px;
+      background:#E46A24;
+      border:1px solid #E46A24;
+      color:#fff!important;
+      font-size:15px;
+      font-weight:800;
+      box-shadow:0 12px 30px rgba(228,106,36,.28);
+    }
+
+    .lb-btn.lb-btn-client:hover {
+      background:#B84912;
+      border-color:#B84912;
+      transform:translateY(-1px);
+    }
+
+    .lb-btn.lb-btn-contact {
+      min-height:48px;
+      padding:0 24px;
+      background:#2E6B3E;
+      border:1px solid #2E6B3E;
+      color:#fff!important;
+      font-size:15px;
+      font-weight:800;
+      box-shadow:0 12px 30px rgba(46,107,62,.24);
+    }
+
+    .lb-btn.lb-btn-contact:hover,
+    .lb-wa-float:hover {
+      background:#1E5C30;
+      border-color:#1E5C30;
+      transform:translateY(-1px);
+    }
+
+    .lb-wa-float {
+      background:#2E6B3E;
+    }
+
+    .lb-footer .lb-btn-client {
+      min-height:44px;
+      padding:0 18px;
+    }
+
+    @media (max-width:760px) {
+      /* На мобильном вход остаётся только рядом с Valencia. */
+      .lb-actions > .lb-btn-client {
+        display:none !important;
+      }
+
+      .lb-mobile-client-link.lb-btn-client {
+        display:inline-flex !important;
+        width:auto;
+        max-width:100%;
+        min-height:44px;
+        padding:0 16px;
+        margin:0;
+        flex:0 0 auto;
+        justify-content:center;
+        font-size:14px;
+        box-shadow:0 8px 20px rgba(228,106,36,.20);
+      }
+
+      .lb-hero-mobile-meta .lb-eyebrow {
+        min-width:0;
+      }
+
+      .lb-hero-cta .lb-btn-client,
+      .lb-hero-cta .lb-btn-contact,
+      .lb-contact-actions .lb-btn-client,
+      .lb-contact-actions .lb-btn-contact,
+      .lb-footer .lb-btn-client {
+        width:100%;
+        justify-content:center;
+      }
+    }
+
+
+    /* MOBILE INSTALL APP BAR */
+    @media (max-width:760px) {
+      .lb-header-inner {
+        display:grid;
+        grid-template-columns:minmax(0,1fr) auto;
+        align-items:center;
+        column-gap:12px;
+        row-gap:9px;
+        padding-top:10px;
+        padding-bottom:10px;
+      }
+
+      .lb-brand {
+        grid-column:1;
+        grid-row:1;
+        min-width:0;
+      }
+
+      .lb-brand span {
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+      }
+
+      .lb-actions {
+        display:contents !important;
+      }
+
+      .lb-actions > .lb-btn-client {
+        display:none !important;
+      }
+
+      .lb-lang {
+        grid-column:2;
+        grid-row:1;
+        justify-self:end;
+      }
+
+      .install-app-btn-header:not([hidden]) {
+        grid-column:1 / -1;
+        grid-row:2;
+        width:100% !important;
+        min-height:42px !important;
+        padding:8px 14px !important;
+        justify-content:center;
+        border:1px solid rgba(159,91,47,.42) !important;
+        border-radius:13px !important;
+        background:rgba(159,91,47,.10) !important;
+        color:var(--lb-text) !important;
+        box-shadow:none !important;
+        font-size:14px !important;
+        font-weight:750 !important;
+        letter-spacing:.01em;
+      }
+
+      .install-app-btn-header:not([hidden]):active {
+        background:rgba(159,91,47,.18) !important;
+        transform:translateY(1px);
+      }
+    }
+
   </style>
   <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32-v7.png">
   <link rel="shortcut icon" type="image/png" href="/icons/favicon-32-v7.png">
@@ -936,10 +1079,10 @@
             hidden
           >
             <span aria-hidden="true">⬇</span>
-            <span data-install-app-label>Установить</span>
+            <span data-install-app-label>Установить приложение</span>
           </button>
 
-          <a class="lb-btn lb-btn-ghost" href="login.html" data-home="clientAccess">Вход для клиентов</a>
+          <a class="lb-btn lb-btn-client" href="login.html" data-home="clientAccess">Вход для клиентов</a>
         </div>
       </div>
     </header>
@@ -952,7 +1095,7 @@
 
               <div class="lb-eyebrow" data-home="eyebrow">Валенсия · Домашние пирожки</div>
 
-              <a class="lb-mobile-client-link" href="login.html" data-home="clientAccess">Вход для клиентов</a>
+              <a class="lb-btn lb-btn-client lb-mobile-client-link" href="login.html" data-home="clientAccess">Вход для клиентов</a>
 
             </div>
             <h1 data-home="heroTitle">Выпечка из бриошного теста ручной работы</h1>
@@ -961,7 +1104,7 @@
               <a class="lb-btn lb-btn-primary" href="#catalog" data-home="catalogBtn">Каталог</a>
               <a class="lb-btn lb-btn-ghost" id="hero-public-order" href="#public-order" data-home="publicOrderBtn">Pedido sin cuenta</a>
               <a class="lb-btn lb-btn-ghost lb-mobile-login" href="login.html" data-home="clientAccess">Вход для клиентов</a>
-              <a class="lb-btn lb-btn-ghost" id="hero-wa" href="#" target="_blank" rel="noopener" data-home="whatsappBtn">Написать в WhatsApp</a>
+              <a class="lb-btn lb-btn-contact" id="hero-wa" href="#" target="_blank" rel="noopener" data-home="whatsappBtn">Написать в WhatsApp</a>
             </div>
             <div class="lb-proof" aria-label="Advantages">
               <div><strong data-home="proof1Title">Для магазинов</strong><span data-home="proof1Text">Личный кабинет, каталог и повторные заказы.</span></div>
@@ -1177,7 +1320,7 @@
               <p data-home="contactText">Расскажите, что вам нужно: ассортимент для магазина, выпечка для мероприятия или специальный заказ.</p>
             </div>
             <div class="lb-contact-actions">
-              <a class="lb-btn lb-btn-primary lb-wa-link" href="#" target="_blank" rel="noopener" data-home="whatsappBtn">Написать в WhatsApp</a>
+              <a class="lb-btn lb-btn-contact lb-wa-link" href="#" target="_blank" rel="noopener" data-home="whatsappBtn">Написать в WhatsApp</a>
               <a class="lb-btn lb-btn-ghost" href="login.html" data-home="clientAccess">Вход для клиентов</a>
             </div>
           </div>
@@ -1218,7 +1361,7 @@
           </div>
 
           <div class="lb-product-detail-actions">
-            <a class="lb-btn lb-btn-primary" id="public-product-wa" target="_blank" rel="noopener"></a>
+            <a class="lb-btn lb-btn-contact" id="public-product-wa" target="_blank" rel="noopener"></a>
           </div>
         </div>
       </div>

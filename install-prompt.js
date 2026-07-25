@@ -7,6 +7,7 @@
   const COPY = {
     es: {
       button: 'Instalar',
+      headerButton: 'Instalar la aplicación',
       fullButton: 'Instalar la aplicación',
       title: 'Instala Look-in Brioche',
       intro:
@@ -21,6 +22,7 @@
 
     ru: {
       button: 'Установить',
+      headerButton: 'Установить приложение',
       fullButton: 'Установить приложение',
       title: 'Установите Look-in Brioche',
       intro:
@@ -35,6 +37,7 @@
 
     en: {
       button: 'Install',
+      headerButton: 'Install the app',
       fullButton: 'Install the app',
       title: 'Install Look-in Brioche',
       intro:
@@ -132,7 +135,11 @@
         '[data-install-app-label]'
       );
 
-      if (label) label.textContent = labels.button;
+      if (label) {
+      label.textContent = button.classList.contains('install-app-btn-header')
+        ? (labels.headerButton || labels.button)
+        : labels.button;
+    }
     });
 
     if (!instructionOverlay) return;
@@ -430,36 +437,57 @@
         }
 
         html.install-app-available .lb-nav {
+          display: grid !important;
+          grid-template-columns: minmax(0, 1fr) auto;
+          align-items: center !important;
+          column-gap: 10px;
+          row-gap: 8px;
           height: auto !important;
           min-height: 58px;
-          padding-top: 6px;
-          padding-bottom: 6px;
-          align-items: flex-start !important;
+          padding-top: 8px;
+          padding-bottom: 8px;
+        }
+
+        html.install-app-available .lb-brand {
+          grid-column: 1;
+          grid-row: 1;
+          min-width: 0;
+        }
+
+        html.install-app-available .lb-lang {
+          grid-column: 2;
+          grid-row: 1;
+          justify-self: end;
         }
 
         html.install-app-available .lb-actions {
-          width: 106px;
-          flex: 0 0 106px;
-          flex-wrap: wrap;
-          justify-content: flex-end;
-          gap: 4px !important;
+          display: contents !important;
+          width: auto;
+          flex: none;
         }
 
         html.install-app-available
         .lb-actions
         .install-app-btn-header:not([hidden]) {
           display: inline-flex !important;
-          width: 100%;
-          min-height: 30px;
-          padding: 6px 8px !important;
-          font-size: 11px;
+          grid-column: 1 / -1;
+          grid-row: 2;
+          width: 100% !important;
+          min-height: 42px;
+          padding: 8px 14px !important;
+          justify-content: center;
+          font-size: 14px;
           line-height: 1.1;
         }
 
         html.install-app-available
         .install-app-btn-header
         > span:first-child {
-          display: none;
+          display: inline-flex !important;
+          align-items: center;
+          justify-content: center;
+          font-size: 15px;
+          line-height: 1;
         }
 
         #main-header {
@@ -493,10 +521,11 @@
           min-width: 0;
           min-height: 34px;
           padding: 7px 11px !important;
-          border-color: var(--brand) !important;
+          border-color: var(--bdr) !important;
           border-radius: 999px !important;
-          background: var(--brand) !important;
-          color: #fff !important;
+          background: var(--bgc) !important;
+          color: var(--text) !important;
+          box-shadow: none !important;
           font-size: 12px;
           font-weight: 700;
           line-height: 1;
