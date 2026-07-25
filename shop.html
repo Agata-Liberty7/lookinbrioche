@@ -358,43 +358,91 @@ async function refreshCurrentClientSession() {
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 async function boot() {
   showLoading('Loading…');
-  applyTheme(); applyFont();
+  applyTheme();
+  applyFont();
 
   try {
-    // Load settings
-    const s = await fbGetSettings();
-    if (s) { window._settings = Object.assign({}, window._settings||{}, s); saveSettingsCache(window._settings); }
-    applyTheme(); applyFont();
+    // These reads are independent, so do not wait for them sequentially.
+    // Client refresh must finish before the catalog is rendered because
+    // the refreshed profile may contain individual prices and terms.
+    const [settings, catalog] = await Promise.all([
+      fbGetSettings(),
+      fbGetCatalog(),
+      refreshCurrentClientSession()
+    ]);
 
-    // Refresh client data so prices and commercial terms stay current.
-    await refreshCurrentClientSession();
+    if (settings) {
+      window._settings = Object.assign(
+        {},
+        window._settings || {},
+        settings
+      );
+      saveSettingsCache(window._settings);
+    }
 
-    // Load catalog
-    _catalog = await fbGetCatalog();
+    applyTheme();
+    applyFont();
+
+    _catalog = catalog;
+
     if (!_catalog.length) {
       // Seed default catalog on first run
       _catalog = [
-        { id:'1', name:'Barra brioche', price:4.5, unit:'sht', category:'Pan', available:true, minQty:1, photo:null, description:'Pan brioche artesano', ingredients:'Masa madre, harina de trigo fuerza, leche, mantequilla, azúcar, sal, yema de huevo. ¡Sin levadura!' },
-        { id:'2', name:'Piroski de carne', price:2.5, unit:'sht', category:'Piroski', available:true, minQty:5, photo:null, description:'', ingredients:'' },
-        { id:'3', name:'Piroski de col', price:2.0, unit:'sht', category:'Piroski', available:true, minQty:5, photo:null, description:'', ingredients:'' },
+        {
+          id: '1',
+          name: 'Barra brioche',
+          price: 4.5,
+          unit: 'sht',
+          category: 'Pan',
+          available: true,
+          minQty: 1,
+          photo: null,
+          description: 'Pan brioche artesano',
+          ingredients: 'Masa madre, harina de trigo fuerza, leche, mantequilla, azúcar, sal, yema de huevo. ¡Sin levadura!'
+        },
+        {
+          id: '2',
+          name: 'Piroski de carne',
+          price: 2.5,
+          unit: 'sht',
+          category: 'Piroski',
+          available: true,
+          minQty: 5,
+          photo: null,
+          description: '',
+          ingredients: ''
+        },
+        {
+          id: '3',
+          name: 'Piroski de col',
+          price: 2.0,
+          unit: 'sht',
+          category: 'Piroski',
+          available: true,
+          minQty: 5,
+          photo: null,
+          description: '',
+          ingredients: ''
+        }
       ];
     }
+
     window._catalog = _catalog;
     currentCat = 'all';
 
-    // Load my orders
-    _orders = await fbGetOrders();
+    // Orders are intentionally not loaded here.
+    // renderMyOrders() fetches them when the user opens that section.
 
-    hideLoading();
     initStrings();
     renderCatalog();
-  } catch(e) {
-    console.error(e);
     hideLoading();
-    showToast('Connection error — offline mode');
+  } catch (error) {
+    console.error(error);
     currentCat = 'all';
     initStrings();
     renderCatalog();
+    hideLoading();
+    showToast('Connection error — offline mode');
   }
 }
 

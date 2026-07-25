@@ -1,4 +1,4 @@
-const CACHE = 'lookin-v3';
+const CACHE = 'lookin-v4';
 
 const ASSETS = [
   '/',
