@@ -1578,55 +1578,26 @@
     let activePublicCategory = 'all';
 
     function publicCategoryKey(category){
-      return String(category || 'other').trim().toLowerCase();
+      return normalizeProductCategoryKey(category);
     }
 
     function publicCategoryEmoji(category){
-      const key = publicCategoryKey(category);
-      if (key === 'pirozhki') return '🥟';
-      if (key === 'rogaliki') return '🥐';
-      if (key === 'bulochki' || key === 'buns') return '🍞';
-      if (key === 'seasonal') return '⭐';
-      return '🥐';
+      return productCategoryEmoji(publicCategoryKey(category));
     }
 
     function publicCategoryLabel(category){
       const key = publicCategoryKey(category);
       const lang = currentLang();
 
-      const labels = {
-        es: {
-          all: 'Todo',
-          pirozhki: 'Empanadillas',
-          rogaliki: 'Brioche relleno',
-          bulochki: 'Bollería',
-          buns: 'Bollería',
-          seasonal: 'Temporada',
-          other: 'Otros'
-        },
-        ru: {
-          all: 'Все',
-          pirozhki: 'Пирожки',
-          rogaliki: 'Рогалики',
-          bulochki: 'Булочки',
-          buns: 'Булочки',
-          seasonal: 'Сезонное',
-          other: 'Другое'
-        },
-        en: {
-          all: 'All',
-          pirozhki: 'Pirozhki',
-          rogaliki: 'Filled brioche',
-          bulochki: 'Bakery',
-          buns: 'Bakery',
-          seasonal: 'Seasonal',
-          other: 'Other'
-        }
-      };
+      if (key === 'all') {
+        return {
+          es: 'Todo',
+          ru: 'Все',
+          en: 'All'
+        }[lang] || 'Todo';
+      }
 
-      return labels[lang]?.[key]
-        || labels.es[key]
-        || String(category || labels[lang]?.other || 'Other');
+      return productCategoryLabel(key, lang);
     }
 
     function publicProductName(p){
@@ -1868,12 +1839,22 @@
 
       try {
         const settings = await fbGetSettings();
-        if (settings && window.saveSettingsCache) {
-          window.saveSettingsCache(Object.assign({}, window.getSettings?.() || {}, settings));
+
+        if (settings) {
+          window._settings = Object.assign(
+            {},
+            window.getSettings?.() || {},
+            window._settings || {},
+            settings
+          );
+
+          window.saveSettingsCache?.(window._settings);
           window.applyTheme?.();
           window.applyFont?.();
         }
-      } catch(e) {}
+      } catch(e) {
+        console.error('Failed to load public settings:', e);
+      }
 
       applyHomeLanguage();
       setupPublicOrderForm();
