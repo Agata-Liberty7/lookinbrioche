@@ -530,46 +530,97 @@ function adminCategoryLabel(category) {
 
 
 async function adminBoot() {
-  applyTheme(); applyFont();
-  if (sessionStorage.getItem('adminAuth')==='1') {
-    document.getElementById('admin-login-screen').style.display='none';
-    document.getElementById('admin-main').style.display='block';
+  applyTheme();
+  applyFont();
+
+  if (sessionStorage.getItem('adminAuth') === '1') {
+    document.getElementById('admin-login-screen').style.display = 'none';
+    document.getElementById('admin-main').style.display = 'block';
     showLoading('Loading…');
+
     try {
-      const s = await fbGetSettings();
-      if (s) { window._settings=Object.assign({},window._settings||{},s); saveSettingsCache(window._settings); applyTheme(); applyFont(); }
-      _catalog = await fbGetCatalog();
-      _clients = await fbGetClients();
-      hideLoading();
+      const [settings, catalog, clients, orders] = await Promise.all([
+        fbGetSettings(),
+        fbGetCatalog(),
+        fbGetClients(),
+        fbGetOrders()
+      ]);
+
+      if (settings) {
+        window._settings = Object.assign(
+          {},
+          window._settings || {},
+          settings
+        );
+        saveSettingsCache(window._settings);
+        applyTheme();
+        applyFont();
+      }
+
+      _catalog = catalog;
+      _clients = clients;
+      _orders = orders;
+
       loadSettingsForm();
-      renderOrders();
-    } catch(e) { hideLoading(); showToast('Connection error'); }
+      await renderOrders(false);
+      hideLoading();
+    } catch (error) {
+      console.error('Admin boot error:', error);
+      hideLoading();
+      showToast('Connection error');
+    }
   }
 }
 adminBoot();
 
 window._doAdminLogin = window.doAdminLogin = async () => {
-  const p=document.getElementById('adm-pass').value;
+  const p = document.getElementById('adm-pass').value;
   showLoading('');
+
   try {
-    const s = await fbGetSettings();
-    if (s) { window._settings=Object.assign({},window._settings||{},s); saveSettingsCache(window._settings); }
-  } catch(e){}
+    const settings = await fbGetSettings();
+
+    if (settings) {
+      window._settings = Object.assign(
+        {},
+        window._settings || {},
+        settings
+      );
+      saveSettingsCache(window._settings);
+    }
+  } catch (error) {
+    console.error('Admin settings load error:', error);
+  }
+
   hideLoading();
+
   if (loginAdmin(p)) {
-    sessionStorage.setItem('adminAuth','1');
-    document.getElementById('admin-login-screen').style.display='none';
-    document.getElementById('admin-main').style.display='block';
+    sessionStorage.setItem('adminAuth', '1');
+    document.getElementById('admin-login-screen').style.display = 'none';
+    document.getElementById('admin-main').style.display = 'block';
     showLoading('Loading…');
+
     try {
-      _catalog=await fbGetCatalog();
-      _clients=await fbGetClients();
-      hideLoading();
+      const [catalog, clients, orders] = await Promise.all([
+        fbGetCatalog(),
+        fbGetClients(),
+        fbGetOrders()
+      ]);
+
+      _catalog = catalog;
+      _clients = clients;
+      _orders = orders;
+
       loadSettingsForm();
-      renderOrders();
-    } catch(e){ hideLoading(); showToast('Connection error'); }
+      await renderOrders(false);
+      hideLoading();
+    } catch (error) {
+      console.error('Admin data load error:', error);
+      hideLoading();
+      showToast('Connection error');
+    }
   } else {
-    document.getElementById('adm-err').style.display='block';
+    document.getElementById('adm-err').style.display = 'block';
   }
 };
 document.getElementById('adm-pass').addEventListener('keydown',e=>{if(e.key==='Enter')window.doAdminLogin();});
@@ -753,14 +804,20 @@ window.saveAdminOrderDelivery = async id => {
 };
 
 
-async function renderOrders() {
+async function renderOrders(refresh = true) {
   const filter=document.getElementById('order-filter').value;
   const dateFrom=document.getElementById('order-date-from')?.value || '';
   const dateTo=document.getElementById('order-date-to')?.value || '';
 
-  showLoading('');
-  try { _orders=await fbGetOrders(); } catch(e){}
-  hideLoading();
+  if (refresh) {
+    showLoading('');
+    try {
+      _orders = await fbGetOrders();
+    } catch (error) {
+      console.error('Orders load error:', error);
+    }
+    hideLoading();
+  }
 
   let orders=_orders;
   if(filter) orders=orders.filter(o=>o.status===filter);
