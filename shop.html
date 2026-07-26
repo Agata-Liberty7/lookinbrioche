@@ -274,6 +274,21 @@ function productDesc(p) {
   return pickLocalized(p, 'description') || p.desc || '';
 }
 
+function newProductLabel() {
+  const lang = detectLang();
+  return ({
+    es: 'Nuevo',
+    ru: 'Новинка',
+    en: 'New'
+  })[lang] || 'Nuevo';
+}
+
+function productNewBadge(p) {
+  return p?.isNew === true
+    ? `<span class="product-new-badge">${newProductLabel()}</span>`
+    : '';
+}
+
 function normalizeCatKey(category) {
   return normalizeProductCategoryKey(category);
 }
@@ -706,6 +721,7 @@ function renderCatalog() {
       )">
       ${thumb}
       <div class="product-info">
+        ${productNewBadge(p)}
         <div class="product-name">${pName}</div>
         ${variantControls}
         <div class="product-price">${productPriceLine(p, selectedKey)}${discBadge}</div>

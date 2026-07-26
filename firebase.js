@@ -40,7 +40,26 @@ export async function fbSaveSettings(data) {
 // ─── Catalog ──────────────────────────────────────────────────────────────────
 export async function fbGetCatalog() {
   const snap = await getDocs(collection(db, 'catalog'));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => {
+      const aOrder = Number(a.sortOrder);
+      const bOrder = Number(b.sortOrder);
+
+      const aHasOrder = Number.isFinite(aOrder);
+      const bHasOrder = Number.isFinite(bOrder);
+
+      if (aHasOrder && bHasOrder && aOrder !== bOrder) {
+        return aOrder - bOrder;
+      }
+
+      if (aHasOrder !== bHasOrder) {
+        return aHasOrder ? -1 : 1;
+      }
+
+      return String(a.id).localeCompare(String(b.id));
+    });
 }
 export async function fbSaveProduct(product) {
   const { id, ...data } = product;

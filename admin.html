@@ -405,6 +405,11 @@
       <label class="toggle"><input type="checkbox" id="pm-avail" checked><span class="toggle-slider"></span></label>
       <span style="font-size:14px;font-weight:700">Available for order</span>
     </div>
+
+    <div class="form-group toggle-wrap">
+      <label class="toggle"><input type="checkbox" id="pm-is-new"><span class="toggle-slider"></span></label>
+      <span style="font-size:14px;font-weight:700">New product</span>
+    </div>
     <div style="display:flex;gap:10px;margin-top:4px">
       <button class="btn btn-primary" style="flex:1;padding:13px" onclick="saveProduct()">Save</button>
       <button class="btn btn-outline" onclick="closeModal('product-modal')">Cancel</button>
@@ -1226,7 +1231,7 @@ function renderCatalog() {
   );
   const el=document.getElementById('catalog-list');
   if(!_catalog.length){el.innerHTML='<div class="empty-state"><div class="eicon">🥟</div><p>Catalog is empty</p></div>';return;}
-  el.innerHTML=_catalog.map(p=>{
+  el.innerHTML=_catalog.map((p,index)=>{
     const thumb=p.photo?`<div class="product-row-thumb"><img src="${p.photo}" alt="${adminProductName(p)}"></div>`:`<div class="product-row-thumb">🍴</div>`;
     return`<div class="product-row${p.available===false?' unavail':''}">
       ${thumb}
@@ -1235,12 +1240,77 @@ function renderCatalog() {
         <div class="product-row-meta">${formatPrice(p.price)} / ${p.unit} · ${adminCategoryLabel(p.category)}${p.minQty>1?' · min '+p.minQty:''}</div>
       </div>
       <div class="row-actions">
+        <button
+          type="button"
+          class="btn-icon"
+          title="Move up"
+          onclick="moveCatalogProduct(${index},-1)"
+          ${index===0?'disabled':''}
+        >↑</button>
+        <button
+          type="button"
+          class="btn-icon"
+          title="Move down"
+          onclick="moveCatalogProduct(${index},1)"
+          ${index===_catalog.length-1?'disabled':''}
+        >↓</button>
         <button class="btn-icon" onclick="openProductModal('${p.id}')">✏️</button>
         <button class="btn-icon" onclick="deleteProduct('${p.id}')">🗑️</button>
       </div>
     </div>`;
   }).join('');
 }
+
+window.moveCatalogProduct = async (index, direction) => {
+  const from = Number(index);
+  const to = from + Number(direction);
+
+  if (
+    !Number.isInteger(from) ||
+    !Number.isInteger(to) ||
+    from < 0 ||
+    to < 0 ||
+    from >= _catalog.length ||
+    to >= _catalog.length
+  ) {
+    return;
+  }
+
+  const previousCatalog = [..._catalog];
+
+  [_catalog[from], _catalog[to]] = [
+    _catalog[to],
+    _catalog[from]
+  ];
+
+  renderCatalog();
+  showLoading('Saving order…');
+
+  try {
+    await Promise.all(
+      _catalog.map((product, orderIndex) =>
+        fbSaveProduct({
+          id: product.id,
+          sortOrder: orderIndex
+        })
+      )
+    );
+
+    _catalog = await fbGetCatalog();
+
+    hideLoading();
+    renderCatalog();
+    showToast('Product order saved ✓');
+  } catch (error) {
+    console.error('Product reorder error:', error);
+
+    _catalog = previousCatalog;
+
+    hideLoading();
+    renderCatalog();
+    showToast('Error saving product order');
+  }
+};
 
 
 function variantEditorEscape(value) {
@@ -1665,6 +1735,7 @@ window.openProductModal = id => {
     );
 
     document.getElementById('pm-avail').checked=p.available!==false;
+    document.getElementById('pm-is-new').checked=p.isNew===true;
     document.getElementById('pm-desc-es').value=p.description_es||'';
     document.getElementById('pm-desc-ru').value=p.description_ru||p.description||'';
     document.getElementById('pm-desc-en').value=p.description_en||'';
@@ -1694,6 +1765,7 @@ window.openProductModal = id => {
     document.getElementById('pm-unit').value='sht';
     refreshProductCategorySelect(defaultAdminCategoryKey());
     document.getElementById('pm-avail').checked=true;
+    document.getElementById('pm-is-new').checked=false;
 
     renderProductVariantEditor([
       emptyProductVariantDraft(0)
@@ -1764,6 +1836,7 @@ window.saveProduct = async () => {
     unit:document.getElementById('pm-unit').value,
     category:document.getElementById('pm-cat').value||'other',
     available:document.getElementById('pm-avail').checked,
+    isNew:document.getElementById('pm-is-new').checked,
     photo:pmPhotoData||null,
 
     description,
@@ -1775,6 +1848,22 @@ window.saveProduct = async () => {
   };
 
   const editId=document.getElementById('pm-id').value;
+
+  const existingProduct = editId
+    ? _catalog.find(product => String(product.id) === String(editId))
+    : null;
+
+  const existingOrder = Number(existingProduct?.sortOrder);
+
+  data.sortOrder = Number.isFinite(existingOrder)
+    ? existingOrder
+    : _catalog.reduce((maxOrder, product, index) => {
+        const storedOrder = Number(product?.sortOrder);
+        return Math.max(
+          maxOrder,
+          Number.isFinite(storedOrder) ? storedOrder : index
+        );
+      }, -1) + 1;
 
   try {
     showLoading('Saving…');

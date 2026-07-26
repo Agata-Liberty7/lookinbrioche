@@ -196,6 +196,21 @@
     .lb-dynamic-card img,.lb-dynamic-card .emoji{width:72px;height:72px;border-radius:16px;background:var(--lb-bg-soft);object-fit:cover;display:flex;align-items:center;justify-content:center;font-size:32px;flex:0 0 auto}
     .lb-dynamic-card strong{display:block;margin-bottom:4px;color:var(--lb-text)}
     .lb-dynamic-card span{display:block;color:var(--lb-muted);font-size:13px;line-height:1.35}
+    .lb-new-badge{
+      display:inline-flex!important;
+      width:max-content;
+      margin:0 0 5px;
+      padding:3px 9px;
+      border-radius:999px;
+      background:#F2C94C;
+      color:#3A2A1F!important;
+      font-size:10px!important;
+      line-height:1.2!important;
+      font-weight:800;
+      letter-spacing:.04em;
+      text-transform:uppercase;
+      white-space:nowrap;
+    }
     .lb-product-modal{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(12,8,6,.72);backdrop-filter:blur(8px)}
     .lb-product-modal.open{display:flex}
     .lb-product-dialog{position:relative;width:min(920px,100%);max-height:calc(100vh - 40px);overflow:auto;background:var(--lb-bg-card);border:1px solid var(--lb-line);border-radius:28px;box-shadow:0 26px 80px rgba(0,0,0,.38)}
@@ -1631,6 +1646,15 @@
       }];
     }
 
+    function publicNewProductLabel(){
+      const lang = currentLang();
+      return {
+        es: 'Nuevo',
+        ru: 'Новинка',
+        en: 'New'
+      }[lang] || 'Nuevo';
+    }
+
     function publicProductUiText(key){
       const lang = currentLang();
       const labels = {
@@ -1764,7 +1788,13 @@
 
         return `<button class="lb-dynamic-card" type="button" data-product-id="${p.id}">
           ${img}
-          <span><strong>${safeName}</strong><span>${safeCategory}</span></span>
+          <span>
+            ${p.isNew === true
+              ? `<span class="lb-new-badge">${publicNewProductLabel()}</span>`
+              : ''}
+            <strong>${safeName}</strong>
+            <span>${safeCategory}</span>
+          </span>
         </button>`;
       }).join('');
 
