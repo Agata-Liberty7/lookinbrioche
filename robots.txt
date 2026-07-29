@@ -5,4 +5,4 @@ Allow: /
 User-agent: OAI-SearchBot
 Allow: /
 
-Sitemap: https://lookin-brioche.mamascota-familiar.workers.dev/sitemap.xml
+Sitemap: https://lookinbrioche.com/sitemap.xml
