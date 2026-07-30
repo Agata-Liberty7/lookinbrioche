@@ -1,6 +1,7 @@
 (() => {
   const MEASUREMENT_ID = 'G-45BMX96W0B';
   const CONSENT_KEY = 'lbAnalyticsConsent';
+  let analyticsReady = false;
 
   function loadAnalytics() {
     if (window.__lbAnalyticsLoaded) return;
@@ -15,6 +16,9 @@
     window.gtag('config', MEASUREMENT_ID, {
       anonymize_ip: true
     });
+
+    analyticsReady = true;
+    window.dispatchEvent(new CustomEvent('lb:analytics-ready'));
 
     const script = document.createElement('script');
     script.async = true;
@@ -34,6 +38,52 @@
     if (language.startsWith('en')) return 'en';
     return 'es';
   }
+
+  function getAppMode() {
+    const standalone =
+      window.matchMedia?.('(display-mode: standalone)').matches ||
+      window.navigator.standalone === true;
+
+    return standalone ? 'standalone' : 'browser';
+  }
+
+  function cleanEventParams(params = {}) {
+    return Object.fromEntries(
+      Object.entries(params).filter(
+        ([, value]) => value !== undefined && value !== null && value !== ''
+      )
+    );
+  }
+
+  function trackEvent(eventName, params = {}) {
+    if (
+      !analyticsReady ||
+      typeof window.gtag !== 'function' ||
+      typeof eventName !== 'string' ||
+      !eventName.trim()
+    ) {
+      return false;
+    }
+
+    window.gtag(
+      'event',
+      eventName.trim(),
+      cleanEventParams({
+        language: getLanguage(),
+        app_mode: getAppMode(),
+        ...params
+      })
+    );
+
+    return true;
+  }
+
+  window.lbAnalytics = {
+    track: trackEvent,
+    getLanguage,
+    getAppMode,
+    isReady: () => analyticsReady
+  };
 
   const texts = {
     es: {

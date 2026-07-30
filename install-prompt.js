@@ -274,6 +274,13 @@
   async function requestInstallation() {
     const mode = installMode();
 
+    window.lbAnalytics?.track?.('install_app_click', {
+      source: location.pathname.includes('shop')
+        ? 'shop'
+        : 'public_home',
+      install_mode: mode
+    });
+
     if (mode === 'ios') {
       showIosInstructions();
       return;

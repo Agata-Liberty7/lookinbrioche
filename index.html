@@ -1680,6 +1680,108 @@
       return labels[lang]?.[key] || labels.es[key] || key;
     }
 
+    function trackPublicEvent(eventName, params = {}) {
+      return window.lbAnalytics?.track?.(eventName, params) === true;
+    }
+
+    function publicCatalogListContext() {
+      const category = activePublicCategory || 'all';
+      const listKey = `public_catalog_${category}`;
+
+      return {
+        item_list_id: listKey,
+        item_list_name: listKey
+      };
+    }
+
+    function publicAnalyticsItem(product, index = 0) {
+      return {
+        item_id: String(product?.id ?? ''),
+        item_name: publicProductName(product),
+        item_category: publicCategoryKey(product?.category),
+        index
+      };
+    }
+
+    function publicVisibleCatalog() {
+      return activePublicCategory === 'all'
+        ? publicCatalog
+        : publicCatalog.filter(
+            product =>
+              publicCategoryKey(product.category) === activePublicCategory
+          );
+    }
+
+    function trackPublicCatalogView(items = publicVisibleCatalog()) {
+      if (!Array.isArray(items) || !items.length) return false;
+
+      const listContext = publicCatalogListContext();
+
+      return trackPublicEvent('view_item_list', {
+        source: 'public_home',
+        category: activePublicCategory || 'all',
+        item_count: items.length,
+        ...listContext,
+        items: items.map((product, index) => ({
+          ...publicAnalyticsItem(product, index),
+          ...listContext
+        }))
+      });
+    }
+
+    let initialPublicCatalogViewTracked = false;
+    let publicCatalogVisible = false;
+    let publicCatalogObserver = null;
+
+    function trackInitialPublicCatalogView() {
+      if (
+        initialPublicCatalogViewTracked ||
+        !publicCatalogVisible ||
+        !publicCatalog.length
+      ) {
+        return false;
+      }
+
+      const tracked = trackPublicCatalogView();
+
+      if (tracked) {
+        initialPublicCatalogViewTracked = true;
+      }
+
+      return tracked;
+    }
+
+    function setupPublicCatalogVisibilityTracking() {
+      if (publicCatalogObserver) return;
+
+      const wrap = document.getElementById('dynamic-catalog');
+      if (!wrap) return;
+
+      if (!('IntersectionObserver' in window)) {
+        const rect = wrap.getBoundingClientRect();
+        publicCatalogVisible =
+          rect.bottom > 0 && rect.top < window.innerHeight;
+
+        trackInitialPublicCatalogView();
+        return;
+      }
+
+      publicCatalogObserver = new IntersectionObserver(
+        entries => {
+          publicCatalogVisible = entries.some(
+            entry => entry.isIntersecting
+          );
+
+          if (publicCatalogVisible) {
+            trackInitialPublicCatalogView();
+          }
+        },
+        { threshold: 0.15 }
+      );
+
+      publicCatalogObserver.observe(wrap);
+    }
+
     function openPublicProduct(productId){
       const product = publicCatalog.find(p => String(p.id) === String(productId));
       if (!product) return;
@@ -1718,10 +1820,27 @@
       const wa = document.getElementById('public-product-wa');
       wa.textContent = publicProductUiText('whatsapp');
       wa.href = waLink(text('productMessage') + name);
+      wa.dataset.productId = String(product.id);
+      wa.dataset.productName = name;
+      wa.dataset.category = publicCategoryKey(product.category);
 
       modal.classList.add('open');
       modal.setAttribute('aria-hidden', 'false');
       document.body.style.overflow = 'hidden';
+
+      const listContext = publicCatalogListContext();
+
+      trackPublicEvent('view_item', {
+        source: 'public_home',
+        product_id: String(product.id),
+        product_name: name,
+        category: publicCategoryKey(product.category),
+        ...listContext,
+        items: [{
+          ...publicAnalyticsItem(product),
+          ...listContext
+        }]
+      });
     }
 
     function closePublicProduct(){
@@ -1732,7 +1851,10 @@
       document.body.style.overflow = '';
     }
 
-    function renderDynamicCatalog(catalog = publicCatalog){
+    function renderDynamicCatalog(
+      catalog = publicCatalog,
+      trackListView = false
+    ){
       publicCatalog = (catalog || []).filter(p => p && p.available !== false);
 
       const wrap = document.getElementById('dynamic-catalog');
@@ -1769,7 +1891,16 @@
       tabs.querySelectorAll('[data-category]').forEach(button => {
         button.addEventListener('click', () => {
           activePublicCategory = button.dataset.category || 'all';
-          renderDynamicCatalog();
+
+          const selectedItems = publicVisibleCatalog();
+
+          trackPublicEvent('category_selected', {
+            source: 'public_home',
+            category: activePublicCategory,
+            item_count: selectedItems.length
+          });
+
+          renderDynamicCatalog(publicCatalog, true);
         });
       });
 
@@ -1799,8 +1930,17 @@
       }).join('');
 
       list.querySelectorAll('[data-product-id]').forEach(card => {
-        card.addEventListener('click', () => openPublicProduct(card.dataset.productId));
+        card.addEventListener('click', () =>
+          openPublicProduct(card.dataset.productId)
+        );
       });
+
+      if (
+        trackListView &&
+        trackPublicCatalogView(visible)
+      ) {
+        initialPublicCatalogViewTracked = true;
+      }
     }
 
 
@@ -1812,6 +1952,28 @@
     function setupPublicOrderForm(){
       const form = document.getElementById('public-order-form');
       if (!form) return;
+
+      let publicFormStartTracked = false;
+
+      const trackPublicFormStart = () => {
+        if (publicFormStartTracked) return;
+
+        const format =
+          document.getElementById('po-format')?.value || 'private';
+
+        const tracked = trackPublicEvent('form_start', {
+          source: 'public_home',
+          form_id: 'public_order_form',
+          request_format: format
+        });
+
+        if (tracked) {
+          publicFormStartTracked = true;
+        }
+      };
+
+      form.addEventListener('input', trackPublicFormStart);
+      form.addEventListener('change', trackPublicFormStart);
 
       form.addEventListener('submit', async e => {
         e.preventDefault();
@@ -1844,7 +2006,16 @@
         try {
           if (btn) btn.disabled = true;
           await fbAddOrder(order);
+
+          trackPublicEvent('generate_lead', {
+            source: 'public_home',
+            form_id: 'public_order_form',
+            request_format: format,
+            has_preferred_date: Boolean(preferredDate)
+          });
+
           form.reset();
+          publicFormStartTracked = false;
           homeToast(text('publicFormSuccess'));
         } catch (err) {
           console.error(err);
@@ -1862,6 +2033,60 @@
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') closePublicProduct();
     });
+
+    function publicLoginSource(link) {
+      if (link.closest('header')) return 'header';
+      if (link.closest('.lb-hero')) return 'hero';
+      if (link.closest('#catalog')) return 'catalog';
+      if (link.closest('#contact')) return 'contact';
+      if (link.closest('footer')) return 'footer';
+      return 'public_home';
+    }
+
+    function publicWhatsAppSource(link) {
+      if (link.id === 'hero-wa') return 'hero';
+      if (link.id === 'wa-float') return 'floating_button';
+      if (link.id === 'public-product-wa') return 'product_modal';
+      if (link.closest('.lb-product')) return 'catalog_card';
+      if (link.closest('#contact')) return 'contact';
+      return 'public_home';
+    }
+
+    document.addEventListener('click', event => {
+      const target =
+        event.target instanceof Element ? event.target : null;
+
+      if (!target) return;
+
+      const loginLink = target.closest('a[href="login.html"]');
+
+      if (loginLink) {
+        trackPublicEvent('client_login_click', {
+          source: publicLoginSource(loginLink)
+        });
+      }
+
+      const whatsappLink = target.closest(
+        'a.lb-wa-link, #hero-wa, #wa-float, #public-product-wa'
+      );
+
+      if (whatsappLink) {
+        trackPublicEvent('whatsapp_click', {
+          source: publicWhatsAppSource(whatsappLink),
+          product_id: whatsappLink.dataset.productId,
+          product_name: whatsappLink.dataset.productName,
+          category: whatsappLink.dataset.category
+        });
+      }
+    });
+
+    window.addEventListener(
+      'lb:analytics-ready',
+      () => {
+        trackInitialPublicCatalogView();
+      },
+      { once: true }
+    );
 
     async function boot(){
       window.applyTheme?.();
@@ -1892,14 +2117,29 @@
       try {
         const catalog = await fbGetCatalog();
         renderDynamicCatalog(catalog);
+        setupPublicCatalogVisibilityTracking();
       } catch(e) {}
     }
 
     document.querySelectorAll('[data-lang]').forEach(btn => {
       btn.addEventListener('click', () => {
-        localStorage.setItem('lang', btn.dataset.lang);
+        const previousLanguage = currentLang();
+        const selectedLanguage = btn.dataset.lang || 'es';
+
+        localStorage.setItem('lang', selectedLanguage);
         applyHomeLanguage();
-        if (publicCatalog.length) renderDynamicCatalog();
+
+        if (publicCatalog.length) {
+          renderDynamicCatalog();
+        }
+
+        if (selectedLanguage !== previousLanguage) {
+          trackPublicEvent('language_changed', {
+            source: 'public_home',
+            previous_language: previousLanguage,
+            selected_language: selectedLanguage
+          });
+        }
       });
     });
 
