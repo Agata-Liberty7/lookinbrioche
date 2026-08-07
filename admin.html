@@ -6,6 +6,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#2E6B3E">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Look-in Admin">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>Look-in Brioche — Admin</title>
 <link rel="stylesheet" href="style.css">
 <style>
@@ -24,8 +26,8 @@
 </style>
   <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32-v7.png">
   <link rel="shortcut icon" type="image/png" href="/icons/favicon-32-v7.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon-v7.png">
-  <link rel="manifest" href="/manifest.json?v=7">
+  <link rel="apple-touch-icon" sizes="192x192" href="/icons/admin-icon-192.png">
+  <link rel="manifest" href="/admin-manifest.json?v=2">
 </head>
 <body>
 
@@ -3022,12 +3024,23 @@ function renderStatsChart(orders) {
   }
 
   const max = Math.max(...rows.map(r => r.value), 1);
-  const w = 760;
-  const h = 280;
-  const padL = type === 'bar' ? 180 : 52;
-  const padR = type === 'bar' ? 110 : 18;
+  const availableW = Math.max(320, el.clientWidth || 320);
+  const w = Math.min(760, availableW);
+  const padL = type === 'bar'
+    ? (
+        cfg.time
+          ? 72
+          : Math.max(126, Math.min(190, Math.round(w * 0.42)))
+      )
+    : 52;
+  const padR = type === 'bar' ? 64 : 18;
   const padT = 28;
-  const padB = 54;
+  const padB = type === 'bar' ? 24 : 54;
+  const barGap = 14;
+  const barH = 22;
+  const h = type === 'bar'
+    ? padT + padB + rows.length * barH + Math.max(0, rows.length - 1) * barGap
+    : 280;
   const plotW = w - padL - padR;
   const plotH = h - padT - padB;
 
@@ -3047,7 +3060,7 @@ function renderStatsChart(orders) {
     el.innerHTML = `
       <div class="info-box" style="padding:14px;overflow:auto">
         <div style="font-weight:800;margin-bottom:10px">${safeTitle}</div>
-        <svg viewBox="0 0 ${w} ${h}" style="width:100%;min-width:620px;display:block;color:#2E6B3E">
+        <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block;color:#2E6B3E">
           <line x1="${padL}" y1="${padT + plotH}" x2="${padL + plotW}" y2="${padT + plotH}" stroke="currentColor" opacity=".25"/>
           <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + plotH}" stroke="currentColor" opacity=".25"/>
           <path d="${path}" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
@@ -3066,21 +3079,36 @@ function renderStatsChart(orders) {
     return;
   }
 
-  const barGap = 8;
-  const barH = Math.max(14, Math.min(28, (plotH - barGap * (rows.length - 1)) / rows.length));
-
   el.innerHTML = `
     <div class="info-box" style="padding:14px;overflow:auto">
       <div style="font-weight:800;margin-bottom:10px">${safeTitle}</div>
-      <svg viewBox="0 0 ${w} ${h}" style="width:100%;min-width:620px;display:block;color:#2E6B3E">
+      <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block;color:#2E6B3E">
         ${rows.map((r,i) => {
           const y = padT + i * (barH + barGap);
           const bw = Math.max(2, plotW * r.value / max);
           const label = adminEscape(r.label);
           const value = adminEscape(adminStatsChartValueText(r.value, cfg.money));
+          const rawLabel = String(r.label || '').trim();
+          const words = rawLabel.split(/\s+/).filter(Boolean);
+          let line1 = '';
+          let line2 = '';
+
+          words.forEach(word => {
+            if (!line1 || `${line1} ${word}`.length <= 18) {
+              line1 = line1 ? `${line1} ${word}` : word;
+            } else if (!line2 || `${line2} ${word}`.length <= 22) {
+              line2 = line2 ? `${line2} ${word}` : word;
+            } else if (!line2.endsWith('…')) {
+              line2 += '…';
+            }
+          });
+
+          const labelLine1 = adminEscape(line1);
+          const labelLine2 = adminEscape(line2);
           return `
-            <text x="${padL - 12}" y="${(y + barH * .72).toFixed(1)}" text-anchor="end" font-size="11" fill="currentColor" opacity=".85">
-              ${label.length > 26 ? label.slice(0,26) + '…' : label}
+            <text x="${padL - 10}" y="${(y + barH * .34).toFixed(1)}" text-anchor="end" font-size="10" fill="currentColor" opacity=".85">
+              <tspan x="${padL - 10}" dy="0">${labelLine1}</tspan>
+              ${labelLine2 ? `<tspan x="${padL - 10}" dy="11">${labelLine2}</tspan>` : ''}
               <title>${label}</title>
             </text>
             <rect x="${padL}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${barH.toFixed(1)}" rx="7" fill="currentColor" opacity=".85">
