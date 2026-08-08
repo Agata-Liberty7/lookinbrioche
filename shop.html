@@ -168,8 +168,14 @@
         </div>
         <select id="my-stats-chart-data" style="width:auto;min-width:190px" onchange="renderMyOrders()">
           <option value="favorite_qty">Favorite products</option>
-          <option value="spending_month">Spending by month</option>
-          <option value="orders_month">Orders by month</option>
+          <option value="order_rhythm">Order rhythm</option>
+          <option value="weekday">Days of the week</option>
+        </select>
+        <select id="my-weekday-metric"
+                style="width:auto;min-width:130px;display:none"
+                onchange="renderMyOrders()">
+          <option value="orders">Orders</option>
+          <option value="amount">Amount</option>
         </select>
       </div>
       <div id="my-stats-chart"></div>
@@ -1781,17 +1787,17 @@ function myStatsText(key) {
   const dict = {
     es: {
       period:'Periodo', from:'Desde', to:'Hasta', apply:'Aplicar', thisMonth:'Este mes', lastMonth:'Mes anterior', reset:'Reset',
-      chart:'Gráfico', chartNote:'Tus estadísticas de pedidos', favorite:'Productos favoritos', spending:'Gasto por mes', ordersByMonth:'Pedidos por mes',
+      chart:'Gráfico', chartNote:'Tus estadísticas de pedidos', favorite:'Productos favoritos', rhythm:'Ritmo de pedidos', weekdays:'Días de la semana', weekdayOrders:'Pedidos', weekdayAmount:'Importe',
       history:'Historial de pedidos', orders:'Pedidos', products:'Productos', productsTotal:'Productos', avg:'Pedido medio', noData:'No hay datos para este periodo'
     },
     ru: {
       period:'Период', from:'С', to:'По', apply:'Применить', thisMonth:'Этот месяц', lastMonth:'Прошлый месяц', reset:'Сбросить',
-      chart:'Диаграмма', chartNote:'Ваша статистика заказов', favorite:'Любимые товары', spending:'Расходы по месяцам', ordersByMonth:'Заказы по месяцам',
+      chart:'Диаграмма', chartNote:'Ваша статистика заказов', favorite:'Любимые товары', rhythm:'Ритмичность заказов', weekdays:'Дни недели', weekdayOrders:'Заказы', weekdayAmount:'Сумма',
       history:'История заказов', orders:'Заказы', products:'Изделия', productsTotal:'Товары', avg:'Средний заказ', noData:'Нет данных за выбранный период'
     },
     en: {
       period:'Period', from:'From', to:'To', apply:'Apply', thisMonth:'This month', lastMonth:'Last month', reset:'Reset',
-      chart:'Chart', chartNote:'Your order statistics', favorite:'Favorite products', spending:'Spending by month', ordersByMonth:'Orders by month',
+      chart:'Chart', chartNote:'Your order statistics', favorite:'Favorite products', rhythm:'Order rhythm', weekdays:'Days of the week', weekdayOrders:'Orders', weekdayAmount:'Amount',
       history:'Order history', orders:'Orders', products:'Products', productsTotal:'Products', avg:'Average order', noData:'No data for selected period'
     }
   };
@@ -1919,6 +1925,207 @@ function renderMyStatsCards(orders) {
   `;
 }
 
+function myStatsRange(orders) {
+  const fromInput = document.getElementById('my-date-from')?.value || '';
+  const toInput = document.getElementById('my-date-to')?.value || '';
+
+  let fromMs = shopParseDateOnly(fromInput);
+  let toMs = shopParseDateOnly(toInput);
+
+  const dates = orders
+    .map(o => shopParseDateOnly(shopOrderReportDate(o)))
+    .filter(ms => ms !== null)
+    .sort((a,b) => a - b);
+
+  if (fromMs === null) fromMs = dates[0] ?? null;
+  if (toMs === null) toMs = dates[dates.length - 1] ?? null;
+
+  if (fromMs === null || toMs === null) return null;
+  if (fromMs > toMs) [fromMs, toMs] = [toMs, fromMs];
+
+  return { fromMs, toMs };
+}
+
+function myAddDays(ms, days) {
+  const d = new Date(ms);
+  d.setDate(d.getDate() + days);
+  d.setHours(0,0,0,0);
+  return d.getTime();
+}
+
+function myAddMonths(ms, months) {
+  const d = new Date(ms);
+  d.setDate(1);
+  d.setMonth(d.getMonth() + months);
+  d.setHours(0,0,0,0);
+  return d.getTime();
+}
+
+function myStartOfWeek(ms) {
+  const d = new Date(ms);
+  const mondayOffset = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - mondayOffset);
+  d.setHours(0,0,0,0);
+  return d.getTime();
+}
+
+function myDayLabel(ms) {
+  return new Date(ms).toLocaleDateString(detectLang(), {
+    day:'numeric',
+    month:'short'
+  });
+}
+
+function myWeekLabel(ms) {
+  const start = new Date(ms);
+  const end = new Date(myAddDays(ms, 6));
+
+  return `${start.toLocaleDateString(detectLang(), {
+    day:'numeric',
+    month:'short'
+  })}–${end.toLocaleDateString(detectLang(), {
+    day:'numeric',
+    month:'short'
+  })}`;
+}
+
+function myMonthLabel(ms) {
+  return new Date(ms).toLocaleDateString(detectLang(), {
+    month:'short',
+    year:'2-digit'
+  });
+}
+
+function myWeekdayLabel(index) {
+  const monday = new Date(2024, 0, 1 + index);
+  return monday.toLocaleDateString(detectLang(), {
+    weekday:'short'
+  });
+}
+
+function buildMyRhythmRows(orders) {
+  const range = myStatsRange(orders);
+  if (!range) return [];
+
+  const dayMs = 24 * 60 * 60 * 1000;
+  const totalDays = Math.floor((range.toMs - range.fromMs) / dayMs) + 1;
+
+  let grouping = 'day';
+
+  if (totalDays > 21 && totalDays <= 120) grouping = 'week';
+  if (totalDays > 120) grouping = 'month';
+
+  const map = new Map();
+
+  if (grouping === 'day') {
+    for (
+      let cursor = range.fromMs;
+      cursor <= range.toMs;
+      cursor = myAddDays(cursor, 1)
+    ) {
+      map.set(String(cursor), {
+        label: myDayLabel(cursor),
+        value: 0,
+        sort: cursor
+      });
+    }
+  }
+
+  if (grouping === 'week') {
+    const firstWeek = myStartOfWeek(range.fromMs);
+    const lastWeek = myStartOfWeek(range.toMs);
+
+    for (
+      let cursor = firstWeek;
+      cursor <= lastWeek;
+      cursor = myAddDays(cursor, 7)
+    ) {
+      map.set(String(cursor), {
+        label: myWeekLabel(cursor),
+        value: 0,
+        sort: cursor
+      });
+    }
+  }
+
+  if (grouping === 'month') {
+    const from = new Date(range.fromMs);
+    const to = new Date(range.toMs);
+
+    const firstMonth =
+      new Date(from.getFullYear(), from.getMonth(), 1).getTime();
+
+    const lastMonth =
+      new Date(to.getFullYear(), to.getMonth(), 1).getTime();
+
+    for (
+      let cursor = firstMonth;
+      cursor <= lastMonth;
+      cursor = myAddMonths(cursor, 1)
+    ) {
+      map.set(String(cursor), {
+        label: myMonthLabel(cursor),
+        value: 0,
+        sort: cursor
+      });
+    }
+  }
+
+  orders.forEach(o => {
+    const ms = shopParseDateOnly(shopOrderReportDate(o));
+
+    if (
+      ms === null ||
+      ms < range.fromMs ||
+      ms > range.toMs
+    ) return;
+
+    let bucket = ms;
+
+    if (grouping === 'week') {
+      bucket = myStartOfWeek(ms);
+    }
+
+    if (grouping === 'month') {
+      const d = new Date(ms);
+      bucket =
+        new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+    }
+
+    const row = map.get(String(bucket));
+    if (row) row.value += 1;
+  });
+
+  return [...map.values()]
+    .sort((a,b) => a.sort - b.sort);
+}
+
+function buildMyWeekdayRows(orders, metric) {
+  const rows = Array.from({ length:7 }, (_,index) => ({
+    label: myWeekdayLabel(index),
+    value: 0,
+    sort: index
+  }));
+
+  orders.forEach(o => {
+    const ms = shopParseDateOnly(shopOrderReportDate(o));
+    if (ms === null) return;
+
+    const jsDay = new Date(ms).getDay();
+    const mondayIndex = (jsDay + 6) % 7;
+
+    if (metric === 'amount') {
+      rows[mondayIndex].value += myOrderGrandTotal(o);
+    } else {
+      rows[mondayIndex].value += 1;
+    }
+  });
+
+  return rows
+    .filter(r => r.value > 0)
+    .sort((a,b) => b.value - a.value);
+}
+
 function buildMyChartRows(orders, kind) {
   const map = new Map();
 
@@ -1926,8 +2133,13 @@ function buildMyChartRows(orders, kind) {
     orders.forEach(o => {
       (o.items || []).forEach(i => {
         if (!isClientReportProductItem(i,o)) return;
+
         const label = shortProductLabel(i.name);
-        map.set(label, (map.get(label) || 0) + Number(i.qty || 0));
+
+        map.set(
+          label,
+          (map.get(label) || 0) + Number(i.qty || 0)
+        );
       });
     });
 
@@ -1938,19 +2150,18 @@ function buildMyChartRows(orders, kind) {
       .slice(0, 8);
   }
 
-  orders.forEach(o => {
-    const m = myMonthKey(shopOrderReportDate(o));
-    const current = map.get(m.key) || { label:m.label, value:0, sort:m.sort };
+  if (kind === 'order_rhythm') {
+    return buildMyRhythmRows(orders);
+  }
 
-    if (kind === 'spending_month') current.value += myOrderGrandTotal(o);
-    if (kind === 'orders_month') current.value += 1;
+  if (kind === 'weekday') {
+    const metric =
+      document.getElementById('my-weekday-metric')?.value || 'orders';
 
-    map.set(m.key, current);
-  });
+    return buildMyWeekdayRows(orders, metric);
+  }
 
-  return [...map.values()]
-    .filter(r => r.value > 0)
-    .sort((a,b) => a.sort - b.sort);
+  return [];
 }
 
 function myChartValueText(value, money) {
@@ -1960,71 +2171,186 @@ function myChartValueText(value, money) {
 function renderMyStatsChart(orders) {
   const el = document.getElementById('my-stats-chart');
   const select = document.getElementById('my-stats-chart-data');
+  const weekdayControl = document.getElementById('my-weekday-metric');
+
   if (!el || !select) return;
 
   const kind = select.value || 'favorite_qty';
-  const rows = buildMyChartRows(orders, kind);
-  const money = kind === 'spending_month';
-  const isLine = kind !== 'favorite_qty';
+  const weekdayMetric = weekdayControl?.value || 'orders';
 
-  if (!rows.length) {
-    el.innerHTML = `<div class="empty-state" style="padding:20px"><div class="eicon">📊</div><p>${myStatsText('noData')}</p></div>`;
-    return;
+  if (weekdayControl) {
+    weekdayControl.style.display = kind === 'weekday' ? '' : 'none';
   }
 
-  const max = Math.max(...rows.map(r => r.value), 1);
-  const w = 720;
-  const h = 240;
-  const padL = isLine ? 42 : 70;
-  const padR = 80;
-  const padT = 22;
-  const padB = 38;
-  const plotW = w - padL - padR;
-  const plotH = h - padT - padB;
+  const rows = buildMyChartRows(orders, kind);
 
-  if (isLine) {
-    const denom = Math.max(rows.length - 1, 1);
-    const points = rows.map((r,i) => {
-      const x = padL + plotW * i / denom;
-      const y = padT + plotH - plotH * r.value / max;
-      return { ...r, x, y };
-    });
-    const path = points.map((p,i) => `${i ? 'L' : 'M'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
-
+  if (!rows.length) {
     el.innerHTML = `
-      <svg viewBox="0 0 ${w} ${h}" style="width:100%;min-width:520px;display:block;color:var(--brand)">
-        <line x1="${padL}" y1="${padT + plotH}" x2="${padL + plotW}" y2="${padT + plotH}" stroke="currentColor" opacity=".25"/>
-        <path d="${path}" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-        ${points.map(p => `
-          <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4" fill="currentColor">
-            <title>${p.label} · ${myChartValueText(p.value, money)}</title>
-          </circle>
-          <text x="${p.x.toFixed(1)}" y="${h - 14}" text-anchor="middle" font-size="11" fill="var(--text2)">${p.label}</text>
-        `).join('')}
-      </svg>
+      <div class="empty-state" style="padding:20px">
+        <div class="eicon">📊</div>
+        <p>${myStatsText('noData')}</p>
+      </div>
     `;
     return;
   }
 
+  const money =
+    kind === 'weekday' &&
+    weekdayMetric === 'amount';
+
+  const max = Math.max(...rows.map(r => Number(r.value || 0)), 1);
+
+  /* ─────────────────────────────────────────────
+     ORDER RHYTHM
+     Continuous time series with zero periods.
+     ───────────────────────────────────────────── */
+
+  if (kind === 'order_rhythm') {
+    const availableW = Math.max(300, el.clientWidth || 300);
+    const w = Math.min(720, availableW);
+    const h = 250;
+
+    const padL = 34;
+    const padR = 22;
+    const padT = 34;
+    const padB = 44;
+
+    const plotW = Math.max(1, w - padL - padR);
+    const plotH = Math.max(1, h - padT - padB);
+
+    const denom = Math.max(rows.length - 1, 1);
+
+    const points = rows.map((r, i) => {
+      const x = padL + plotW * i / denom;
+      const y = padT + plotH - plotH * Number(r.value || 0) / max;
+
+      return {
+        ...r,
+        x,
+        y
+      };
+    });
+
+    const path = points
+      .map((p, i) =>
+        `${i ? 'L' : 'M'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`
+      )
+      .join(' ');
+
+    const tickEvery =
+      Math.max(1, Math.ceil(points.length / 6));
+
+    el.innerHTML = `
+      <svg
+        viewBox="0 0 ${w} ${h}"
+        style="width:100%;height:auto;display:block;color:var(--brand)"
+        role="img"
+        aria-label="${myStatsText('rhythm')}"
+      >
+        <line
+          x1="${padL}"
+          y1="${padT + plotH}"
+          x2="${padL + plotW}"
+          y2="${padT + plotH}"
+          stroke="currentColor"
+          opacity=".20"
+        />
+
+        <path
+          d="${path}"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="3"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+
+        ${points.map((p, i) => {
+          const showTick =
+            i === 0 ||
+            i === points.length - 1 ||
+            i % tickEvery === 0;
+
+          const value = myChartValueText(p.value, false);
+
+          return `
+            <circle
+              cx="${p.x.toFixed(1)}"
+              cy="${p.y.toFixed(1)}"
+              r="4"
+              fill="currentColor"
+            >
+              <title>${shopEscape(p.label)} · ${shopEscape(value)}</title>
+            </circle>
+
+            <text
+              x="${p.x.toFixed(1)}"
+              y="${Math.max(13, p.y - 10).toFixed(1)}"
+              text-anchor="middle"
+              font-size="10"
+              font-weight="700"
+              fill="var(--text)"
+            >
+              ${shopEscape(value)}
+            </text>
+
+            ${showTick ? `
+              <text
+                x="${p.x.toFixed(1)}"
+                y="${h - 14}"
+                text-anchor="middle"
+                font-size="9.5"
+                fill="var(--text2)"
+              >
+                ${shopEscape(p.label)}
+              </text>
+            ` : ''}
+          `;
+        }).join('')}
+      </svg>
+    `;
+
+    return;
+  }
+
+  /* ─────────────────────────────────────────────
+     FAVORITE PRODUCTS + WEEKDAY RANKING
+     HTML/CSS bars.
+     ───────────────────────────────────────────── */
+
   el.innerHTML = `
     <div class="client-chart-bars">
       ${rows.map(r => {
-        const value = myChartValueText(r.value, false);
-        const width = Math.max(4, Math.round(100 * r.value / max));
+        const numericValue = Number(r.value || 0);
+        const value = myChartValueText(numericValue, money);
+        const width =
+          Math.max(4, Math.round(100 * numericValue / max));
+
         return `
-          <div class="client-chart-row" title="${r.label} · ${value}">
-            <div class="client-chart-label">${r.label}</div>
-            <div class="client-chart-track">
-              <div class="client-chart-fill" style="width:${width}%"></div>
+          <div
+            class="client-chart-row"
+            title="${shopEscape(r.label)} · ${shopEscape(value)}"
+          >
+            <div class="client-chart-label">
+              ${shopEscape(r.label)}
             </div>
-            <div class="client-chart-value">${value}</div>
+
+            <div class="client-chart-track">
+              <div
+                class="client-chart-fill"
+                style="width:${width}%"
+              ></div>
+            </div>
+
+            <div class="client-chart-value">
+              ${shopEscape(value)}
+            </div>
           </div>
         `;
       }).join('')}
     </div>
   `;
 }
-
 function updateMyOrdersLabels() {
   const pairs = [
     ['my-period-title','period'], ['my-date-from-label','from'], ['my-date-to-label','to'], ['my-apply-period','apply'],
@@ -2038,9 +2364,22 @@ function updateMyOrdersLabels() {
 
   const sel = document.getElementById('my-stats-chart-data');
   if (sel) {
-    sel.querySelector('[value="favorite_qty"]').textContent = myStatsText('favorite');
-    sel.querySelector('[value="spending_month"]').textContent = myStatsText('spending');
-    sel.querySelector('[value="orders_month"]').textContent = myStatsText('ordersByMonth');
+    const favorite = sel.querySelector('[value="favorite_qty"]');
+    const rhythm = sel.querySelector('[value="order_rhythm"]');
+    const weekdays = sel.querySelector('[value="weekday"]');
+
+    if (favorite) favorite.textContent = myStatsText('favorite');
+    if (rhythm) rhythm.textContent = myStatsText('rhythm');
+    if (weekdays) weekdays.textContent = myStatsText('weekdays');
+  }
+
+  const weekdaySel = document.getElementById('my-weekday-metric');
+  if (weekdaySel) {
+    const orders = weekdaySel.querySelector('[value="orders"]');
+    const amount = weekdaySel.querySelector('[value="amount"]');
+
+    if (orders) orders.textContent = myStatsText('weekdayOrders');
+    if (amount) amount.textContent = myStatsText('weekdayAmount');
   }
 }
 
