@@ -640,7 +640,7 @@ window.switchTab = tab => {
   });
   document.querySelectorAll('.admin-section').forEach(s=>s.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
-  if(tab==='orders')   renderOrders();
+  if(tab==='orders')   renderOrders(false);
   if(tab==='catalog')  { fbGetCatalog().then(d=>{_catalog=d;renderCatalog();}); }
   if(tab==='clients')  { fbGetClients().then(d=>{_clients=d;renderClients();}); }
   if(tab==='stats')    renderStats();
@@ -3122,10 +3122,8 @@ function renderStatsChart(orders) {
   `;
 }
 
-async function renderStats(){
-  try { _orders = await fbGetOrders(); } catch(e) {}
-
-  const orders = adminStatsFilteredOrders(_orders);
+function renderStats(){
+const orders = adminStatsFilteredOrders(_orders);
 
   const productsRevenue = orders.reduce((sum,o) => sum + adminOrderProductsTotal(o), 0);
   const deliveryRevenue = orders.reduce((sum,o) => sum + adminOrderDeliveryFee(o), 0);
