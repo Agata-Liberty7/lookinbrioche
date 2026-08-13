@@ -21,6 +21,120 @@
       .lb-occasions{grid-template-columns:1fr}
       .lb-occasion{min-height:0}
     }
+
+    /* LOOK-IN BRIOCHE BRAND CHARACTERS */
+    .lb-catalog-container{
+      position:relative;
+    }
+
+    .lb-peekaboo-catalog{
+      position:absolute;
+      z-index:2;
+      width:112px;
+      height:auto;
+      right:26px;
+      top:-72px;
+      pointer-events:none;
+      user-select:none;
+    }
+
+    @media (max-width:760px){
+      .lb-peekaboo-catalog{
+        width:82px;
+        right:12px;
+        top:-54px;
+      }
+    }
+
+
+    /* FOOTER BRAND STAMP */
+    .lb-footer-inner{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:28px;
+    }
+
+    .lb-footer-copy{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+
+    .lb-footer-stamp{
+      flex:0 0 auto;
+      width:120px;
+    }
+
+    .lb-footer-stamp img{
+      display:block;
+      width:100%;
+      height:auto;
+    }
+
+    .lb-footer-stamp-light{
+      display:none !important;
+    }
+
+    .dark .lb-footer-stamp-dark{
+      display:none !important;
+    }
+
+    .dark .lb-footer-stamp-light{
+      display:block !important;
+    }
+
+    @media (max-width:760px){
+      .lb-footer-inner{
+        display:flex;
+        flex-direction:row;
+        align-items:center;
+        justify-content:space-between;
+        gap:18px;
+      }
+
+      .lb-footer-copy{
+        min-width:0;
+      }
+
+      .lb-footer-stamp{
+        width:104px;
+      }
+    }
+
+
+    /* FOOTER BRAND POSITION V2 */
+    .lb-footer .lb-footer-inner{
+      display:flex !important;
+      flex-direction:row !important;
+      align-items:center !important;
+      justify-content:flex-start !important;
+      gap:28px !important;
+    }
+
+    .lb-footer .lb-footer-copy{
+      flex:0 1 auto !important;
+      min-width:0;
+    }
+
+    .lb-footer .lb-footer-stamp{
+      flex:0 0 116px !important;
+      width:116px !important;
+      margin:0 !important;
+      transform:translateY(9px);
+    }
+
+    @media (max-width:760px){
+      .lb-footer .lb-footer-inner{
+        gap:16px !important;
+      }
+
+      .lb-footer .lb-footer-stamp{
+        flex-basis:108px !important;
+        width:108px !important;
+      }
+    }
+
   </style>
   <script>
     (() => {
@@ -1144,7 +1258,13 @@
       </section>
 
       <section class="lb-section" id="catalog">
-        <div class="lb-container">
+        <div class="lb-container lb-catalog-container">
+          <img
+            class="lb-peekaboo-catalog"
+            src="assets/brand/peekaboo-catalog.png"
+            alt=""
+            aria-hidden="true"
+          >
           <div class="lb-section-head">
             <div>
               <h2 data-home="catalogTitle">Ассортимент</h2>
@@ -1345,8 +1465,23 @@
 
     <footer class="lb-footer">
       <div class="lb-container lb-footer-inner">
-        <div>Look-in Brioche · Valencia</div>
-        <div><a href="login.html" data-home="clientAccess">Вход для клиентов</a></div>
+        <div class="lb-footer-copy">
+          <div>Look-in Brioche · Valencia</div>
+          <div><a href="login.html" data-home="clientAccess">Вход для клиентов</a></div>
+        </div>
+
+        <div class="lb-footer-stamp" aria-hidden="true">
+          <img
+            class="lb-footer-stamp-dark"
+            src="assets/brand/brand-stamp-dark.png"
+            alt=""
+          >
+          <img
+            class="lb-footer-stamp-light"
+            src="assets/brand/brand-stamp-light.png"
+            alt=""
+          >
+        </div>
       </div>
     </footer>
   </div>
