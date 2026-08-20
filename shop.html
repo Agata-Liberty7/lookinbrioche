@@ -339,6 +339,11 @@ let _orders = [];
 async function refreshCurrentClientSession() {
   const sessionUser = getCurrentUser();
 
+  if (sessionStorage.getItem('clientJustLoggedIn') === '1') {
+    sessionStorage.removeItem('clientJustLoggedIn');
+    return sessionUser;
+  }
+
   if (
     !sessionUser ||
     sessionUser.guest ||
