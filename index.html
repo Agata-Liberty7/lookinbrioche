@@ -1853,7 +1853,7 @@
       const listContext = publicCatalogListContext();
 
       return trackPublicEvent('view_item_list', {
-        source: 'public_home',
+        interaction_source: 'public_home',
         category: activePublicCategory || 'all',
         item_count: items.length,
         ...listContext,
@@ -1966,7 +1966,7 @@
       const listContext = publicCatalogListContext();
 
       trackPublicEvent('view_item', {
-        source: 'public_home',
+        interaction_source: 'public_home',
         product_id: String(product.id),
         product_name: name,
         category: publicCategoryKey(product.category),
@@ -2030,7 +2030,7 @@
           const selectedItems = publicVisibleCatalog();
 
           trackPublicEvent('category_selected', {
-            source: 'public_home',
+            interaction_source: 'public_home',
             category: activePublicCategory,
             item_count: selectedItems.length
           });
@@ -2097,7 +2097,7 @@
           document.getElementById('po-format')?.value || 'private';
 
         const tracked = trackPublicEvent('form_start', {
-          source: 'public_home',
+          interaction_source: 'public_home',
           form_id: 'public_order_form',
           request_format: format
         });
@@ -2143,7 +2143,7 @@
           await fbAddOrder(order);
 
           trackPublicEvent('generate_lead', {
-            source: 'public_home',
+            interaction_source: 'public_home',
             form_id: 'public_order_form',
             request_format: format,
             has_preferred_date: Boolean(preferredDate)
@@ -2197,7 +2197,7 @@
 
       if (loginLink) {
         trackPublicEvent('client_login_click', {
-          source: publicLoginSource(loginLink)
+          interaction_source: publicLoginSource(loginLink)
         });
       }
 
@@ -2207,7 +2207,7 @@
 
       if (whatsappLink) {
         trackPublicEvent('whatsapp_click', {
-          source: publicWhatsAppSource(whatsappLink),
+          interaction_source: publicWhatsAppSource(whatsappLink),
           product_id: whatsappLink.dataset.productId,
           product_name: whatsappLink.dataset.productName,
           category: whatsappLink.dataset.category
@@ -2270,7 +2270,7 @@
 
         if (selectedLanguage !== previousLanguage) {
           trackPublicEvent('language_changed', {
-            source: 'public_home',
+            interaction_source: 'public_home',
             previous_language: previousLanguage,
             selected_language: selectedLanguage
           });
