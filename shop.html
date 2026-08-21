@@ -562,7 +562,7 @@ function initStrings() {
   document.getElementById('ch-contact-person').placeholder = contactI18n.personPh;
   document.getElementById('ch-contact-phone').placeholder = contactI18n.phonePh;
 
-  const user = getCurrentUser();
+  const user = currentUser || getCurrentUser();
   if (user && !user.guest) {
     const displayName = user.name || user.login || 'Cliente';
     document.getElementById('ch-name').value = displayName;
@@ -1697,6 +1697,7 @@ window.submitOrder = async () => {
       name: hasExplicitVariants
         ? `${baseName} · ${variantCaption(variant)}`
         : baseName,
+      category: String(p.category || ''),
       variantKey,
       variantLabel: String(variant.label || variantKey),
       weight: String(variant.weight || ''),
