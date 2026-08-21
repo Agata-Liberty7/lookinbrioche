@@ -460,6 +460,28 @@
     </div>
     <div class="form-group"><label>Delivery notes</label><textarea id="cm-delivery-notes" rows="2" placeholder="Entrance, schedule, delivery conditions..."></textarea></div>
     <div class="form-group"><label>Datos para factura / реквизиты</label><textarea id="cm-invoice" rows="3" placeholder="Company name, CIF/NIF, billing address..."></textarea></div>
+
+    <div class="form-group">
+      <label>Invoice Google Sheet URL</label>
+      <input type="url" id="cm-invoice-sheet-url" placeholder="https://docs.google.com/spreadsheets/d/...">
+    </div>
+
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Invoice data sheet</label>
+        <input type="text" id="cm-invoice-data-sheet" placeholder="num_fech">
+      </div>
+      <div class="form-group">
+        <label>Invoice prefix</label>
+        <input type="text" id="cm-invoice-prefix" placeholder="HS">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Invoice Drive folder URL</label>
+      <input type="url" id="cm-invoice-folder-url" placeholder="https://drive.google.com/drive/folders/...">
+    </div>
+
     <div class="form-group">
       <label>Preferred payment</label>
       <select id="cm-payment">
@@ -496,6 +518,56 @@
     <div style="display:flex;gap:10px;margin-top:4px">
       <button class="btn btn-primary" style="flex:1;padding:13px" onclick="saveClient()">Save</button>
       <button class="btn btn-outline" onclick="closeModal('client-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="invoice-modal" onclick="if(event.target===this)closeModal('invoice-modal')">
+  <div class="modal">
+    <div class="modal-title">Create invoice</div>
+
+    <input type="hidden" id="invoice-client-id">
+
+    <div id="invoice-client-name" style="font-size:15px;font-weight:800;margin-bottom:14px"></div>
+
+    <div class="form-grid">
+      <div class="form-group">
+        <label>From</label>
+        <input type="date" id="invoice-date-from">
+      </div>
+      <div class="form-group">
+        <label>To</label>
+        <input type="date" id="invoice-date-to">
+      </div>
+    </div>
+
+    <div class="form-group toggle-wrap">
+      <label class="toggle">
+        <input type="checkbox" id="invoice-separate-delivery">
+        <span class="toggle-slider"></span>
+      </label>
+      <span style="font-size:14px;font-weight:700">Separate delivery</span>
+    </div>
+
+    <button type="button" class="btn btn-outline" style="width:100%;margin-bottom:14px" onclick="previewClientInvoice()">
+      Preview
+    </button>
+
+    <div id="invoice-preview"></div>
+
+    <button
+      type="button"
+      class="btn btn-primary"
+      style="width:100%;margin-top:14px"
+      onclick="fillTestInvoice()"
+    >
+      Fill TEST_AUTOMATION
+    </button>
+
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button type="button" class="btn btn-outline" style="flex:1" onclick="closeModal('invoice-modal')">
+        Close
+      </button>
     </div>
   </div>
 </div>
@@ -1129,7 +1201,20 @@ function adminShowWaActionPanel(order) {
     document.body.appendChild(box);
   }
 
-  const name = (order.customer && order.customer.name) || order.name || 'client';
+  const clientId = order.customer?.userId
+    ? String(order.customer.userId)
+    : '';
+
+  const currentClient = clientId
+    ? (_clients || []).find(c => String(c.id) === clientId)
+    : null;
+
+  const name =
+    currentClient?.name ||
+    order.customer?.name ||
+    order.customer?.userName ||
+    order.name ||
+    'client';
 
   box.innerHTML = `
     <div style="display:flex;gap:10px;align-items:flex-start;justify-content:space-between">
@@ -2170,11 +2255,310 @@ function renderClients(){
         <div class="client-meta">@${c.login} · ${c.group||'retail'}${c.discount>0?' · −'+c.discount+'%':''}${c.coeff&&c.coeff!==1?' · ×'+c.coeff:''}${adminClientCustomPriceCount(c)>0?' · special prices: '+adminClientCustomPriceCount(c):''}</div>
       </div>
       <div class="row-actions">
+        <button class="btn-icon" title="Create invoice" onclick="openInvoiceModal('${c.id}')">📄</button>
         <button class="btn-icon" onclick="openClientModal('${c.id}')">✏️</button>
         <button class="btn-icon" onclick="deleteClient('${c.id}')">🗑️</button>
       </div>
     </div>`).join('');
 }
+
+function invoiceOrderMatchesPeriod(order, from, to) {
+  if (order.status !== 'done') return false;
+
+  const deliveryDate = order.delivery?.date || '';
+  if (!deliveryDate) return false;
+
+  const orderMs = adminParseDateOnly(deliveryDate);
+  const fromMs = adminParseDateOnly(from);
+  const toMs = adminParseDateOnly(to);
+
+  if (orderMs === null) return false;
+  if (fromMs !== null && orderMs < fromMs) return false;
+  if (toMs !== null && orderMs > toMs) return false;
+
+  return true;
+}
+
+function invoiceOrdersForClient(clientId, from, to) {
+  const id = String(clientId || '');
+
+  return (_orders || []).filter(order => {
+    const orderClientId = String(order.customer?.userId || '');
+
+    return (
+      orderClientId === id &&
+      invoiceOrderMatchesPeriod(order, from, to)
+    );
+  });
+}
+
+window.openInvoiceModal = id => {
+  const client = (_clients || []).find(c => String(c.id) === String(id));
+  if (!client) {
+    showToast('Client not found');
+    return;
+  }
+
+  document.getElementById('invoice-client-id').value = client.id;
+  document.getElementById('invoice-client-name').textContent =
+    client.name || client.login || 'Client';
+
+  document.getElementById('invoice-date-from').value = '';
+  document.getElementById('invoice-date-to').value = '';
+  document.getElementById('invoice-separate-delivery').checked = false;
+  document.getElementById('invoice-preview').innerHTML = '';
+  _invoicePreviewDraft = null;
+
+  document.getElementById('invoice-modal').classList.add('open');
+};
+
+
+function invoiceItemCategory(item) {
+  const stored = String(item?.category || '').trim();
+  if (stored) return stored;
+
+  const product = (_catalog || []).find(
+    p => String(p.id) === String(item?.id || '')
+  );
+
+  return String(product?.category || '').trim();
+}
+
+function invoiceConceptForCategory(category) {
+  const key = String(category || '').trim().toLowerCase();
+
+  if (key === 'pirozhki') return 'Empanadillas artesanas surtidos';
+  if (key === 'rogaliki' || key === 'buns') return 'Bollería artesana';
+  if (key === 'tapas') return 'Tapas artesanas';
+
+  return 'Otros productos';
+}
+
+function invoiceConceptRows(orders) {
+  const map = new Map();
+
+  orders.forEach(order => {
+    (order.items || []).forEach(item => {
+      const concept = invoiceConceptForCategory(
+        invoiceItemCategory(item)
+      );
+
+      if (!map.has(concept)) {
+        map.set(concept, {
+          concept,
+          units: 0,
+          total: 0
+        });
+      }
+
+      const row = map.get(concept);
+      row.units += Number(item.qty || 0);
+      row.total += Number(item.price || 0) * Number(item.qty || 0);
+    });
+  });
+
+  return [...map.values()].filter(
+    row => row.units > 0 || row.total > 0
+  );
+}
+
+let _invoicePreviewDraft = null;
+
+window.previewClientInvoice = () => {
+  const clientId = document.getElementById('invoice-client-id').value;
+  const from = document.getElementById('invoice-date-from').value;
+  const to = document.getElementById('invoice-date-to').value;
+  const preview = document.getElementById('invoice-preview');
+  const separateDelivery =
+    document.getElementById('invoice-separate-delivery')?.checked === true;
+
+  if (!from || !to) {
+    showToast('Select invoice period');
+    return;
+  }
+
+  const fromMs = adminParseDateOnly(from);
+  const toMs = adminParseDateOnly(to);
+
+  if (fromMs === null || toMs === null || fromMs > toMs) {
+    showToast('Invalid invoice period');
+    return;
+  }
+
+  const orders = invoiceOrdersForClient(clientId, from, to);
+
+  const units = orders.reduce(
+    (sum, order) =>
+      sum +
+      (order.items || []).reduce(
+        (itemSum, item) => itemSum + Number(item.qty || 0),
+        0
+      ),
+    0
+  );
+
+  const productsTotal = orders.reduce(
+    (sum, order) => sum + adminOrderProductsTotal(order),
+    0
+  );
+
+  const deliveryTotal = orders.reduce(
+    (sum, order) => sum + adminOrderDeliveryFee(order),
+    0
+  );
+
+  const grandTotal = orders.reduce(
+    (sum, order) => sum + adminOrderGrandTotal(order),
+    0
+  );
+
+  const conceptRows = invoiceConceptRows(orders);
+
+  const invoiceGrossTotal = separateDelivery
+    ? productsTotal
+    : grandTotal;
+
+  const invoiceBase = invoiceGrossTotal / 1.10;
+  const invoiceVat = invoiceGrossTotal - invoiceBase;
+
+  // Invoice concept amounts must be net amounts (without IVA).
+  // When delivery is not shown separately, distribute it proportionally
+  // across product concepts so that the visible concept rows add up
+  // exactly to Base imponible.
+  const invoiceRows = conceptRows.map(row => {
+    let gross = Number(row.total || 0);
+
+    if (!separateDelivery && productsTotal > 0) {
+      gross += deliveryTotal * (gross / productsTotal);
+    }
+
+    return {
+      ...row,
+      gross,
+      base: gross / 1.10
+    };
+  });
+
+  if (!orders.length) {
+    _invoicePreviewDraft = null;
+
+    preview.innerHTML = `
+      <div class="empty-state">
+        <div class="eicon">📄</div>
+        <p>No completed deliveries for this period</p>
+      </div>
+    `;
+    return;
+  }
+
+  _invoicePreviewDraft = {
+    clientId,
+    periodFrom: from,
+    periodTo: to,
+    total: separateDelivery ? productsTotal : grandTotal,
+    base: invoiceBase,
+    vat: invoiceVat,
+    separateDelivery,
+    concepts: invoiceRows.map(row => ({
+      concept: row.concept,
+      units: row.units,
+      base: row.base
+    }))
+  };
+
+  preview.innerHTML = `
+    <div class="info-box" style="font-size:13px;line-height:1.7">
+      <div style="display:flex;justify-content:space-between;gap:12px">
+        <span>Period</span>
+        <b>${adminEscape(from)} - ${adminEscape(to)}</b>
+      </div>
+      <div style="display:flex;justify-content:space-between;gap:12px">
+        <span>Completed orders</span>
+        <b>${orders.length}</b>
+      </div>
+      <div style="display:flex;justify-content:space-between;gap:12px">
+        <span>Units</span>
+        <b>${units}</b>
+      </div>
+
+      <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px">
+        ${invoiceRows.map(row => `
+          <div style="display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center">
+            <span>${adminEscape(row.concept)}</span>
+            <b>${row.units}</b>
+            <b>${formatPrice(row.base)}</b>
+          </div>
+        `).join('')}
+      </div>
+
+      ${
+        separateDelivery
+          ? `
+      <div style="display:flex;justify-content:space-between;gap:12px;margin-top:8px">
+        <span>Products total</span>
+        <b>${formatPrice(productsTotal)}</b>
+      </div>
+      <div style="display:flex;justify-content:space-between;gap:12px">
+        <span>Delivery</span>
+        <b>${formatPrice(deliveryTotal)}</b>
+      </div>
+      `
+          : ''
+      }
+
+      <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:8px">
+        <div style="display:flex;justify-content:space-between;gap:12px">
+          <span>Base imponible</span>
+          <b>${formatPrice(invoiceBase)}</b>
+        </div>
+        <div style="display:flex;justify-content:space-between;gap:12px">
+          <span>IVA 10%</span>
+          <b>${formatPrice(invoiceVat)}</b>
+        </div>
+        <div style="display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--border);margin-top:6px;padding-top:6px">
+          <span>Total a pagar</span>
+          <b>${formatPrice(separateDelivery ? productsTotal : grandTotal)}</b>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+
+window.fillTestInvoice = async () => {
+  if (!_invoicePreviewDraft) {
+    showToast('Create preview first');
+    return;
+  }
+
+  try {
+    showLoading('Creating invoice...');
+
+    const res = await fetch('/api/google-sheet-fill-test', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(_invoicePreviewDraft)
+    });
+
+    const data = await res.json();
+
+    hideLoading();
+
+    if (!res.ok || !data.ok) {
+      console.error('Invoice fill error:', data);
+      showToast('Invoice creation error');
+      return;
+    }
+
+    showToast(`Invoice ${data.invoiceNumber} created in TEST_AUTOMATION`);
+  } catch (error) {
+    hideLoading();
+    console.error('Invoice fill request failed:', error);
+    showToast('Invoice creation error');
+  }
+};
 
 window.openClientModal = async id => {
   document.getElementById('cm-title').textContent=id?'Edit client':'Add client';
@@ -2196,13 +2580,17 @@ window.openClientModal = async id => {
     document.getElementById('cm-delivery-fee').value=c.deliveryFee??'';
     document.getElementById('cm-delivery-notes').value=c.deliveryNotes||'';
     document.getElementById('cm-invoice').value=c.invoiceDetails||'';
+    document.getElementById('cm-invoice-sheet-url').value=c.invoiceSheetUrl||'';
+    document.getElementById('cm-invoice-data-sheet').value=c.invoiceDataSheet||'';
+    document.getElementById('cm-invoice-prefix').value=c.invoicePrefix||'';
+    document.getElementById('cm-invoice-folder-url').value=c.invoiceFolderUrl||'';
     document.getElementById('cm-payment').value=c.preferredPayment||'';
     document.getElementById('cm-lang').value=c.language||'es';
     document.getElementById('cm-notes').value=c.notes||'';
     document.getElementById('cm-coeff').value=c.coeff||1;document.getElementById('cm-group').value=c.group||'retail';
     renderClientCustomPrices(c.customPrices || {});
   } else {
-    ['cm-login','cm-pass','cm-name','cm-phone','cm-contact-person','cm-contact-phone','cm-address','cm-delivery-fee','cm-delivery-notes','cm-invoice','cm-notes'].forEach(i=>document.getElementById(i).value='');
+    ['cm-login','cm-pass','cm-name','cm-phone','cm-contact-person','cm-contact-phone','cm-address','cm-delivery-fee','cm-delivery-notes','cm-invoice','cm-invoice-sheet-url','cm-invoice-data-sheet','cm-invoice-prefix','cm-invoice-folder-url','cm-notes'].forEach(i=>document.getElementById(i).value='');
     document.getElementById('cm-delivery-method').value='delivery';
     document.getElementById('cm-payment').value='';
     document.getElementById('cm-lang').value='es';
@@ -2230,6 +2618,10 @@ window.saveClient = async () => {
     })(),
     deliveryNotes:document.getElementById('cm-delivery-notes').value.trim(),
     invoiceDetails:document.getElementById('cm-invoice').value.trim(),
+    invoiceSheetUrl:document.getElementById('cm-invoice-sheet-url').value.trim(),
+    invoiceDataSheet:document.getElementById('cm-invoice-data-sheet').value.trim(),
+    invoicePrefix:document.getElementById('cm-invoice-prefix').value.trim(),
+    invoiceFolderUrl:document.getElementById('cm-invoice-folder-url').value.trim(),
     preferredPayment:document.getElementById('cm-payment').value,
     language:document.getElementById('cm-lang').value||'es',
     notes:document.getElementById('cm-notes').value.trim(),
@@ -2981,10 +3373,12 @@ function adminBuildStatsChartRows(orders, kind) {
   if (kind === 'client_revenue' || kind === 'client_orders' || kind === 'delivery_client') {
     orders.forEach(o => {
       const label = o.customer?.name || o.customer?.userName || '—';
+
       let value = 0;
       if (kind === 'client_revenue') value = adminOrderGrandTotal(o);
       if (kind === 'client_orders') value = 1;
       if (kind === 'delivery_client') value = adminOrderDeliveryFee(o);
+
       adminAddChartValue(map, label, label, value);
     });
   }
