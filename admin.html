@@ -561,7 +561,7 @@
       style="width:100%;margin-top:14px"
       onclick="fillTestInvoice()"
     >
-      Fill TEST_AUTOMATION
+      Create invoice
     </button>
 
     <div style="display:flex;gap:10px;margin-top:16px">
@@ -2451,8 +2451,16 @@ window.previewClientInvoice = () => {
     return;
   }
 
+  const invoiceClient = (_clients || []).find(
+    client => String(client.id) === String(clientId)
+  );
+
   _invoicePreviewDraft = {
     clientId,
+    invoiceSheetUrl: invoiceClient?.invoiceSheetUrl || '',
+    invoiceDataSheet: invoiceClient?.invoiceDataSheet || 'num_fech',
+    invoicePrefix: invoiceClient?.invoicePrefix || '',
+    invoiceFolderUrl: invoiceClient?.invoiceFolderUrl || '',
     periodFrom: from,
     periodTo: to,
     total: separateDelivery ? productsTotal : grandTotal,
@@ -2552,7 +2560,7 @@ window.fillTestInvoice = async () => {
       return;
     }
 
-    showToast(`Invoice ${data.invoiceNumber} created in TEST_AUTOMATION`);
+    showToast(`Invoice ${data.invoiceNumber} created`);
   } catch (error) {
     hideLoading();
     console.error('Invoice fill request failed:', error);

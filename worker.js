@@ -153,6 +153,9 @@ export default {
         }
 
         const {
+          invoiceSheetUrl,
+          invoiceDataSheet,
+          invoicePrefix,
           periodFrom,
           periodTo,
           total,
@@ -162,6 +165,7 @@ export default {
         } = payload;
 
         if (
+          !invoiceSheetUrl ||
           !periodFrom ||
           !periodTo ||
           !Number.isFinite(Number(total)) ||
@@ -183,14 +187,23 @@ export default {
           }, 400);
         }
 
-        const spreadsheetId =
-          '1R_lq1DaUkEtFer7srvnGIeAxh9kNR_0ltsIIVN75uMQ';
+        const spreadsheetMatch = String(invoiceSheetUrl).match(
+          /\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/
+        );
 
-        const targetSheet = 'TEST_AUTOMATION';
+        if (!spreadsheetMatch) {
+          return json({
+            ok: false,
+            error: 'Invalid invoiceSheetUrl'
+          }, 400);
+        }
+
+        const spreadsheetId = spreadsheetMatch[1];
+        const dataSheet = String(invoiceDataSheet || 'num_fech').trim();
 
         // Read spreadsheet tabs to determine next invoice sequence.
         const metaRes = await fetch(
-          `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties.title`,
+          `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`,
           {
             headers: {
               Authorization: `Bearer ${accessToken}`
@@ -206,6 +219,16 @@ export default {
           );
         }
 
+        const templateSheet = (meta.sheets || []).find(
+          item => String(item.properties?.title || '').trim().toLowerCase() === 'modelo 10%'
+        );
+
+        if (!templateSheet?.properties?.sheetId) {
+          throw new Error('Template sheet "Modelo 10%" not found');
+        }
+
+        const templateSheetId = templateSheet.properties.sheetId;
+
         const invoiceNumbers = (meta.sheets || [])
           .map(item => String(item.properties?.title || ''))
           .map(title => title.match(/^Factura_(\d+)_\d{4}$/))
@@ -217,28 +240,37 @@ export default {
           ? Math.max(...invoiceNumbers) + 1
           : 1;
 
-        // Read prefix from num_fech!B2.
-        const prefixRes = await fetch(
-          `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/num_fech!B2`,
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`
-            }
-          }
-        );
-
-        const prefixData = await prefixRes.json();
-
-        if (!prefixRes.ok) {
-          throw new Error(
-            `Google Sheets prefix error: ${prefixRes.status} ${JSON.stringify(prefixData)}`
-          );
-        }
-
-        const prefix = String(prefixData.values?.[0]?.[0] || '').trim();
+        let prefix = String(invoicePrefix || '').trim();
 
         if (!prefix) {
-          throw new Error('Invoice prefix not found in num_fech!B2');
+          const encodedDataSheet = encodeURIComponent(
+            `'${dataSheet.replace(/'/g, "''")}'!B2`
+          );
+
+          const prefixRes = await fetch(
+            `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodedDataSheet}`,
+            {
+              headers: {
+                Authorization: `Bearer ${accessToken}`
+              }
+            }
+          );
+
+          const prefixData = await prefixRes.json();
+
+          if (!prefixRes.ok) {
+            throw new Error(
+              `Google Sheets prefix error: ${prefixRes.status} ${JSON.stringify(prefixData)}`
+            );
+          }
+
+          prefix = String(prefixData.values?.[0]?.[0] || '').trim();
+        }
+
+        if (!prefix) {
+          throw new Error(
+            `Invoice prefix not found for data sheet "${dataSheet}"`
+          );
         }
 
         const now = new Date();
@@ -254,6 +286,53 @@ export default {
 
         const invoiceNumber =
           `${prefix}${nextSequence}${month}${year.slice(-2)}`;
+
+        const targetSheet =
+          `Factura_${nextSequence}_${month}${year.slice(-2)}`;
+
+        const existingSheet = (meta.sheets || []).find(
+          item => String(item.properties?.title || '') === targetSheet
+        );
+
+        if (existingSheet) {
+          return json({
+            ok: false,
+            error: `Invoice sheet already exists: ${targetSheet}`
+          }, 409);
+        }
+
+        const duplicateRes = await fetch(
+          `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              requests: [
+                {
+                  duplicateSheet: {
+                    sourceSheetId: templateSheetId,
+                    insertSheetIndex: 0,
+                    newSheetName: targetSheet
+                  }
+                }
+              ]
+            })
+          }
+        );
+
+        const duplicateData = await duplicateRes.json();
+
+        if (!duplicateRes.ok) {
+          throw new Error(
+            `Google Sheets duplicate error: ${duplicateRes.status} ${JSON.stringify(duplicateData)}`
+          );
+        }
+
+        const createdSheetId =
+          duplicateData.replies?.[0]?.duplicateSheet?.properties?.sheetId ?? null;
 
         const invoiceDateSerial =
           Math.floor(
@@ -358,8 +437,12 @@ export default {
         return json({
           ok: true,
           sheet: targetSheet,
+          sheetId: createdSheetId,
           invoiceNumber,
-          updatedCells: data.totalUpdatedCells ?? null
+          updatedCells: data.totalUpdatedCells ?? null,
+          spreadsheetId,
+          sheetUrl:
+            `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=${createdSheetId}`
         });
       } catch (error) {
         console.error('Google Sheet fill test failed:', error);
