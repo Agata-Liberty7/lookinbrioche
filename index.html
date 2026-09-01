@@ -206,6 +206,26 @@
       overflow-x:hidden;
     }
     body.lb-home a{color:inherit}
+
+    .lb-card-details{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:max-content;
+      margin-top:9px;
+      padding:7px 12px;
+      border-radius:999px;
+      background:var(--lb-brand);
+      color:#fff;
+      font-size:12px;
+      font-weight:800;
+      line-height:1;
+      transition:.18s ease;
+    }
+
+    .lb-dynamic-card:hover .lb-card-details{
+      background:var(--lb-brand-dark);
+    }
     .lb-page{min-height:100vh;background:
       radial-gradient(circle at 12% 0%, rgba(210,145,82,.22), transparent 28rem),
       radial-gradient(circle at 90% 10%, rgba(255,214,159,.25), transparent 24rem),
@@ -1542,7 +1562,7 @@
         photoCardTitle:'Corteza dorada, masa tierna y relleno generoso',
         photoCardText:'Un formato fácil de ofrecer en tiendas, cafeterías, reuniones y eventos privados.',
         publicOrderTitle:'Pedido sin registro', publicOrderLead:'Deja una solicitud sin login ni contraseña. Confirmaremos disponibilidad, fecha y detalles.', publicOrderNote:'No es el acceso B2B ni un pago online: es una solicitud rápida para pedidos privados, eventos o una primera entrega.', publicFormName:'Nombre', publicFormNamePh:'Cómo te llamas', publicFormContact:'Teléfono o email', publicFormContactPh:'Dónde podemos responder', publicFormFormat:'Formato', publicFormatEvent:'Evento', publicFormatPrivate:'Pedido privado', publicFormatShop:'Tienda o cafetería / primera entrega', publicFormatOther:'Otro', publicFormDate:'Fecha deseada', publicFormDetails:'Qué necesitas', publicFormDetailsPh:'Por ejemplo: 20–30 piezas, dulces y saladas, para el sábado', publicFormSubmit:'Enviar solicitud', publicFormHelp:'Te contactaremos para confirmar disponibilidad, cantidad y fecha. Los precios B2B siguen dentro del acceso de clientes.', publicFormRequired:'Completa nombre, contacto y detalles del pedido.', publicFormSuccess:'Solicitud enviada. Te contactaremos para confirmar los detalles.', publicFormError:'No se pudo enviar la solicitud. Puedes escribirnos por WhatsApp.',
-        catalogTitle:'Catálogo', catalogLead:'Empanadillas, brioche relleno, bollería artesanal y especiales de temporada.',
+        catalogTitle:'Catálogo', viewDetails:'Ver detalles', catalogLead:'Empanadillas, brioche relleno, bollería artesanal y especiales de temporada.',
         b2bPrices:'Precios B2B tras acceder',
         cat1Title:'Empanadillas de brioche', cat1Text:'Masa de brioche con rellenos salados y dulces.',
         cat2Title:'Brioche relleno', cat2Text:'Formato propio, masa tierna y sabor intenso.',
@@ -1588,7 +1608,7 @@
         photoCardTitle:'Золотистая корочка, мягкое тесто, щедрая начинка',
         photoCardText:'Формат, который легко предложить в магазине, кафе, на встрече или небольшом событии.',
         publicOrderTitle:'Заявка без регистрации', publicOrderLead:'Оставьте заявку без логина и пароля. Мы подтвердим ассортимент, дату и детали.', publicOrderNote:'Это не B2B-кабинет и не онлайн-оплата: это быстрая заявка для частного заказа, мероприятия или первой поставки.', publicFormName:'Имя', publicFormNamePh:'Как к вам обращаться', publicFormContact:'Телефон или email', publicFormContactPh:'Куда ответить', publicFormFormat:'Формат', publicFormatEvent:'Мероприятие', publicFormatPrivate:'Частный заказ', publicFormatShop:'Магазин или кафе / первая поставка', publicFormatOther:'Другое', publicFormDate:'Желаемая дата', publicFormDetails:'Что нужно', publicFormDetailsPh:'Например: 20–30 пирожков, сладкие и солёные, на субботу', publicFormSubmit:'Отправить заявку', publicFormHelp:'Мы свяжемся, чтобы подтвердить наличие, количество и дату. Цены для B2B остаются в личном кабинете.', publicFormRequired:'Заполните имя, контакт и детали заказа.', publicFormSuccess:'Заявка отправлена. Мы свяжемся для подтверждения деталей.', publicFormError:'Не удалось отправить заявку. Можно написать нам в WhatsApp.',
-        catalogTitle:'Каталог', catalogLead:'Пирожки, рогалики, булочки и сезонная выпечка из бриошного теста.',
+        catalogTitle:'Каталог', viewDetails:'Подробнее', catalogLead:'Пирожки, рогалики, булочки и сезонная выпечка из бриошного теста.',
         b2bPrices:'B2B-цены после входа',
         cat1Title:'Пирожки', cat1Text:'Бриошное тесто с солёными и сладкими начинками.',
         cat2Title:'Рогалики', cat2Text:'Фирменная форма, мягкое тесто и насыщенный вкус.',
@@ -1634,7 +1654,7 @@
         photoCardTitle:'Golden crust, soft dough and generous filling',
         photoCardText:'A practical format for shops, cafés, meetings and private events.',
         publicOrderTitle:'Request an order', publicOrderLead:'Leave a request without login or password. We will confirm availability, date and details.', publicOrderNote:'This is not the B2B account and not online payment: it is a quick request for private orders, events or a first delivery.', publicFormName:'Name', publicFormNamePh:'Your name', publicFormContact:'Phone or email', publicFormContactPh:'Where we can reply', publicFormFormat:'Format', publicFormatEvent:'Event', publicFormatPrivate:'Private order', publicFormatShop:'Shop or café / first delivery', publicFormatOther:'Other', publicFormDate:'Preferred date', publicFormDetails:'What do you need', publicFormDetailsPh:'For example: 20–30 pieces, sweet and savory, for Saturday', publicFormSubmit:'Send request', publicFormHelp:'We will contact you to confirm availability, quantity and date. B2B prices remain inside client access.', publicFormRequired:'Please fill in name, contact and order details.', publicFormSuccess:'Request sent. We will contact you to confirm the details.', publicFormError:'Could not send the request. You can message us on WhatsApp.',
-        catalogTitle:'Catalogue', catalogLead:'Pirozhki, filled brioche, handmade bakery and seasonal specials.',
+        catalogTitle:'Catalogue', viewDetails:'View details', catalogLead:'Pirozhki, filled brioche, handmade bakery and seasonal specials.',
         b2bPrices:'B2B prices after login',
         cat1Title:'Pirozhki with fillings', cat1Text:'Soft brioche dough with sweet and savoury artisan fillings.',
         cat2Title:'Filled brioche', cat2Text:'Signature shape, soft dough and rich flavor.',
@@ -2060,6 +2080,7 @@
               : ''}
             <strong>${safeName}</strong>
             <span>${safeCategory}</span>
+            <span class="lb-card-details">${text('viewDetails')}</span>
           </span>
         </button>`;
       }).join('');

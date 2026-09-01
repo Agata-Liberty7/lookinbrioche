@@ -738,6 +738,11 @@ function renderCatalog() {
         ${variantControls}
         <div class="product-price">${productPriceLine(p, selectedKey)}${discBadge}</div>
         ${minInfo}
+        <div
+          style="margin-top:7px;font-size:12px;font-weight:700;color:var(--brand);display:inline-flex;align-items:center;gap:4px"
+        >
+          ${t('viewDetails')}
+        </div>
       </div>
 
       <div class="qty-control" onclick="event.stopPropagation()" id="qc-${p.id}">
