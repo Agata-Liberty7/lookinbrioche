@@ -450,7 +450,44 @@
     .lb-contact{background:linear-gradient(135deg,rgba(159,91,47,.12),rgba(255,211,155,.18));border:1px solid var(--lb-line);border-radius:34px;padding:34px;display:grid;grid-template-columns:1.2fr .8fr;gap:24px;align-items:center}
     .lb-contact h2{margin-bottom:10px}
     .lb-contact p{color:var(--lb-muted);font-size:17px;line-height:1.65;margin:0}
-    .lb-contact-actions{display:flex;flex-wrap:wrap;gap:12px;justify-content:flex-end}
+    .lb-contact-actions{display:flex;flex-wrap:wrap;gap:12px;justify-content:flex-end;align-items:center}
+    .lb-social-links{display:flex;align-items:center;gap:10px}
+    .lb-social-icon{
+      width:48px;
+      height:48px;
+      border-radius:50%;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      border:1px solid var(--lb-line);
+      color:#fff;
+      text-decoration:none;
+    }
+    .lb-social-icon svg{
+      width:22px;
+      height:22px;
+      display:block;
+    }
+    .lb-social-icon--wa{
+      background:#2E7D46;
+    }
+    .lb-social-icon--ig{
+      background:linear-gradient(135deg,#a95e35,#6d361f);
+    }
+    .lb-footer-social{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin-top:8px;
+    }
+    .lb-footer-social .lb-social-icon{
+      width:34px;
+      height:34px;
+    }
+    .lb-footer-social .lb-social-icon svg{
+      width:17px;
+      height:17px;
+    }
     .lb-footer{padding:34px 0 44px;color:var(--lb-muted);font-size:14px}
     .lb-footer-inner{display:flex;align-items:center;justify-content:space-between;gap:18px;border-top:1px solid var(--lb-line);padding-top:22px}
     .lb-wa-float{position:fixed;right:22px;bottom:calc(22px + env(safe-area-inset-bottom));z-index:80;width:58px;height:58px;border-radius:50%;background:#2E6B3E;color:#fff!important;display:flex;align-items:center;justify-content:center;text-decoration:none;box-shadow:0 12px 32px rgba(37,211,102,.34);font-size:25px}
@@ -1581,7 +1618,30 @@
               <p data-home="contactText">Расскажите, что вам нужно: ассортимент для магазина, выпечка для мероприятия или специальный заказ.</p>
             </div>
             <div class="lb-contact-actions">
-              <a class="lb-btn lb-btn-contact lb-wa-link" href="#" target="_blank" rel="noopener" data-home="whatsappBtn">Написать в WhatsApp</a>
+              <div class="lb-social-links">
+                <a class="lb-social-icon lb-social-icon--wa lb-wa-link"
+                   href="#"
+                   target="_blank"
+                   rel="noopener"
+                   aria-label="WhatsApp"
+                   title="WhatsApp">
+                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M20.5 3.5A11.8 11.8 0 0 0 12.1 0C5.5 0 .2 5.3.2 11.9c0 2.1.5 4.1 1.6 5.9L0 24l6.4-1.7a11.8 11.8 0 0 0 5.6 1.4h.1c6.5 0 11.8-5.3 11.8-11.9 0-3.1-1.2-6.1-3.4-8.3Zm-8.4 18.3a9.8 9.8 0 0 1-5-1.4l-.4-.2-3.8 1 1-3.7-.2-.4a9.8 9.8 0 1 1 8.4 4.7Zm5.4-7.4c-.3-.2-1.8-.9-2-.9-.3-.1-.5-.2-.7.1-.2.3-.8 1-.9 1.2-.2.2-.4.2-.7.1-2.5-1.2-4.1-2.2-5.1-5-.1-.3.1-.5.2-.6l.5-.5c.1-.2.2-.3.3-.5.1-.2.1-.4 0-.6-.1-.1-.7-1.6-.9-2.2-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.4s1.1 2.8 1.2 3c.1.2 2.1 3.2 5 4.4.7.3 1.3.5 1.7.6.7.2 1.3.2 1.8.1.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4-.1-.1-.3-.2-.6-.4Z"/>
+                  </svg>
+                </a>
+
+                <a class="lb-social-icon lb-social-icon--ig"
+                   href="https://www.instagram.com/look_in_brioche/"
+                   target="_blank"
+                   rel="noopener"
+                   aria-label="Instagram"
+                   title="Instagram">
+                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M7.5 2h9A5.5 5.5 0 0 1 22 7.5v9a5.5 5.5 0 0 1-5.5 5.5h-9A5.5 5.5 0 0 1 2 16.5v-9A5.5 5.5 0 0 1 7.5 2Zm0 1.8a3.7 3.7 0 0 0-3.7 3.7v9a3.7 3.7 0 0 0 3.7 3.7h9a3.7 3.7 0 0 0 3.7-3.7v-9a3.7 3.7 0 0 0-3.7-3.7h-9Zm9.8 1.4a1.1 1.1 0 1 1 0 2.2 1.1 1.1 0 0 1 0-2.2ZM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 1.8a3.2 3.2 0 1 0 0 6.4 3.2 3.2 0 0 0 0-6.4Z"/>
+                  </svg>
+                </a>
+              </div>
+
               <a class="lb-btn lb-btn-ghost" href="login.html" data-home="clientAccess">Вход для клиентов</a>
             </div>
           </div>
@@ -1593,7 +1653,33 @@
       <div class="lb-container lb-footer-inner">
         <div class="lb-footer-copy">
           <div>Look-in Brioche · Valencia</div>
-          <div><a href="login.html" data-home="clientAccess">Вход для клиентов</a></div>
+          <div>
+            <div class="lb-footer-social">
+              <a class="lb-social-icon lb-social-icon--wa lb-wa-link"
+                 href="#"
+                 target="_blank"
+                 rel="noopener"
+                 aria-label="WhatsApp">
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M20.5 3.5A11.8 11.8 0 0 0 12.1 0C5.5 0 .2 5.3.2 11.9c0 2.1.5 4.1 1.6 5.9L0 24l6.4-1.7a11.8 11.8 0 0 0 5.6 1.4h.1c6.5 0 11.8-5.3 11.8-11.9 0-3.1-1.2-6.1-3.4-8.3Zm-8.4 18.3a9.8 9.8 0 0 1-5-1.4l-.4-.2-3.8 1 1-3.7-.2-.4a9.8 9.8 0 1 1 8.4 4.7Zm5.4-7.4c-.3-.2-1.8-.9-2-.9-.3-.1-.5-.2-.7.1-.2.3-.8 1-.9 1.2-.2.2-.4.2-.7.1-2.5-1.2-4.1-2.2-5.1-5-.1-.3.1-.5.2-.6l.5-.5c.1-.2.2-.3.3-.5.1-.2.1-.4 0-.6-.1-.1-.7-1.6-.9-2.2-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.4s1.1 2.8 1.2 3c.1.2 2.1 3.2 5 4.4.7.3 1.3.5 1.7.6.7.2 1.3.2 1.8.1.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4-.1-.1-.3-.2-.6-.4Z"/>
+                </svg>
+              </a>
+
+              <a class="lb-social-icon lb-social-icon--ig"
+                 href="https://www.instagram.com/look_in_brioche/"
+                 target="_blank"
+                 rel="noopener"
+                 aria-label="Instagram">
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M7.5 2h9A5.5 5.5 0 0 1 22 7.5v9a5.5 5.5 0 0 1-5.5 5.5h-9A5.5 5.5 0 0 1 2 16.5v-9A5.5 5.5 0 0 1 7.5 2Zm0 1.8a3.7 3.7 0 0 0-3.7 3.7v9a3.7 3.7 0 0 0 3.7 3.7h9a3.7 3.7 0 0 0 3.7-3.7v-9a3.7 3.7 0 0 0-3.7-3.7h-9Zm9.8 1.4a1.1 1.1 0 1 1 0 2.2 1.1 1.1 0 0 1 0-2.2ZM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 1.8a3.2 3.2 0 1 0 0 6.4 3.2 3.2 0 0 0 0-6.4Z"/>
+                </svg>
+              </a>
+            </div>
+
+            <div>
+              <a href="login.html" data-home="clientAccess">Вход для клиентов</a>
+            </div>
+          </div>
         </div>
 
         <div class="lb-footer-stamp" aria-hidden="true">
