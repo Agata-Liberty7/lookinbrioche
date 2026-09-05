@@ -369,6 +369,84 @@
       .lb-product-detail-media img{min-height:240px;max-height:320px}
       .lb-product-detail-body{padding:28px 22px 30px}
     }
+    .lb-review{
+      position:relative;
+      overflow:hidden;
+      border:1px solid var(--lb-line);
+      border-radius:34px;
+      padding:30px 32px;
+      min-height:230px;
+      background:
+        radial-gradient(circle at 92% 16%,rgba(181,99,45,.18),transparent 34%),
+        rgba(255,255,255,.02);
+    }
+    .lb-review-content{
+      position:relative;
+      z-index:2;
+      max-width:62%;
+    }
+    .lb-review-kicker{
+      color:#c9824d;
+      font-size:13px;
+      font-weight:700;
+      margin-bottom:10px;
+    }
+    .lb-review h2{
+      margin:0 0 10px;
+    }
+    .lb-review p{
+      margin:0 0 18px;
+      color:var(--lb-muted);
+      font-size:16px;
+      line-height:1.6;
+    }
+    .lb-review-pikabu{
+      position:absolute;
+      right:8px;
+      bottom:-12px;
+      width:190px;
+      max-width:40%;
+      height:auto;
+      pointer-events:none;
+      user-select:none;
+    }
+    @media(max-width:640px){
+      .lb-review{
+        padding:24px 22px 18px;
+        min-height:0;
+        border-radius:26px;
+      }
+
+      .lb-review-content{
+        max-width:none;
+        width:100%;
+      }
+
+      .lb-review h2{
+        max-width:none;
+        font-size:28px;
+        line-height:1.16;
+        letter-spacing:-.02em;
+        margin-bottom:12px;
+      }
+
+      .lb-review p{
+        max-width:none;
+        font-size:15px;
+        line-height:1.55;
+        margin-bottom:18px;
+      }
+
+      .lb-review-pikabu{
+        position:absolute;
+        right:8px;
+        bottom:4px;
+        width:108px;
+        max-width:none;
+        margin:0;
+      }
+    }
+
     .lb-contact{background:linear-gradient(135deg,rgba(159,91,47,.12),rgba(255,211,155,.18));border:1px solid var(--lb-line);border-radius:34px;padding:34px;display:grid;grid-template-columns:1.2fr .8fr;gap:24px;align-items:center}
     .lb-contact h2{margin-bottom:10px}
     .lb-contact p{color:var(--lb-muted);font-size:17px;line-height:1.65;margin:0}
@@ -1467,6 +1545,34 @@
         </div>
       </section>
 
+      <section class="lb-section" id="reviews">
+        <div class="lb-container">
+          <div class="lb-review">
+            <div class="lb-review-content">
+              <div class="lb-review-kicker" data-home="reviewKicker">Tu opinión nos ayuda</div>
+              <h2 data-home="reviewTitle">¿Te gustó?</h2>
+              <p data-home="reviewText">Si ya probaste nuestros pirozhki o brioche, déjanos una reseña en Google. Nos ayuda a crecer y a que más personas nos encuentren.</p>
+              <a
+                class="lb-btn lb-btn-primary"
+                href="https://maps.app.goo.gl/hSB3PPNdcyNrBSwa9"
+                target="_blank"
+                rel="noopener"
+                data-home="reviewButton"
+                data-google-review-link
+              >Dejar una reseña</a>
+            </div>
+
+            <img
+              class="lb-review-pikabu"
+              src="assets/brand/peekaboo-review.png"
+              alt=""
+              loading="lazy"
+              aria-hidden="true"
+            >
+          </div>
+        </div>
+      </section>
+
       <section class="lb-section" id="contact">
         <div class="lb-container">
           <div class="lb-contact">
@@ -1592,6 +1698,10 @@
         step1Title:'Elige los productos', step1Text:'Consulta el catálogo y abre las fichas de los productos que te interesen.',
         step2Title:'Envía una solicitud', step2Text:'Indica la cantidad, la fecha deseada y un contacto para responderte.',
         step3Title:'Confirma el pedido', step3Text:'Confirmaremos la disponibilidad, la cantidad final, el precio y los detalles de entrega.',
+        reviewKicker:'Tu opinión nos ayuda',
+        reviewTitle:'¿Te gustó?',
+        reviewText:'Si ya probaste nuestros pirozhki o brioche, déjanos una reseña en Google. Nos ayuda a crecer y a que más personas nos encuentren.',
+        reviewButton:'Dejar una reseña',
         contactTitle:'Hablemos', contactText:'Cuéntanos qué necesitas: surtido para cafetería o tienda, catering para evento o pedido especial.',
         waMessage:'Hola! Me gustaría consultar un pedido de Look-in Brioche.',
         productMessage:'Hola! Me gustaría consultar disponibilidad de: '
@@ -1638,6 +1748,10 @@
         step1Title:'Выберите выпечку', step1Text:'Посмотрите ассортимент и откройте карточки интересующих позиций.',
         step2Title:'Оставьте заявку', step2Text:'Укажите количество, желаемую дату и контакт для ответа.',
         step3Title:'Подтвердите заказ', step3Text:'Мы уточним наличие, итоговое количество, стоимость и детали получения.',
+        reviewKicker:'Ваш отзыв нам помогает',
+        reviewTitle:'Понравилось?',
+        reviewText:'Если вы уже пробовали наши пирожки или бриошь, оставьте отзыв в Google. Это помогает нам расти и помогает другим людям нас находить.',
+        reviewButton:'Оставить отзыв',
         contactTitle:'Связаться', contactText:'Расскажите, что нужно: ассортимент для кафе или магазина, выпечка для мероприятия или индивидуальный заказ.',
         waMessage:'Здравствуйте! Хочу уточнить заказ Look-in Brioche.',
         productMessage:'Здравствуйте! Хочу уточнить наличие: '
@@ -1684,6 +1798,10 @@
         step1Title:'Choose the products', step1Text:'Browse the catalogue and open the product cards that interest you.',
         step2Title:'Send a request', step2Text:'Specify the quantity, preferred date and a contact for our reply.',
         step3Title:'Confirm the order', step3Text:'We will confirm availability, final quantity, price and delivery details.',
+        reviewKicker:'Your feedback helps us',
+        reviewTitle:'Did you like it?',
+        reviewText:'If you have already tried our pirozhki or brioche, leave us a review on Google. It helps us grow and helps more people discover us.',
+        reviewButton:'Leave a review',
         contactTitle:'Let’s talk', contactText:'Tell us what you need: assortment for a café or shop, event catering, or a custom order.',
         waMessage:'Hello! I would like to ask about a Look-in Brioche order.',
         productMessage:'Hello! I would like to check availability of: '
