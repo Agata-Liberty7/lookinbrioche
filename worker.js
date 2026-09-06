@@ -70,6 +70,14 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    if (url.hostname === 'lookin-brioche.mamascota-familiar.workers.dev') {
+      const target = new URL(request.url);
+      target.protocol = 'https:';
+      target.hostname = 'lookinbrioche.com';
+
+      return Response.redirect(target.toString(), 301);
+    }
+
     if (url.pathname === '/api/health') {
       return json({ ok: true });
     }
