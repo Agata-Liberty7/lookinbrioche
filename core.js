@@ -422,4 +422,151 @@ function hideLoading() {
 }
 
 // ─── Service Worker ───────────────────────────────────────────────────────────
-if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js').catch(()=>{}); }
+if ('serviceWorker' in navigator) {
+  let lbRefreshing = false;
+
+  function lbUpdateText() {
+    const lang = (() => {
+      try {
+        const raw = detectLang?.() || localStorage.getItem('lang') || 'es';
+        return String(raw).slice(0,2).toLowerCase();
+      } catch {
+        return 'es';
+      }
+    })();
+
+    const copy = {
+      es: {
+        title: 'Actualización disponible',
+        text: 'Hemos actualizado tu área de cliente. Actualiza la aplicación para recibir los datos, funciones y ajustes más recientes.',
+        update: 'Actualizar ahora',
+        later: 'Más tarde'
+      },
+      ru: {
+        title: 'Доступно обновление',
+        text: 'Мы обновили клиентский кабинет. Обновите приложение, чтобы получить актуальные данные, функции и настройки.',
+        update: 'Обновить сейчас',
+        later: 'Позже'
+      },
+      en: {
+        title: 'Update available',
+        text: 'We updated your client area. Update the app to get the latest data, features and settings.',
+        update: 'Update now',
+        later: 'Later'
+      }
+    };
+
+    return copy[lang] || copy.es;
+  }
+
+  function lbShowUpdateDialog(registration) {
+    if (!registration?.waiting) return;
+    if (document.getElementById('lb-update-dialog')) return;
+
+    const t = lbUpdateText();
+
+    const wrap = document.createElement('div');
+    wrap.id = 'lb-update-dialog';
+    wrap.style.cssText = [
+      'position:fixed',
+      'inset:0',
+      'z-index:100000',
+      'display:flex',
+      'align-items:center',
+      'justify-content:center',
+      'padding:20px',
+      'background:rgba(0,0,0,.45)',
+      'backdrop-filter:blur(4px)'
+    ].join(';');
+
+    wrap.innerHTML = `
+      <div style="
+        width:min(420px,100%);
+        background:var(--bg,#fff);
+        color:var(--text,#222);
+        border-radius:22px;
+        padding:24px;
+        box-shadow:0 18px 60px rgba(0,0,0,.22);
+      ">
+        <div style="font-size:22px;font-weight:800;margin-bottom:10px">${t.title}</div>
+        <div style="font-size:15px;line-height:1.5;color:var(--text2,#666);margin-bottom:20px">${t.text}</div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
+          <button id="lb-update-later" type="button" style="
+            border:1px solid var(--bdr,#ddd);
+            background:transparent;
+            color:inherit;
+            border-radius:999px;
+            padding:11px 16px;
+            font:inherit;
+            font-weight:700;
+            cursor:pointer;
+          ">${t.later}</button>
+
+          <button id="lb-update-now" type="button" style="
+            border:0;
+            background:var(--brand,#9f5b2f);
+            color:#fff;
+            border-radius:999px;
+            padding:11px 16px;
+            font:inherit;
+            font-weight:800;
+            cursor:pointer;
+          ">${t.update}</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(wrap);
+
+    document.getElementById('lb-update-later')?.addEventListener('click', () => {
+      wrap.remove();
+    });
+
+    document.getElementById('lb-update-now')?.addEventListener('click', () => {
+      registration.waiting?.postMessage('SKIP_WAITING');
+    });
+  }
+
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (lbRefreshing) return;
+    lbRefreshing = true;
+    window.location.reload();
+  });
+
+  navigator.serviceWorker.register('/sw.js', {
+    updateViaCache: 'none'
+  }).then(registration => {
+    if (registration.waiting) {
+      lbShowUpdateDialog(registration);
+    }
+
+    registration.addEventListener('updatefound', () => {
+      const worker = registration.installing;
+      if (!worker) return;
+
+      worker.addEventListener('statechange', () => {
+        if (
+          worker.state === 'installed' &&
+          navigator.serviceWorker.controller &&
+          registration.waiting
+        ) {
+          lbShowUpdateDialog(registration);
+        }
+      });
+    });
+
+    const checkForUpdate = () => {
+      registration.update().catch(() => {});
+    };
+
+    checkForUpdate();
+
+    window.addEventListener('pageshow', checkForUpdate);
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        checkForUpdate();
+      }
+    });
+  }).catch(() => {});
+}
