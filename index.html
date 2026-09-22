@@ -1990,8 +1990,12 @@
     }
 
     function publicProductVariants(p){
+      const unit = String(p?.unit || 'sht').toLowerCase();
+
       if (Array.isArray(p?.variants) && p.variants.length) {
-        return p.variants.filter(v => v && v.available !== false);
+        return p.variants
+          .filter(v => v && v.available !== false)
+          .map(v => ({ ...v, unit }));
       }
 
       const packQty = Number(p?.packQty || p?.minQty || 0);
@@ -2001,8 +2005,22 @@
         label: '',
         packQty,
         weight: p?.weight || '',
+        unit,
         available: true
       }];
+    }
+
+    function publicProductUnitLabel(unit){
+      const normalized = String(unit || '').toLowerCase();
+
+      if (normalized === 'up' || normalized === 'pack') {
+        return 'pack';
+      }
+
+      if (normalized === 'kg') return 'kg';
+      if (normalized === 'l') return 'l';
+
+      return 'uds';
     }
 
     function publicNewProductLabel(){
@@ -2170,7 +2188,9 @@
       document.getElementById('public-product-variants').innerHTML = variants.map(v => {
         const parts = [];
         if (v.label) parts.push(String(v.label));
-        if (Number(v.packQty) > 0) parts.push(`${Number(v.packQty)} uds`);
+        if (Number(v.packQty) > 0) {
+          parts.push(`${Number(v.packQty)} ${publicProductUnitLabel(v.unit)}`);
+        }
         if (v.weight) parts.push(String(v.weight));
         return `<span class="lb-product-variant">${parts.join(' · ')}</span>`;
       }).join('');

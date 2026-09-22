@@ -779,8 +779,18 @@ window.selectCat = c => {
 };
 
 
-function shopUnitLabel() {
+function shopUnitLabel(unit = 'sht') {
   const lang = detectLang();
+  const normalized = String(unit || 'sht').toLowerCase();
+
+  if (normalized === 'up' || normalized === 'pack') {
+    if (lang === 'ru') return 'упаковка';
+    return 'pack';
+  }
+
+  if (normalized === 'kg') return 'kg';
+  if (normalized === 'l') return 'l';
+
   if (lang === 'ru') return 'шт';
   if (lang === 'en') return 'pcs';
   return 'uds';
@@ -932,7 +942,7 @@ function productDisplayPackPrice(p, variantKey) {
 
 function productPriceLine(p, variantKey) {
   const qty = productPackQty(p, variantKey);
-  const suffix = qty > 1 ? shopPackLabel() : shopUnitLabel();
+  const suffix = qty > 1 ? shopPackLabel() : shopUnitLabel(p?.unit);
   const value = qty > 1
     ? productDisplayPackPrice(p, variantKey)
     : productDisplayUnitPrice(p, variantKey);
@@ -942,7 +952,7 @@ function productPriceLine(p, variantKey) {
 
 function productPriceText(p, variantKey) {
   const qty = productPackQty(p, variantKey);
-  const suffix = qty > 1 ? shopPackLabel() : shopUnitLabel();
+  const suffix = qty > 1 ? shopPackLabel() : shopUnitLabel(p?.unit);
   const value = qty > 1
     ? productDisplayPackPrice(p, variantKey)
     : productDisplayUnitPrice(p, variantKey);
@@ -958,7 +968,7 @@ function productPackMeta(p, variantKey) {
   const qty = Number(variant.packQty || 1);
 
   if (variant.weight) parts.push(variant.weight);
-  if (qty > 1) parts.push(`Pack ${qty} ${shopUnitLabel()}`);
+  if (qty > 1) parts.push(`Pack ${qty} ${shopUnitLabel(p?.unit)}`);
 
   return parts.length
     ? `<div class="product-meta">${parts.join(' · ')}</div>`
