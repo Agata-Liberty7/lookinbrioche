@@ -1069,6 +1069,9 @@ async function renderOrders(refresh = true) {
           ${waPending&&adminConfirmWaUrl(o)?`<a class="btn btn-green" data-wa-order-id="${adminEscape(o.id)}" href="${adminEscape(adminConfirmWaUrl(o))}" target="_blank" rel="noopener">📲 Send WhatsApp confirmation</a>`:''}
           ${waPending?`<button type="button" class="btn btn-primary btn-sm" onclick="markOrderWhatsAppSent('${o.id}')">✅ Mark as sent</button>`:''}
           ${waSent?`<span class="badge badge-confirmed">WhatsApp sent ✓</span>`:''}
+          ${(o.status === 'confirmed' || o.status === 'done')
+            ? `<button class="btn btn-sm btn-outline" onclick="openAlbaran('${o.id}')">Albarán</button>`
+            : ''}
           <button class="btn btn-danger btn-sm" onclick="deleteOrder('${o.id}')">🗑</button>
         </div>
       </div>
@@ -1082,6 +1085,440 @@ function adminFindOrderById(id) {
   const list = typeof orders !== 'undefined' ? orders : [];
   return (list || []).find(o => String(o.id || o.orderId || '') === String(id)) || null;
 }
+
+
+function adminNextAlbaranNumber() {
+  const year = new Date().getFullYear();
+  const prefix = `ALB-${year}-`;
+
+  let max = 0;
+
+  (_orders || []).forEach(order => {
+    const value = String(order.albaranNumber || '');
+    const match = value.match(new RegExp(`^ALB-${year}-(\\d+)$`));
+
+    if (match) {
+      max = Math.max(max, Number(match[1]) || 0);
+    }
+  });
+
+  return prefix + String(max + 1).padStart(3, '0');
+}
+
+window.openAlbaran = async id => {
+  const o = (_orders || []).find(
+    order => String(order.id || order.orderId || '') === String(id)
+  );
+
+  if (!o) {
+    showToast('Order not found');
+    return;
+  }
+
+  let albaranNumber = String(o.albaranNumber || '').trim();
+
+  if (!albaranNumber) {
+    albaranNumber = adminNextAlbaranNumber();
+
+    const patch = {
+      albaranNumber,
+      albaranCreatedAt: new Date().toISOString()
+    };
+
+    try {
+      await fbUpdateOrder(id, patch);
+      Object.assign(o, patch);
+    } catch (e) {
+      console.error('Albarán number save error:', e);
+      showToast('Error creating Albarán number');
+      return;
+    }
+  }
+
+  const customer = o.customer || {};
+  const delivery = o.delivery || {};
+
+  const orderNumber = String(o.id || o.orderId || '').slice(-6);
+  const deliveryDate = delivery.date || o.date || '';
+  const deliveryTime = delivery.time || '';
+  const address = delivery.address || customer.address || '';
+
+  const items = (o.items || []).map(item => {
+    const qty = Number(item.qty || 0);
+
+    return `
+      <tr>
+        <td>${adminEscape(item.name || '')}</td>
+        <td class="qty">${adminEscape(qty)}</td>
+      </tr>
+    `;
+  }).join('');
+
+  const albaranPdfData = {
+    number: albaranNumber,
+    orderNumber,
+    customer: customer.name || '—',
+    deliveryDate: deliveryDate || '—',
+    deliveryTime,
+    address,
+    items: (o.items || []).map(item => ({
+      name: item.name || '',
+      qty: Number(item.qty || 0)
+    }))
+  };
+
+  const albaranPdfJson = JSON.stringify(albaranPdfData)
+    .replace(/</g, '\\u003c');
+
+  const win = window.open('', '_blank');
+
+  if (!win) {
+    showToast('Popup blocked');
+    return;
+  }
+
+  win.document.write(`
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>${adminEscape(albaranNumber)} · Albarán</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"><\/script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"><\/script>
+
+<style>
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 36px;
+    font-family: Arial, sans-serif;
+    color: #222;
+    background: #fff;
+  }
+
+  .page {
+    max-width: 760px;
+    margin: 0 auto;
+  }
+
+  .top {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    align-items: flex-start;
+    margin-bottom: 34px;
+  }
+
+  .brand {
+    font-size: 22px;
+    font-weight: 800;
+  }
+
+  .title {
+    font-size: 28px;
+    font-weight: 800;
+    text-align: right;
+  }
+
+  .number {
+    margin-top: 5px;
+    font-size: 13px;
+    color: #666;
+    text-align: right;
+  }
+
+  .info {
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    gap: 7px 14px;
+    font-size: 14px;
+    margin-bottom: 28px;
+  }
+
+  .label {
+    color: #777;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+
+  th {
+    text-align: left;
+    padding: 10px 8px;
+    border-bottom: 2px solid #222;
+  }
+
+  td {
+    padding: 11px 8px;
+    border-bottom: 1px solid #ddd;
+  }
+
+  .qty {
+    width: 100px;
+    text-align: center;
+    font-weight: 700;
+  }
+
+  .footer {
+    margin-top: 48px;
+    font-size: 12px;
+    color: #777;
+  }
+
+  .actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+
+  .action-btn {
+    padding: 9px 14px;
+    border: 1px solid #ccc;
+    background: #fff;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+
+  .action-btn:hover {
+    background: #f5f5f5;
+  }
+
+  @media print {
+    body { padding: 0; }
+    .actions { display: none; }
+  }
+</style>
+</head>
+
+<body>
+<div class="page">
+
+  <div class="actions">
+    <button class="action-btn" onclick="window.print()">Print / PDF</button>
+    <button class="action-btn" onclick="shareAlbaranPdf(this)">Compartir PDF</button>
+  </div>
+
+  <div class="top">
+    <div class="brand">Look-in Brioche</div>
+
+    <div>
+      <div class="title">ALBARÁN</div>
+      <div class="number">Nº ${adminEscape(albaranNumber)}</div>
+    </div>
+  </div>
+
+  <div class="info">
+    <div class="label">Cliente</div>
+    <div>${adminEscape(customer.name || '—')}</div>
+
+    <div class="label">Pedido</div>
+    <div>#${adminEscape(orderNumber)}</div>
+
+    <div class="label">Fecha de entrega</div>
+    <div>${adminEscape(deliveryDate || '—')}</div>
+
+    ${deliveryTime ? `
+      <div class="label">Hora</div>
+      <div>${adminEscape(deliveryTime)}</div>
+    ` : ''}
+
+    ${address ? `
+      <div class="label">Dirección</div>
+      <div>${adminEscape(address)}</div>
+    ` : ''}
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Producto</th>
+        <th class="qty">Cantidad</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${items}
+    </tbody>
+  </table>
+
+  <div class="footer">
+    Look-in Brioche · Documento de entrega
+  </div>
+
+</div>
+
+<script>
+  const albaranData = ${albaranPdfJson};
+
+  function buildAlbaranPdf() {
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+      throw new Error('PDF library not loaded');
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text('Look-in Brioche', 18, 22);
+
+    doc.setFontSize(20);
+    doc.text('ALBARAN', 192, 22, { align: 'right' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(
+      'Nº ' + albaranData.number,
+      192,
+      28,
+      { align: 'right' }
+    );
+
+    let y = 42;
+
+    const info = [
+      ['Cliente', albaranData.customer],
+      ['Pedido', '#' + albaranData.orderNumber],
+      ['Fecha de entrega', albaranData.deliveryDate]
+    ];
+
+    if (albaranData.deliveryTime) {
+      info.push(['Hora', albaranData.deliveryTime]);
+    }
+
+    if (albaranData.address) {
+      info.push(['Direccion', albaranData.address]);
+    }
+
+    doc.setFontSize(10);
+
+    info.forEach(([label, value]) => {
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(110);
+      doc.text(String(label), 18, y);
+
+      doc.setTextColor(30);
+      doc.text(String(value), 55, y, {
+        maxWidth: 135
+      });
+
+      y += 7;
+    });
+
+    y += 6;
+
+    doc.autoTable({
+      startY: y,
+      head: [['Producto', 'Cantidad']],
+      body: albaranData.items.map(item => [
+        item.name,
+        String(item.qty)
+      ]),
+      margin: { left: 18, right: 18 },
+      styles: {
+        font: 'helvetica',
+        fontSize: 9,
+        cellPadding: 3
+      },
+      headStyles: {
+        fontStyle: 'bold'
+      },
+      columnStyles: {
+        1: {
+          halign: 'center',
+          cellWidth: 28
+        }
+      }
+    });
+
+    const finalY = doc.lastAutoTable?.finalY || y;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(120);
+    doc.setFontSize(8);
+    doc.text(
+      'Look-in Brioche · Documento de entrega',
+      18,
+      finalY + 16
+    );
+
+    return doc;
+  }
+
+  async function shareAlbaranPdf(button) {
+
+    try {
+      if (button) {
+        button.disabled = true;
+        button.textContent = 'Preparando...';
+      }
+
+      const doc = buildAlbaranPdf();
+      const blob = doc.output('blob');
+
+      const filename = albaranData.number + '.pdf';
+
+      const file = new File(
+        [blob],
+        filename,
+        { type: 'application/pdf' }
+      );
+
+      if (
+        navigator.share &&
+        navigator.canShare &&
+        navigator.canShare({ files: [file] })
+      ) {
+        await navigator.share({
+          files: [file],
+          title: albaranData.number
+        });
+
+        return;
+      }
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+
+      a.href = url;
+      a.download = filename;
+
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+    } catch (error) {
+      if (error?.name !== 'AbortError') {
+        console.error('Albarán PDF share error:', error);
+        alert('No se pudo crear o compartir el PDF.');
+      }
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = 'Compartir PDF';
+      }
+    }
+  }
+<\/script>
+
+</body>
+</html>
+  `);
+
+  win.document.close();
+  win.focus();
+};
 
 function adminOrderPhone(o) {
   const c = o?.customer || {};
