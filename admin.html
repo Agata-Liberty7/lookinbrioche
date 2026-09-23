@@ -3863,6 +3863,7 @@ function adminBuildStatsOrderRows(orders) {
 
     return {
       date: adminFormatReportDate(o.delivery?.date || o.date),
+      albaran: String(o.albaranNumber || '').trim() || '—',
       client: o.customer?.name || o.customer?.userName || '—',
       payment: adminPaymentReportLabel(o.payment),
       method: adminDeliveryReportLabel(method),
@@ -3934,7 +3935,7 @@ function renderStatsOrdersTable(orders) {
     return;
   }
 
-  const headers = ['Fecha','Client','Pago','Method','Productos','Delivery','Total', ...cols];
+  const headers = ['Fecha','Albarán','Client','Pago','Method','Productos','Delivery','Total', ...cols];
 
   el.innerHTML = `
     <div style="overflow:auto;border:1px solid var(--border);border-radius:16px;background:var(--card)">
@@ -3948,6 +3949,7 @@ function renderStatsOrdersTable(orders) {
           ${filteredRows.map(row => `
             <tr>
               <td style="padding:9px 8px;border-bottom:1px solid var(--border);white-space:nowrap">${adminEscape(row.date)}</td>
+              <td style="padding:9px 8px;border-bottom:1px solid var(--border);white-space:nowrap">${adminEscape(row.albaran)}</td>
               <td style="padding:9px 8px;border-bottom:1px solid var(--border);font-weight:700;white-space:nowrap">${adminEscape(row.client)}</td>
               <td style="padding:9px 8px;border-bottom:1px solid var(--border);white-space:nowrap">${adminEscape(row.payment)}</td>
               <td style="padding:9px 8px;border-bottom:1px solid var(--border);white-space:nowrap">${adminEscape(row.method)}</td>
@@ -3991,12 +3993,13 @@ window.exportStatsOrdersCsv = () => {
     return;
   }
 
-  const headers = ['Fecha','Client','Pago','Method','Productos','Delivery','Total', ..._statsProductCols];
+  const headers = ['Fecha','Albarán','Client','Pago','Method','Productos','Delivery','Total', ..._statsProductCols];
 
   const lines = [
     headers,
     ..._statsOrderRows.map(row => [
       row.date,
+      row.albaran,
       row.client,
       row.payment,
       row.method,
