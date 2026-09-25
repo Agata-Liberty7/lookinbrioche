@@ -88,6 +88,9 @@
         <button class="btn btn-sm btn-outline" onclick="setOrderDatePreset('reset')">Reset</button>
       </div>
     </div>
+
+    <div id="production-summary" style="padding:4px 16px 12px"></div>
+
     <div id="orders-list" style="padding:0 16px 100px"></div>
   </div>
 
@@ -373,6 +376,7 @@
             <option value="">All clients</option>
           </select>
 
+          <button class="btn btn-sm btn-primary" onclick="openInvoiceFromStats()">Create invoice</button>
           <button class="btn btn-sm btn-outline" onclick="exportStatsOrdersCsv()">Export CSV</button>
         </div>
       </div>
@@ -398,6 +402,7 @@
       </div>
     </div>
 
+    <div class="form-group"><label>Nombre interno</label><input type="text" id="pm-internal-name" placeholder="Pollo, Patata, Carne..."></div>
     <div class="form-group"><label>Nombre ES *</label><input type="text" id="pm-name-es" placeholder="Empanadillas de brioche"></div>
     <div class="form-group"><label>Название RU</label><input type="text" id="pm-name-ru" placeholder="Пирожки с яйцом и зелёным луком"></div>
     <div class="form-group"><label>Name EN</label><input type="text" id="pm-name-en" placeholder="Brioche pirozhki with egg and spring onion"></div>
@@ -933,6 +938,377 @@ window.saveAdminOrderDelivery = async id => {
 };
 
 
+
+function adminProductionProductLabel(item, catalogById) {
+  const productId = String(
+    item?.id ||
+    item?.productId ||
+    ''
+  ).trim();
+
+  const product = productId
+    ? catalogById.get(productId)
+    : null;
+
+  if (!product) {
+    return adminProductReportLabel(item?.name);
+  }
+
+  const internalName = String(
+    product.internalName ||
+    adminProductReportLabel(adminProductName(product)) ||
+    ''
+  ).trim();
+
+  const variantKey = String(item?.variantKey || '').trim();
+
+  const variants = getProductVariants(product);
+
+  const variant =
+    variants.find(
+      v => String(v?.key || '') === variantKey
+    ) ||
+    variants[0] ||
+    null;
+
+  const weight = String(
+    item?.weight ||
+    variant?.weight ||
+    ''
+  ).trim();
+
+  return [internalName, weight]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+
+
+
+function adminProductionDoughPerPiece(item, catalogById) {
+  const productId = String(
+    item?.id ||
+    item?.productId ||
+    ''
+  ).trim();
+
+  const product = productId
+    ? catalogById.get(productId)
+    : null;
+
+  const variants = product
+    ? getProductVariants(product)
+    : [];
+
+  const variantKey = String(
+    item?.variantKey ||
+    ''
+  ).trim();
+
+  const variant =
+    variants.find(
+      v => String(v?.key || '') === variantKey
+    ) ||
+    variants[0] ||
+    null;
+
+  const variantIdentity = [
+    variantKey,
+    variant?.key,
+    variant?.label
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  return variantIdentity.includes('mini')
+    ? 25
+    : 45;
+}
+
+
+function adminProductionFillingPerPiece(item, catalogById) {
+  const productId = String(
+    item?.id ||
+    item?.productId ||
+    ''
+  ).trim();
+
+  const product = productId
+    ? catalogById.get(productId)
+    : null;
+
+  const variants = product
+    ? getProductVariants(product)
+    : [];
+
+  const variantKey = String(
+    item?.variantKey ||
+    ''
+  ).trim();
+
+  const variant =
+    variants.find(
+      v => String(v?.key || '') === variantKey
+    ) ||
+    variants[0] ||
+    null;
+
+  const weightText = String(
+    item?.weight ||
+    variant?.weight ||
+    ''
+  ).trim();
+
+  if (!weightText) return null;
+
+  // "72-75 g" -> 75
+  // "80 g"    -> 80
+  const weights = (
+    weightText
+      .replace(/,/g, '.')
+      .match(/\d+(?:\.\d+)?/g) ||
+    []
+  )
+    .map(Number)
+    .filter(Number.isFinite);
+
+  if (!weights.length) return null;
+
+  const productWeight = Math.max(...weights);
+
+  const doughWeight =
+    adminProductionDoughPerPiece(
+      item,
+      catalogById
+    );
+
+  const filling =
+    productWeight - doughWeight;
+
+  return filling > 0
+    ? filling
+    : null;
+}
+
+
+function adminProductionDateText(from, to) {
+  function format(value) {
+    if (!value) return '';
+
+    const parts = String(value).split('-');
+    if (parts.length !== 3) return value;
+
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+
+  if (from && to && from === to) {
+    return format(from);
+  }
+
+  if (from && to) {
+    return `${format(from)} – ${format(to)}`;
+  }
+
+  if (from) return `desde ${format(from)}`;
+  if (to) return `hasta ${format(to)}`;
+
+  return '';
+}
+
+
+function renderProductionSummary(dateFrom, dateTo) {
+  const el = document.getElementById('production-summary');
+  if (!el) return;
+
+  if (!dateFrom && !dateTo) {
+    el.innerHTML = `
+      <div class="info-box" style="margin:0">
+        <div style="font-weight:800">🥐 Producción</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:3px">
+          Selecciona una fecha o periodo para ver el plan de producción.
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  const confirmedOrders = (_orders || []).filter(order =>
+    order?.status === 'confirmed' &&
+    adminOrderMatchesDate(order, dateFrom, dateTo)
+  );
+
+  const catalogById = new Map(
+    (_catalog || []).map(product => [
+      String(product?.id || ''),
+      product
+    ])
+  );
+
+  const totals = new Map();
+
+  confirmedOrders.forEach(order => {
+    (order.items || []).forEach(item => {
+      if (!adminIsReportProductItem(item, order)) return;
+
+      const productId = String(
+        item?.id ||
+        item?.productId ||
+        ''
+      ).trim();
+
+      const variantKey = String(
+        item?.variantKey ||
+        'standard'
+      ).trim();
+
+      const key =
+        `${productId}::${variantKey}`;
+
+      const label =
+        adminProductionProductLabel(
+          item,
+          catalogById
+        );
+
+      const qty = Number(item?.qty || 0);
+
+      if (!label || !Number.isFinite(qty) || qty <= 0) {
+        return;
+      }
+
+      const fillingPerPiece =
+        adminProductionFillingPerPiece(
+          item,
+          catalogById
+        );
+
+      const doughPerPiece =
+        adminProductionDoughPerPiece(
+          item,
+          catalogById
+        );
+
+      const current = totals.get(key) || {
+        label,
+        qty: 0,
+        fillingPerPiece,
+        fillingTotal: 0,
+        doughTotal: 0
+      };
+
+      current.qty += qty;
+
+      if (
+        Number.isFinite(fillingPerPiece) &&
+        fillingPerPiece > 0
+      ) {
+        current.fillingPerPiece = fillingPerPiece;
+        current.fillingTotal +=
+          fillingPerPiece * qty;
+      }
+
+      if (
+        Number.isFinite(doughPerPiece) &&
+        doughPerPiece > 0
+      ) {
+        current.doughTotal +=
+          doughPerPiece * qty;
+      }
+
+      totals.set(key, current);
+    });
+  });
+
+  const rows = [...totals.values()]
+    .sort((a, b) =>
+      a.label.localeCompare(b.label, 'es')
+    );
+
+  const totalUnits = rows.reduce(
+    (sum, row) => sum + row.qty,
+    0
+  );
+
+  const totalFilling = rows.reduce(
+    (sum, row) =>
+      sum + Number(row.fillingTotal || 0),
+    0
+  );
+
+  const totalDough = rows.reduce(
+    (sum, row) =>
+      sum + Number(row.doughTotal || 0),
+    0
+  );
+
+  const period =
+    adminProductionDateText(
+      dateFrom,
+      dateTo
+    );
+
+  if (!confirmedOrders.length) {
+    el.innerHTML = `
+      <div class="info-box" style="margin:0">
+        <div style="font-weight:800">
+          🥐 Producción · ${adminEscape(period)}
+        </div>
+        <div style="font-size:13px;color:var(--text3);margin-top:5px">
+          No hay pedidos confirmados.
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  el.innerHTML = `
+    <div class="info-box" style="margin:0">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
+        <div>
+          <div style="font-weight:900;font-size:15px">
+            🥐 Producción · ${adminEscape(period)}
+          </div>
+          <div style="font-size:12px;color:var(--text3);margin-top:3px">
+            ${confirmedOrders.length} pedidos confirmados · ${totalUnits} uds
+            ${totalDough > 0 ? ` · ${Math.round(totalDough)} g masa` : ''}
+            ${totalFilling > 0 ? ` · ${Math.round(totalFilling)} g relleno` : ''}
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:10px">
+        ${rows.map(row => `
+          <div style="display:flex;justify-content:space-between;gap:16px;padding:7px 0;border-top:1px solid var(--border)">
+            <span style="font-size:13px">
+              ${adminEscape(row.label)}
+              ${
+                Number.isFinite(row.fillingPerPiece)
+                  ? `<span style="display:block;font-size:11px;color:var(--text3);margin-top:2px">
+                       ${row.fillingPerPiece} g relleno / ud
+                     </span>`
+                  : ''
+              }
+            </span>
+
+            <div style="text-align:right;white-space:nowrap">
+              <b>${row.qty} uds</b>
+              ${
+                Number(row.fillingTotal) > 0
+                  ? `<div style="font-size:12px;color:var(--text3);margin-top:2px">
+                       ${Math.round(row.fillingTotal)} g relleno
+                     </div>`
+                  : ''
+              }
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+
 async function renderOrders(refresh = true) {
   const filter=document.getElementById('order-filter').value;
   const dateFrom=document.getElementById('order-date-from')?.value || '';
@@ -947,6 +1323,8 @@ async function renderOrders(refresh = true) {
     }
     hideLoading();
   }
+
+  renderProductionSummary(dateFrom, dateTo);
 
   let orders=_orders;
   if(filter) orders=orders.filter(o=>o.status===filter);
@@ -2385,6 +2763,7 @@ window.openProductModal = id => {
     const p=_catalog.find(x=>x.id===id);
     if(!p)return;
 
+    document.getElementById('pm-internal-name').value=p.internalName||'';
     document.getElementById('pm-name-es').value=p.name_es||'';
     document.getElementById('pm-name-ru').value=p.name_ru||p.name||'';
     document.getElementById('pm-name-en').value=p.name_en||'';
@@ -2412,6 +2791,7 @@ window.openProductModal = id => {
     }
   } else {
     [
+      'pm-internal-name',
       'pm-name-es',
       'pm-name-ru',
       'pm-name-en',
@@ -2446,6 +2826,7 @@ window.previewProductPhoto = event => {
 };
 
 window.saveProduct = async () => {
+  const internalName=document.getElementById('pm-internal-name').value.trim();
   const name_es=document.getElementById('pm-name-es').value.trim();
   const name_ru=document.getElementById('pm-name-ru').value.trim();
   const name_en=document.getElementById('pm-name-en').value.trim();
@@ -2483,6 +2864,7 @@ window.saveProduct = async () => {
 
   const data={
     name,
+    internalName,
     name_es,
     name_ru,
     name_en,
@@ -2862,7 +3244,8 @@ function invoiceOrdersForClient(clientId, from, to) {
 
     return (
       orderClientId === id &&
-      invoiceOrderMatchesPeriod(order, from, to)
+      invoiceOrderMatchesPeriod(order, from, to) &&
+      !String(order.invoiceNumber || '').trim()
     );
   });
 }
@@ -2938,6 +3321,7 @@ function invoiceConceptRows(orders) {
 }
 
 let _invoicePreviewDraft = null;
+let _invoiceCreateInProgress = false;
 
 window.previewClientInvoice = () => {
   const clientId = document.getElementById('invoice-client-id').value;
@@ -3032,6 +3416,9 @@ window.previewClientInvoice = () => {
 
   _invoicePreviewDraft = {
     clientId,
+    orderIds: orders
+      .map(order => String(order.id || ''))
+      .filter(Boolean),
     invoiceSheetUrl: invoiceClient?.invoiceSheetUrl || '',
     invoiceDataSheet: invoiceClient?.invoiceDataSheet || 'num_fech',
     invoicePrefix: invoiceClient?.invoicePrefix || '',
@@ -3109,10 +3496,15 @@ window.previewClientInvoice = () => {
 
 
 window.fillTestInvoice = async () => {
+  if (_invoiceCreateInProgress) return;
+
   if (!_invoicePreviewDraft) {
     showToast('Create preview first');
     return;
   }
+
+  const draft = _invoicePreviewDraft;
+  _invoiceCreateInProgress = true;
 
   try {
     showLoading('Creating invoice...');
@@ -3122,12 +3514,10 @@ window.fillTestInvoice = async () => {
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(_invoicePreviewDraft)
+      body: JSON.stringify(draft)
     });
 
     const data = await res.json();
-
-    hideLoading();
 
     if (!res.ok || !data.ok) {
       console.error('Invoice fill error:', data);
@@ -3135,13 +3525,62 @@ window.fillTestInvoice = async () => {
       return;
     }
 
+    const invoiceCreatedAt = new Date().toISOString();
+    const invoiceDate = adminLocalDateISO(new Date());
+
+    const invoicePatch = {
+      invoiceNumber: data.invoiceNumber,
+      invoiceDate,
+      invoiceCreatedAt,
+      invoicePeriodFrom: draft.periodFrom,
+      invoicePeriodTo: draft.periodTo,
+      invoiceBase: Number(draft.base || 0),
+      invoiceVat: Number(draft.vat || 0),
+      invoiceTotal: Number(draft.total || 0),
+      invoiceUrl: data.sheetUrl || '',
+      invoiceSheetName: data.sheet || ''
+    };
+
+    try {
+      for (const orderId of draft.orderIds || []) {
+        await fbUpdateOrder(orderId, invoicePatch);
+
+        const order = (_orders || []).find(
+          item => String(item.id || item.orderId || '') === String(orderId)
+        );
+
+        if (order) Object.assign(order, invoicePatch);
+      }
+    } catch (error) {
+      console.error(
+        'Invoice created but order linking failed:',
+        error,
+        data
+      );
+
+      showToast(
+        `Invoice ${data.invoiceNumber} created, but order update failed`
+      );
+
+      return;
+    }
+
+    _invoicePreviewDraft = null;
+
+    closeModal('invoice-modal');
+    renderOrders(false);
+    renderStatsTableOnly();
+
     showToast(`Invoice ${data.invoiceNumber} created`);
   } catch (error) {
-    hideLoading();
     console.error('Invoice fill request failed:', error);
     showToast('Invoice creation error');
+  } finally {
+    hideLoading();
+    _invoiceCreateInProgress = false;
   }
 };
+
 
 window.openClientModal = async id => {
   document.getElementById('cm-title').textContent=id?'Edit client':'Add client';
@@ -3767,7 +4206,15 @@ function adminOrderGrandTotal(o) {
   return Number.isFinite(n) ? n : adminOrderProductsTotal(o) + adminOrderDeliveryFee(o);
 }
 
+let _statsAppliedDateFrom = '';
+let _statsAppliedDateTo = '';
+
 window.applyStatsFilters = () => {
+  _statsAppliedDateFrom =
+    document.getElementById('stats-date-from')?.value || '';
+  _statsAppliedDateTo =
+    document.getElementById('stats-date-to')?.value || '';
+
   renderStats();
 };
 
@@ -3804,12 +4251,15 @@ window.setStatsDatePreset = preset => {
   if (fromEl) fromEl.value = from;
   if (toEl) toEl.value = to;
 
+  _statsAppliedDateFrom = from;
+  _statsAppliedDateTo = to;
+
   renderStats();
 };
 
 function adminStatsFilteredOrders(orders) {
-  const dateFrom = document.getElementById('stats-date-from')?.value || '';
-  const dateTo = document.getElementById('stats-date-to')?.value || '';
+  const dateFrom = _statsAppliedDateFrom;
+  const dateTo = _statsAppliedDateTo;
   let result = (orders || []).filter(o => o.status === 'done');
 
   if (dateFrom || dateTo) {
@@ -3836,81 +4286,265 @@ function adminStatsFilteredOrders(orders) {
 function adminBuildStatsOrderRows(orders) {
   const productCols = new Set();
 
-  // Always include current active catalog products,
-  // even if they have no completed orders yet.
-  (_catalog || []).forEach(product => {
-    if (!product || product.available === false) return;
+  const catalogById = new Map(
+    (_catalog || []).map(product => [
+      String(product?.id || ''),
+      product
+    ])
+  );
 
-    const label = adminProductReportLabel(
-      adminProductName(product)
+  function internalNameForProduct(product) {
+    if (!product) return '';
+
+    return String(
+      product.internalName ||
+      adminProductReportLabel(adminProductName(product)) ||
+      ''
+    ).trim();
+  }
+
+  function variantForProduct(product, variantKey) {
+    if (!product) return null;
+
+    const variants = getProductVariants(product);
+
+    if (!variants.length) return null;
+
+    const key = String(variantKey || '').trim();
+
+    return variants.find(
+      variant => String(variant?.key || '') === key
+    ) || variants[0];
+  }
+
+  function reportLabel(name, weight) {
+    const cleanName = String(name || '').trim();
+    const cleanWeight = String(weight || '').trim();
+
+    return [cleanName, cleanWeight]
+      .filter(Boolean)
+      .join(' · ');
+  }
+
+  function reportLabelForOrderItem(item) {
+    const productId = String(
+      item?.id ||
+      item?.productId ||
+      ''
+    ).trim();
+
+    const catalogProduct = productId
+      ? catalogById.get(productId)
+      : null;
+
+    if (catalogProduct) {
+      const internalName =
+        internalNameForProduct(catalogProduct);
+
+      const variants =
+        getProductVariants(catalogProduct);
+
+      const variant =
+        variantForProduct(
+          catalogProduct,
+          item?.variantKey
+        );
+
+      let weight =
+        String(
+          item?.weight ||
+          variant?.weight ||
+          ''
+        ).trim();
+
+      // Historical fallback:
+      // if old order has no weight, try to identify
+      // the variant uniquely by its stored unit price.
+      if (!weight) {
+        const itemPrice = Number(item?.price);
+
+        if (Number.isFinite(itemPrice) && itemPrice > 0) {
+          const priceMatches = variants.filter(v => {
+            const packPrice = Number(v?.packPrice);
+            const packQty = Math.max(
+              1,
+              Number(v?.packQty || 1)
+            );
+
+            const storedUnitPrice = Number(v?.price);
+
+            const comparablePrice =
+              Number.isFinite(packPrice) && packPrice > 0
+                ? packPrice / packQty
+                : (
+                    Number.isFinite(storedUnitPrice) && storedUnitPrice > 0
+                      ? storedUnitPrice
+                      : NaN
+                  );
+
+            return (
+              Number.isFinite(comparablePrice) &&
+              Math.abs(itemPrice - comparablePrice) < 0.005
+            );
+          });
+
+          const matchingWeights = [
+            ...new Set(
+              priceMatches
+                .map(v => String(v?.weight || '').trim())
+                .filter(Boolean)
+            )
+          ];
+
+          // Use price fallback only when it points
+          // unambiguously to one weight.
+          if (matchingWeights.length === 1) {
+            weight = matchingWeights[0];
+          }
+        }
+      }
+
+      return reportLabel(
+        internalName,
+        weight
+      );
+    }
+
+    // Fallback for historical orders that no longer
+    // have a matching product in the current catalog.
+    return reportLabel(
+      adminProductReportLabel(item?.name),
+      item?.weight
     );
+  }
 
-    if (label) productCols.add(label);
-  });
-
-  // Historical products found in old orders are added below as well.
   const rows = orders.map(o => {
     const products = {};
 
     (o.items || []).forEach(item => {
       if (!adminIsReportProductItem(item, o)) return;
-      const col = adminProductReportLabel(item.name);
+
+      const col =
+        reportLabelForOrderItem(item);
+
+      if (!col) return;
+
       productCols.add(col);
-      products[col] = (products[col] || 0) + Number(item.qty || 0);
+
+      products[col] =
+        (products[col] || 0) +
+        Number(item.qty || 0);
     });
 
-    const method = o.delivery?.method || (adminOrderDeliveryFee(o) > 0 ? 'delivery' : '');
+    const method =
+      o.delivery?.method ||
+      (
+        adminOrderDeliveryFee(o) > 0
+          ? 'delivery'
+          : ''
+      );
 
     return {
-      date: adminFormatReportDate(o.delivery?.date || o.date),
-      albaran: String(o.albaranNumber || '').trim() || '—',
-      client: o.customer?.name || o.customer?.userName || '—',
-      payment: adminPaymentReportLabel(o.payment),
-      method: adminDeliveryReportLabel(method),
-      productsTotal: adminOrderProductsTotal(o),
-      deliveryFee: adminOrderDeliveryFee(o),
-      total: adminOrderGrandTotal(o),
+      date: adminFormatReportDate(
+        o.delivery?.date || o.date
+      ),
+      albaran:
+        String(o.albaranNumber || '').trim() || '—',
+      invoice:
+        String(o.invoiceNumber || '').trim() || '—',
+      clientId:
+        String(o.customer?.userId || '').trim(),
+      client:
+        o.customer?.name ||
+        o.customer?.userName ||
+        '—',
+      payment:
+        adminPaymentReportLabel(o.payment),
+      method:
+        adminDeliveryReportLabel(method),
+      productsTotal:
+        adminOrderProductsTotal(o),
+      deliveryFee:
+        adminOrderDeliveryFee(o),
+      total:
+        adminOrderGrandTotal(o),
       products
     };
   });
 
-  const cols = [...productCols].sort(adminProductColSort);
+  const cols =
+    [...productCols].sort(adminProductColSort);
+
   return { rows, cols };
 }
+
 
 function adminPopulateStatsTableClientFilter(rows) {
   const el = document.getElementById('stats-table-client-filter');
   if (!el) return;
 
   const current = el.value;
+  const clients = new Map();
 
-  const clients = [...new Set(
-    (rows || [])
-      .map(row => String(row.client || '').trim())
-      .filter(name => name && name !== '—')
-  )].sort((a,b) => a.localeCompare(b, 'es'));
+  (rows || []).forEach(row => {
+    const id = String(row.clientId || '').trim();
+    const name = String(row.client || '').trim();
+
+    if (id && name && name !== '—') {
+      clients.set(id, name);
+    }
+  });
+
+  const items = [...clients.entries()]
+    .map(([id, name]) => ({ id, name }))
+    .sort((a,b) => a.name.localeCompare(b.name, 'es'));
 
   el.innerHTML =
     '<option value="">All clients</option>' +
-    clients.map(name =>
-      `<option value="${adminEscape(name)}">${adminEscape(name)}</option>`
+    items.map(item =>
+      `<option value="${adminEscape(item.id)}">${adminEscape(item.name)}</option>`
     ).join('');
 
-  if (clients.includes(current)) {
+  if (items.some(item => item.id === current)) {
     el.value = current;
   }
 }
 
 function adminStatsTableFilteredRows(rows) {
-  const client =
+  const clientId =
     document.getElementById('stats-table-client-filter')?.value || '';
 
-  if (!client) return rows;
+  if (!clientId) return rows;
 
   return (rows || []).filter(row =>
-    String(row.client || '') === client
+    String(row.clientId || '') === String(clientId)
   );
 }
+
+window.openInvoiceFromStats = () => {
+  const clientId =
+    document.getElementById('stats-table-client-filter')?.value || '';
+
+  if (!clientId) {
+    showToast('Select one client');
+    return;
+  }
+
+  if (!_statsAppliedDateFrom || !_statsAppliedDateTo) {
+    showToast('Select and apply invoice period');
+    return;
+  }
+
+  window.openInvoiceModal(clientId);
+
+  document.getElementById('invoice-date-from').value =
+    _statsAppliedDateFrom;
+
+  document.getElementById('invoice-date-to').value =
+    _statsAppliedDateTo;
+
+  window.previewClientInvoice();
+};
 
 window.renderStatsTableOnly = () => {
   const orders = adminStatsFilteredOrders(_orders);
@@ -3935,7 +4569,7 @@ function renderStatsOrdersTable(orders) {
     return;
   }
 
-  const headers = ['Fecha','Albarán','Client','Pago','Method','Productos','Delivery','Total', ...cols];
+  const headers = ['Fecha','Albarán','Factura','Client','Pago','Method','Productos','Delivery','Total', ...cols];
 
   el.innerHTML = `
     <div style="overflow:auto;border:1px solid var(--border);border-radius:16px;background:var(--card)">
@@ -3950,7 +4584,8 @@ function renderStatsOrdersTable(orders) {
             <tr>
               <td style="padding:9px 8px;border-bottom:1px solid var(--border);white-space:nowrap">${adminEscape(row.date)}</td>
               <td style="padding:9px 8px;border-bottom:1px solid var(--border);white-space:nowrap">${adminEscape(row.albaran)}</td>
-              <td style="padding:9px 8px;border-bottom:1px solid var(--border);font-weight:700;white-space:nowrap">${adminEscape(row.client)}</td>
+              <td style="padding:9px 8px;border-bottom:1px solid var(--border);white-space:nowrap">${adminEscape(row.invoice)}</td>
+          <td style="padding:9px 8px;border-bottom:1px solid var(--border);font-weight:700;white-space:nowrap">${adminEscape(row.client)}</td>
               <td style="padding:9px 8px;border-bottom:1px solid var(--border);white-space:nowrap">${adminEscape(row.payment)}</td>
               <td style="padding:9px 8px;border-bottom:1px solid var(--border);white-space:nowrap">${adminEscape(row.method)}</td>
               <td style="padding:9px 8px;border-bottom:1px solid var(--border);font-weight:700;text-align:right;white-space:nowrap">${formatPrice(row.productsTotal)}</td>
@@ -3993,13 +4628,14 @@ window.exportStatsOrdersCsv = () => {
     return;
   }
 
-  const headers = ['Fecha','Albarán','Client','Pago','Method','Productos','Delivery','Total', ..._statsProductCols];
+  const headers = ['Fecha','Albarán','Factura','Client','Pago','Method','Productos','Delivery','Total', ..._statsProductCols];
 
   const lines = [
     headers,
     ..._statsOrderRows.map(row => [
       row.date,
       row.albaran,
+      row.invoice,
       row.client,
       row.payment,
       row.method,
@@ -4020,8 +4656,13 @@ window.exportStatsOrdersCsv = () => {
   const dateTo =
     document.getElementById('stats-date-to')?.value || '';
 
+  const clientFilter =
+    document.getElementById('stats-table-client-filter');
+
   const client =
-    document.getElementById('stats-table-client-filter')?.value || '';
+    clientFilter?.value
+      ? clientFilter.options[clientFilter.selectedIndex]?.text || ''
+      : '';
 
   const today = adminLocalDateISO(new Date());
 

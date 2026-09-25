@@ -537,10 +537,13 @@ export default {
         return json({ ok: false, error: 'Bad request' }, 400);
       }
 
+      const customerName = String(payload.customerName || '').trim();
+
       const text = [
         '🥐 Nuevo pedido en Look-in Brioche.',
+        customerName ? `👤 Cliente: ${customerName}` : '',
         'Entra en el panel de administración.'
-      ].join('\n');
+      ].filter(Boolean).join('\n');
 
       const result = await sendTelegramMessage(env, text);
 

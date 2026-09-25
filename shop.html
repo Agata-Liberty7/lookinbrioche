@@ -1652,7 +1652,8 @@ async function notifyNewOrderInWhatsApp(order) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         type: 'new_order',
-        createdAt: order?.date || new Date().toISOString()
+        createdAt: order?.date || new Date().toISOString(),
+        customerName: order?.customer?.name || ''
       })
     });
 
