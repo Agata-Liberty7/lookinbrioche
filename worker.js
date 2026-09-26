@@ -164,6 +164,7 @@ export default {
           invoiceSheetUrl,
           invoiceDataSheet,
           invoicePrefix,
+          reuseInvoiceSequence,
           periodFrom,
           periodTo,
           total,
@@ -244,9 +245,16 @@ export default {
           .map(match => Number(match[1]))
           .filter(Number.isFinite);
 
-        const nextSequence = invoiceNumbers.length
-          ? Math.max(...invoiceNumbers) + 1
-          : 1;
+        const requestedSequence = Number(reuseInvoiceSequence);
+
+        const nextSequence =
+          Number.isFinite(requestedSequence) && requestedSequence > 0
+            ? requestedSequence
+            : (
+                invoiceNumbers.length
+                  ? Math.max(...invoiceNumbers) + 1
+                  : 1
+              );
 
         let prefix = String(invoicePrefix || '').trim();
 

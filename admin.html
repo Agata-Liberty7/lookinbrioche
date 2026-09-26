@@ -1309,6 +1309,91 @@ function renderProductionSummary(dateFrom, dateTo) {
 }
 
 
+
+window.cancelInvoiceByNumber = async function() {
+  const invoiceNumber = String(
+    prompt('Número de factura a cancelar:')
+    || ''
+  ).trim();
+
+  if (!invoiceNumber) return;
+
+  const matchingOrders = (_orders || []).filter(order =>
+    String(order?.invoiceNumber || '').trim() === invoiceNumber
+  );
+
+  const sequenceMatch = invoiceNumber.match(/(\d{1,4})\d{4}$/);
+
+  if (!sequenceMatch) {
+    showToast('No se pudo detectar el número de secuencia');
+    return;
+  }
+
+  const reuseInvoiceSequence = Number(sequenceMatch[1]);
+
+  if (!Number.isFinite(reuseInvoiceSequence) || reuseInvoiceSequence <= 0) {
+    showToast('Número de secuencia inválido');
+    return;
+  }
+
+  if (!matchingOrders.length) {
+    showToast(`Factura ${invoiceNumber}: no se encontraron pedidos`);
+    return;
+  }
+
+  const total = matchingOrders.reduce(
+    (sum, order) =>
+      sum + Number(order?.invoiceTotal ?? order?.total ?? 0),
+    0
+  );
+
+  const ok = confirm(
+    `Cancelar factura ${invoiceNumber}?\n\n` +
+    `${matchingOrders.length} pedido(s)\n` +
+    `Total: ${total.toFixed(2)} €\n\n` +
+    `Los pedidos volverán a estar disponibles para una nueva factura.`
+  );
+
+  if (!ok) return;
+
+  showLoading('');
+
+  try {
+    for (const order of matchingOrders) {
+      await fbUpdateOrder(order.id, {
+        invoiceNumber: null,
+        invoiceDate: null,
+        invoiceCreatedAt: null,
+        invoicePeriod: null,
+        invoiceBase: null,
+        invoiceVat: null,
+        invoiceTotal: null,
+        invoiceUrl: null,
+        invoiceSheetName: null
+      });
+    }
+
+    _orders = await fbGetOrders();
+
+    _reuseInvoiceSequence = reuseInvoiceSequence;
+
+    if (typeof renderStatsTableOnly === 'function') {
+      renderStatsTableOnly();
+    }
+
+    showToast(
+      `Factura ${invoiceNumber} cancelada · ${matchingOrders.length} pedido(s) liberados`
+    );
+
+  } catch (error) {
+    console.error('Cancel invoice error:', error);
+    showToast('Error cancelando factura');
+  } finally {
+    hideLoading();
+  }
+};
+
+
 async function renderOrders(refresh = true) {
   const filter=document.getElementById('order-filter').value;
   const dateFrom=document.getElementById('order-date-from')?.value || '';
@@ -3322,6 +3407,7 @@ function invoiceConceptRows(orders) {
 
 let _invoicePreviewDraft = null;
 let _invoiceCreateInProgress = false;
+let _reuseInvoiceSequence = null;
 
 window.previewClientInvoice = () => {
   const clientId = document.getElementById('invoice-client-id').value;
@@ -3423,6 +3509,7 @@ window.previewClientInvoice = () => {
     invoiceDataSheet: invoiceClient?.invoiceDataSheet || 'num_fech',
     invoicePrefix: invoiceClient?.invoicePrefix || '',
     invoiceFolderUrl: invoiceClient?.invoiceFolderUrl || '',
+    reuseInvoiceSequence: _reuseInvoiceSequence,
     periodFrom: from,
     periodTo: to,
     total: separateDelivery ? productsTotal : grandTotal,
@@ -3527,6 +3614,8 @@ window.fillTestInvoice = async () => {
 
     const invoiceCreatedAt = new Date().toISOString();
     const invoiceDate = adminLocalDateISO(new Date());
+
+    _reuseInvoiceSequence = null;
 
     const invoicePatch = {
       invoiceNumber: data.invoiceNumber,
