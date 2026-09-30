@@ -1012,6 +1012,16 @@ function adminProductionDoughPerPiece(item, catalogById) {
     variants[0] ||
     null;
 
+  const configuredDoughWeight =
+    Number(variant?.doughWeightG);
+
+  if (
+    Number.isFinite(configuredDoughWeight) &&
+    configuredDoughWeight > 0
+  ) {
+    return configuredDoughWeight;
+  }
+
   const variantIdentity = [
     variantKey,
     variant?.key,
@@ -1054,6 +1064,16 @@ function adminProductionFillingPerPiece(item, catalogById) {
     variants[0] ||
     null;
 
+  const configuredFillingWeight =
+    Number(variant?.fillingWeightG);
+
+  if (
+    Number.isFinite(configuredFillingWeight) &&
+    configuredFillingWeight > 0
+  ) {
+    return configuredFillingWeight;
+  }
+
   const weightText = String(
     item?.weight ||
     variant?.weight ||
@@ -1089,6 +1109,23 @@ function adminProductionFillingPerPiece(item, catalogById) {
   return filling > 0
     ? filling
     : null;
+}
+
+
+function adminProductionWeightText(value) {
+  const grams = Number(value || 0);
+
+  if (!Number.isFinite(grams) || grams <= 0) {
+    return '';
+  }
+
+  if (grams >= 1000) {
+    return `${(grams / 1000).toLocaleString('es-ES', {
+      maximumFractionDigits: 2
+    })} kg`;
+  }
+
+  return `${Math.round(grams)} g`;
 }
 
 
@@ -1193,6 +1230,7 @@ function renderProductionSummary(dateFrom, dateTo) {
         label,
         qty: 0,
         fillingPerPiece,
+        doughPerPiece,
         fillingTotal: 0,
         doughTotal: 0
       };
@@ -1212,6 +1250,7 @@ function renderProductionSummary(dateFrom, dateTo) {
         Number.isFinite(doughPerPiece) &&
         doughPerPiece > 0
       ) {
+        current.doughPerPiece = doughPerPiece;
         current.doughTotal +=
           doughPerPiece * qty;
       }
@@ -1271,8 +1310,8 @@ function renderProductionSummary(dateFrom, dateTo) {
           </div>
           <div style="font-size:12px;color:var(--text3);margin-top:3px">
             ${confirmedOrders.length} pedidos confirmados · ${totalUnits} uds
-            ${totalDough > 0 ? ` · ${Math.round(totalDough)} g masa` : ''}
-            ${totalFilling > 0 ? ` · ${Math.round(totalFilling)} g relleno` : ''}
+            ${totalDough > 0 ? ` · ${adminProductionWeightText(totalDough)} masa` : ''}
+            ${totalFilling > 0 ? ` · ${adminProductionWeightText(totalFilling)} relleno` : ''}
           </div>
         </div>
       </div>
@@ -1283,9 +1322,17 @@ function renderProductionSummary(dateFrom, dateTo) {
             <span style="font-size:13px">
               ${adminEscape(row.label)}
               ${
+                Number.isFinite(row.doughPerPiece) ||
                 Number.isFinite(row.fillingPerPiece)
                   ? `<span style="display:block;font-size:11px;color:var(--text3);margin-top:2px">
-                       ${row.fillingPerPiece} g relleno / ud
+                       ${Number.isFinite(row.doughPerPiece) ? `${row.doughPerPiece} g masa / ud` : ''}
+                       ${
+                         Number.isFinite(row.doughPerPiece) &&
+                         Number.isFinite(row.fillingPerPiece)
+                           ? ' · '
+                           : ''
+                       }
+                       ${Number.isFinite(row.fillingPerPiece) ? `${row.fillingPerPiece} g relleno / ud` : ''}
                      </span>`
                   : ''
               }
@@ -1294,9 +1341,16 @@ function renderProductionSummary(dateFrom, dateTo) {
             <div style="text-align:right;white-space:nowrap">
               <b>${row.qty} uds</b>
               ${
+                Number(row.doughTotal) > 0
+                  ? `<div style="font-size:12px;color:var(--text3);margin-top:2px">
+                       ${adminProductionWeightText(row.doughTotal)} masa
+                     </div>`
+                  : ''
+              }
+              ${
                 Number(row.fillingTotal) > 0
                   ? `<div style="font-size:12px;color:var(--text3);margin-top:2px">
-                       ${Math.round(row.fillingTotal)} g relleno
+                       ${adminProductionWeightText(row.fillingTotal)} relleno
                      </div>`
                   : ''
               }
