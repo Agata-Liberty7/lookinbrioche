@@ -91,6 +91,16 @@
 
     <div id="production-summary" style="padding:4px 16px 12px"></div>
 
+    <div style="padding:0 16px 12px">
+      <button
+        type="button"
+        class="btn btn-outline btn-sm"
+        onclick="openProductionRouteEditor()"
+      >
+        🧭 Ruta de producción
+      </button>
+    </div>
+
     <div id="orders-list" style="padding:0 16px 100px"></div>
   </div>
 
@@ -616,18 +626,293 @@
   </div>
 </div>
 
+<div
+  class="modal-overlay"
+  id="production-route-modal"
+  onclick="if(event.target===this)closeModal('production-route-modal')"
+>
+  <div class="modal" style="max-width:760px">
+    <div class="modal-title">Ruta de producción</div>
+
+    <input type="hidden" id="production-route-date">
+
+    <div
+      id="production-route-date-label"
+      style="font-size:14px;font-weight:800;margin-bottom:14px"
+    ></div>
+
+    <div
+      id="production-route-steps"
+      style="display:flex;flex-direction:column;gap:10px"
+    ></div>
+
+    <button
+      type="button"
+      class="btn btn-outline"
+      style="width:100%;margin-top:12px"
+      onclick="addProductionRouteStep()"
+    >
+      + Añadir etapa
+    </button>
+
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button
+        type="button"
+        class="btn btn-primary"
+        style="flex:1"
+        onclick="saveProductionRoute()"
+      >
+        Guardar ruta
+      </button>
+
+      <button
+        type="button"
+        class="btn btn-outline"
+        onclick="closeModal('production-route-modal')"
+      >
+        Cerrar
+      </button>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast"></div>
 <script src="i18n.js"></script>
 <script src="core.js"></script>
 <script type="module">
 import { fbGetSettings, fbSaveSettings, fbGetCatalog, fbSaveProduct, fbDeleteProduct,
          fbGetOrders, fbUpdateOrder, fbDeleteOrder, fbListenOrders,
-         fbGetClients, fbSaveClient, fbDeleteClient } from './firebase.js';
+         fbGetClients, fbSaveClient, fbDeleteClient,
+         fbGetProductionRoute, fbSaveProductionRoute } from './firebase.js';
 
 let _catalog = [];
 let _orders  = [];
 let _clients = [];
 let _unsubOrders = null;
+let _productionRouteSteps = [];
+
+function productionRouteEmptyStep() {
+  return {
+    time: '',
+    operation: '',
+    durationMin: '',
+    temperatureC: '',
+    notes: ''
+  };
+}
+
+function renderProductionRouteSteps() {
+  const el = document.getElementById('production-route-steps');
+  if (!el) return;
+
+  if (!_productionRouteSteps.length) {
+    _productionRouteSteps = [productionRouteEmptyStep()];
+  }
+
+  el.innerHTML = _productionRouteSteps.map((step, index) => `
+    <div
+      class="info-box"
+      data-production-route-step="${index}"
+      style="margin:0"
+    >
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px">
+        <b>Etapa ${index + 1}</b>
+
+        <div style="display:flex;gap:6px">
+          <button
+            type="button"
+            class="btn-icon"
+            onclick="moveProductionRouteStep(${index}, -1)"
+            ${index === 0 ? 'disabled' : ''}
+          >↑</button>
+
+          <button
+            type="button"
+            class="btn-icon"
+            onclick="moveProductionRouteStep(${index}, 1)"
+            ${index === _productionRouteSteps.length - 1 ? 'disabled' : ''}
+          >↓</button>
+
+          <button
+            type="button"
+            class="btn-icon"
+            onclick="removeProductionRouteStep(${index})"
+          >×</button>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Hora</label>
+          <input
+            type="time"
+            data-route-field="time"
+            value="${adminEscape(step.time || '')}"
+          >
+        </div>
+
+        <div class="form-group">
+          <label>Operación *</label>
+          <input
+            type="text"
+            data-route-field="operation"
+            value="${adminEscape(step.operation || '')}"
+            placeholder="Formado, fermentación, horneado..."
+          >
+        </div>
+
+        <div class="form-group">
+          <label>Duración, min</label>
+          <input
+            type="number"
+            min="0"
+            step="1"
+            data-route-field="durationMin"
+            value="${adminEscape(step.durationMin || '')}"
+          >
+        </div>
+
+        <div class="form-group">
+          <label>Temperatura, °C</label>
+          <input
+            type="number"
+            step="1"
+            data-route-field="temperatureC"
+            value="${adminEscape(step.temperatureC || '')}"
+          >
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom:0">
+        <label>Notas</label>
+        <textarea
+          rows="2"
+          data-route-field="notes"
+          placeholder="Qué productos, cantidades, detalles de formado..."
+        >${adminEscape(step.notes || '')}</textarea>
+      </div>
+    </div>
+  `).join('');
+}
+
+function readProductionRouteSteps() {
+  return [
+    ...document.querySelectorAll(
+      '#production-route-steps [data-production-route-step]'
+    )
+  ].map(row => {
+    const field = name =>
+      row.querySelector(`[data-route-field="${name}"]`);
+
+    return {
+      time: String(field('time')?.value || '').trim(),
+      operation: String(field('operation')?.value || '').trim(),
+      durationMin: String(field('durationMin')?.value || '').trim(),
+      temperatureC: String(field('temperatureC')?.value || '').trim(),
+      notes: String(field('notes')?.value || '').trim()
+    };
+  });
+}
+
+window.addProductionRouteStep = () => {
+  _productionRouteSteps = readProductionRouteSteps();
+  _productionRouteSteps.push(productionRouteEmptyStep());
+  renderProductionRouteSteps();
+};
+
+window.removeProductionRouteStep = index => {
+  _productionRouteSteps = readProductionRouteSteps();
+
+  if (_productionRouteSteps.length <= 1) {
+    _productionRouteSteps = [productionRouteEmptyStep()];
+  } else {
+    _productionRouteSteps.splice(index, 1);
+  }
+
+  renderProductionRouteSteps();
+};
+
+window.moveProductionRouteStep = (index, direction) => {
+  _productionRouteSteps = readProductionRouteSteps();
+
+  const target = index + direction;
+  if (target < 0 || target >= _productionRouteSteps.length) return;
+
+  [
+    _productionRouteSteps[index],
+    _productionRouteSteps[target]
+  ] = [
+    _productionRouteSteps[target],
+    _productionRouteSteps[index]
+  ];
+
+  renderProductionRouteSteps();
+};
+
+window.openProductionRouteEditor = async () => {
+  const from = document.getElementById('order-date-from')?.value || '';
+  const to = document.getElementById('order-date-to')?.value || '';
+
+  if (!from || !to || from !== to) {
+    showToast('Selecciona un solo día para crear la ruta');
+    return;
+  }
+
+  document.getElementById('production-route-date').value = from;
+  document.getElementById('production-route-date-label').textContent =
+    `Producción · ${adminProductionDateText(from, from)}`;
+
+  try {
+    const saved = await fbGetProductionRoute(from);
+
+    _productionRouteSteps =
+      Array.isArray(saved?.steps) && saved.steps.length
+        ? saved.steps
+        : [productionRouteEmptyStep()];
+
+    renderProductionRouteSteps();
+
+    document
+      .getElementById('production-route-modal')
+      .classList.add('open');
+  } catch (error) {
+    console.error('Production route load error:', error);
+    showToast('Error cargando ruta de producción');
+  }
+};
+
+window.saveProductionRoute = async () => {
+  const date =
+    document.getElementById('production-route-date')?.value || '';
+
+  if (!date) return;
+
+  const steps = readProductionRouteSteps();
+
+  const emptyOperationIndex =
+    steps.findIndex(step => !step.operation);
+
+  if (emptyOperationIndex !== -1) {
+    showToast(
+      `Etapa ${emptyOperationIndex + 1}: indica la operación`
+    );
+    return;
+  }
+
+  try {
+    await fbSaveProductionRoute(date, {
+      steps
+    });
+
+    _productionRouteSteps = steps;
+
+    showToast('Ruta de producción guardada ✓');
+    closeModal('production-route-modal');
+  } catch (error) {
+    console.error('Production route save error:', error);
+    showToast('Error guardando ruta de producción');
+  }
+};
 
 function adminNormalizeCatKey(category) {
   return normalizeProductCategoryKey(category);
@@ -1525,7 +1810,7 @@ async function renderOrders(refresh = true) {
       <div class="order-header" data-locked="${waPending?'1':'0'}" onclick="if(this.dataset.locked!=='1')this.nextElementSibling.classList.toggle('open')">
         <div>
           <div style="font-size:11px;color:var(--text3);font-weight:700">#${String(o.id).slice(-6)} · ${d}</div>
-          <div style="font-size:15px;font-weight:700;margin-top:2px">${adminEscape(customer.name||'—')}</div>
+          <div style="font-size:15px;font-weight:700;margin-top:2px">${adminEscape(adminOrderClientName(o))}</div>
           <div style="font-size:12px;color:var(--text2);margin-top:2px">${customer.phone?adminEscape(customer.phone):''}${delD?' · 📅 '+adminEscape(delD):''}</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
@@ -1674,7 +1959,7 @@ window.openAlbaran = async id => {
   const albaranPdfData = {
     number: albaranNumber,
     orderNumber,
-    customer: customer.name || '—',
+    customer: adminOrderClientName(o),
     deliveryDate: deliveryDate || '—',
     deliveryTime,
     address,
@@ -1687,11 +1972,96 @@ window.openAlbaran = async id => {
   const albaranPdfJson = JSON.stringify(albaranPdfData)
     .replace(/</g, '\\u003c');
 
-  const win = window.open('', '_blank');
+  const useInlineAlbaran =
+    window.innerWidth <= 820 ||
+    window.matchMedia?.('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true;
 
-  if (!win) {
-    showToast('Popup blocked');
-    return;
+  let win = null;
+
+  if (useInlineAlbaran) {
+    document.getElementById('admin-albaran-overlay')?.remove();
+
+    const previousOverflow =
+      document.body.style.overflow;
+
+    const overlay =
+      document.createElement('div');
+
+    overlay.id = 'admin-albaran-overlay';
+    overlay.style.cssText = [
+      'position:fixed',
+      'inset:0',
+      'z-index:100000',
+      'background:#fff',
+      'display:flex',
+      'flex-direction:column'
+    ].join(';');
+
+    overlay.innerHTML = `
+      <div style="
+        flex:0 0 auto;
+        display:flex;
+        align-items:center;
+        gap:10px;
+        padding:10px 12px;
+        padding-top:max(10px,env(safe-area-inset-top));
+        border-bottom:1px solid #ddd;
+        background:#fff;
+      ">
+        <button
+          type="button"
+          id="admin-albaran-back"
+          style="
+            border:1px solid #ccc;
+            background:#fff;
+            border-radius:10px;
+            padding:9px 14px;
+            font-size:14px;
+            font-weight:700;
+          "
+        >← Volver</button>
+        <div style="font-weight:800;color:#222">
+          Albarán
+        </div>
+      </div>
+
+      <iframe
+        id="admin-albaran-frame"
+        allow="web-share"
+        style="
+          flex:1 1 auto;
+          width:100%;
+          border:0;
+          background:#fff;
+        "
+      ></iframe>
+    `;
+
+    document.body.appendChild(overlay);
+    document.body.style.overflow = 'hidden';
+
+    const closeAlbaran = () => {
+      overlay.remove();
+      document.body.style.overflow =
+        previousOverflow;
+    };
+
+    overlay
+      .querySelector('#admin-albaran-back')
+      .addEventListener('click', closeAlbaran);
+
+    const frame =
+      overlay.querySelector('#admin-albaran-frame');
+
+    win = frame.contentWindow;
+  } else {
+    win = window.open('', '_blank');
+
+    if (!win) {
+      showToast('Popup blocked');
+      return;
+    }
   }
 
   win.document.write(`
@@ -1832,7 +2202,7 @@ window.openAlbaran = async id => {
 
   <div class="info">
     <div class="label">Cliente</div>
-    <div>${adminEscape(customer.name || '—')}</div>
+    <div>${adminEscape(adminOrderClientName(o))}</div>
 
     <div class="label">Pedido</div>
     <div>#${adminEscape(orderNumber)}</div>
@@ -2037,14 +2407,45 @@ window.openAlbaran = async id => {
   win.focus();
 };
 
+function adminCurrentClientForOrder(o) {
+  const clientId =
+    String(o?.customer?.userId || '').trim();
+
+  if (!clientId) return null;
+
+  return (_clients || []).find(
+    client => String(client?.id || '') === clientId
+  ) || null;
+}
+
+function adminOrderClientName(o, fallback = '—') {
+  const customer = o?.customer || {};
+  const currentClient =
+    adminCurrentClientForOrder(o);
+
+  if (currentClient) {
+    return String(
+      currentClient.name ||
+      currentClient.login ||
+      fallback
+    ).trim() || fallback;
+  }
+
+  return String(
+    customer.name ||
+    customer.userName ||
+    o?.name ||
+    fallback
+  ).trim() || fallback;
+}
+
 function adminOrderPhone(o) {
   const c = o?.customer || {};
   return String(c.phone || c.contactPhone || o.phone || o.contactPhone || '').trim();
 }
 
 function adminOrderName(o) {
-  const c = o?.customer || {};
-  return String(c.name || c.contactPerson || o.name || '').trim();
+  return adminOrderClientName(o, '');
 }
 
 function adminOrderDeliveryDate(o) {
@@ -2110,7 +2511,7 @@ function adminConfirmWaUrl(o) {
   if (!phone) return '';
 
   const c = o?.customer || {};
-  const name = String(c.name || c.contactPerson || o.name || '').trim();
+  const name = adminOrderClientName(o, '');
 
   const deliveryDateRaw = o?.delivery?.date || o?.deliveryDate || '';
   let deliveryDate = deliveryDateRaw;
@@ -2225,20 +2626,8 @@ function adminShowWaActionPanel(order) {
     document.body.appendChild(box);
   }
 
-  const clientId = order.customer?.userId
-    ? String(order.customer.userId)
-    : '';
-
-  const currentClient = clientId
-    ? (_clients || []).find(c => String(c.id) === clientId)
-    : null;
-
   const name =
-    currentClient?.name ||
-    order.customer?.name ||
-    order.customer?.userName ||
-    order.name ||
-    'client';
+    adminOrderClientName(order, 'client');
 
   box.innerHTML = `
     <div style="display:flex;gap:10px;align-items:flex-start;justify-content:space-between">
@@ -4607,6 +4996,7 @@ function adminBuildStatsOrderRows(orders) {
 
   const rows = orders.map(o => {
     const products = {};
+    const productRevenue = {};
 
     (o.items || []).forEach(item => {
       if (!adminIsReportProductItem(item, o)) return;
@@ -4618,9 +5008,15 @@ function adminBuildStatsOrderRows(orders) {
 
       productCols.add(col);
 
+      const qty = Number(item.qty || 0);
+      const revenue =
+        Number(item.price || 0) * qty;
+
       products[col] =
-        (products[col] || 0) +
-        Number(item.qty || 0);
+        (products[col] || 0) + qty;
+
+      productRevenue[col] =
+        (productRevenue[col] || 0) + revenue;
     });
 
     const method =
@@ -4642,9 +5038,7 @@ function adminBuildStatsOrderRows(orders) {
       clientId:
         String(o.customer?.userId || '').trim(),
       client:
-        o.customer?.name ||
-        o.customer?.userName ||
-        '—',
+        adminOrderClientName(o),
       payment:
         adminPaymentReportLabel(o.payment),
       method:
@@ -4655,7 +5049,8 @@ function adminBuildStatsOrderRows(orders) {
         adminOrderDeliveryFee(o),
       total:
         adminOrderGrandTotal(o),
-      products
+      products,
+      productRevenue
     };
   });
 
@@ -4733,9 +5128,31 @@ window.openInvoiceFromStats = () => {
   window.previewClientInvoice();
 };
 
+function adminStatsClientFilteredOrders(orders) {
+  const el =
+    document.getElementById('stats-table-client-filter');
+
+  const clientId =
+    el?.value || '';
+
+  if (!clientId) return orders || [];
+
+  const exists = (orders || []).some(o =>
+    String(o.customer?.userId || '') === String(clientId)
+  );
+
+  if (!exists) {
+    if (el) el.value = '';
+    return orders || [];
+  }
+
+  return (orders || []).filter(o =>
+    String(o.customer?.userId || '') === String(clientId)
+  );
+}
+
 window.renderStatsTableOnly = () => {
-  const orders = adminStatsFilteredOrders(_orders);
-  renderStatsOrdersTable(orders);
+  renderStats();
 };
 
 function renderStatsOrdersTable(orders) {
@@ -4906,50 +5323,107 @@ function adminBuildStatsChartRows(orders, kind) {
   if (kind === 'revenue_day' || kind === 'orders_day') {
     orders.forEach(o => {
       const d = adminStatsChartDateKey(o);
-      adminAddChartValue(map, d.key, d.label, kind === 'orders_day' ? 1 : adminOrderGrandTotal(o), d.sort);
+
+      adminAddChartValue(
+        map,
+        d.key,
+        d.label,
+        kind === 'orders_day'
+          ? 1
+          : adminOrderGrandTotal(o),
+        d.sort
+      );
     });
   }
 
   if (kind === 'product_qty' || kind === 'product_revenue') {
-    orders.forEach(o => {
-      (o.items || []).forEach(item => {
-        if (!adminIsReportProductItem(item, o)) return;
-        const label = adminProductReportLabel(item.name);
-        const value = kind === 'product_qty'
-          ? Number(item.qty || 0)
-          : Number(item.price || 0) * Number(item.qty || 0);
-        adminAddChartValue(map, label, label, value);
-      });
+    const built =
+      adminBuildStatsOrderRows(orders);
+
+    built.rows.forEach(row => {
+      const values =
+        kind === 'product_qty'
+          ? row.products
+          : row.productRevenue;
+
+      Object.entries(values || {}).forEach(
+        ([label, value]) => {
+          adminAddChartValue(
+            map,
+            label,
+            label,
+            value
+          );
+        }
+      );
     });
   }
 
-  if (kind === 'client_revenue' || kind === 'client_orders' || kind === 'delivery_client') {
+  if (
+    kind === 'client_revenue' ||
+    kind === 'client_orders' ||
+    kind === 'delivery_client'
+  ) {
     orders.forEach(o => {
-      const label = o.customer?.name || o.customer?.userName || '—';
+      const clientId =
+        String(o.customer?.userId || '').trim();
+
+      const label =
+        adminOrderClientName(o);
+
+      const key =
+        clientId
+          ? `id:${clientId}`
+          : `name:${label}`;
 
       let value = 0;
-      if (kind === 'client_revenue') value = adminOrderGrandTotal(o);
-      if (kind === 'client_orders') value = 1;
-      if (kind === 'delivery_client') value = adminOrderDeliveryFee(o);
 
-      adminAddChartValue(map, label, label, value);
+      if (kind === 'client_revenue') {
+        value = adminOrderGrandTotal(o);
+      }
+
+      if (kind === 'client_orders') {
+        value = 1;
+      }
+
+      if (kind === 'delivery_client') {
+        value = adminOrderDeliveryFee(o);
+      }
+
+      adminAddChartValue(
+        map,
+        key,
+        label,
+        value
+      );
     });
   }
 
   if (kind === 'payment_revenue') {
     orders.forEach(o => {
-      const label = adminPaymentReportLabel(o.payment || '—');
-      adminAddChartValue(map, label, label, adminOrderGrandTotal(o));
+      const label =
+        adminPaymentReportLabel(
+          o.payment || '—'
+        );
+
+      adminAddChartValue(
+        map,
+        label,
+        label,
+        adminOrderGrandTotal(o)
+      );
     });
   }
 
   const cfg = adminStatsChartConfig(kind);
-  const rows = [...map.values()]
-    .filter(r => r.value > 0)
-    .sort((a,b) => cfg.time ? (a.sort || 0) - (b.sort || 0) : b.value - a.value)
-    .slice(0, cfg.time ? 60 : 12);
 
-  return rows;
+  return [...map.values()]
+    .filter(r => r.value > 0)
+    .sort((a,b) =>
+      cfg.time
+        ? (a.sort || 0) - (b.sort || 0)
+        : b.value - a.value
+    );
 }
 
 function adminStatsChartValueText(value, money) {
@@ -5070,14 +5544,18 @@ function renderStatsChart(orders) {
 }
 
 function renderStats(){
-  const orders = adminStatsFilteredOrders(_orders);
+  const orders =
+    adminStatsFilteredOrders(_orders);
 
-  const productsRevenue = orders.reduce((sum,o) => sum + adminOrderProductsTotal(o), 0);
-  const deliveryRevenue = orders.reduce((sum,o) => sum + adminOrderDeliveryFee(o), 0);
-  const totalRevenue = orders.reduce((sum,o) => sum + adminOrderGrandTotal(o), 0);
+  const filteredOrders =
+    adminStatsClientFilteredOrders(orders);
+
+  const productsRevenue = filteredOrders.reduce((sum,o) => sum + adminOrderProductsTotal(o), 0);
+  const deliveryRevenue = filteredOrders.reduce((sum,o) => sum + adminOrderDeliveryFee(o), 0);
+  const totalRevenue = filteredOrders.reduce((sum,o) => sum + adminOrderGrandTotal(o), 0);
 
   document.getElementById('stat-grid').innerHTML = `
-    <div class="stat-card"><div class="stat-num">${orders.length}</div><div class="stat-label">Completed orders</div></div>
+    <div class="stat-card"><div class="stat-num">${filteredOrders.length}</div><div class="stat-label">Completed orders</div></div>
     <div class="stat-card"><div class="stat-num">${formatPrice(productsRevenue)}</div><div class="stat-label">Products</div></div>
     <div class="stat-card"><div class="stat-num">${formatPrice(deliveryRevenue)}</div><div class="stat-label">Delivery</div></div>
     <div class="stat-card"><div class="stat-num">${formatPrice(totalRevenue)}</div><div class="stat-label">Revenue</div></div>
@@ -5086,7 +5564,7 @@ function renderStats(){
   const items = {};
   const pays = {};
 
-  orders.forEach(o => {
+  filteredOrders.forEach(o => {
     (o.items || []).forEach(i => {
       if (!adminIsReportProductItem(i, o)) return;
       const name = adminProductReportLabel(i.name);
@@ -5120,7 +5598,8 @@ function renderStats(){
   }
 
   renderStatsOrdersTable(orders);
-  renderStatsChart(orders);
+
+  renderStatsChart(filteredOrders);
 }
 document.getElementById('stats-chart-data')?.addEventListener('change', renderStats);
 document.getElementById('stats-chart-type')?.addEventListener('change', renderStats);

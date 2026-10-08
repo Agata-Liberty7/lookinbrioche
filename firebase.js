@@ -117,6 +117,40 @@ export async function fbSaveClient(client) {
 export async function fbDeleteClient(id) {
   await deleteDoc(doc(db, 'clients', String(id)));
 }
+
+// ─── Production routes ────────────────────────────────────────────────────────
+export async function fbGetProductionRoute(date) {
+  const key = String(date || '').trim();
+  if (!key) return null;
+
+  const snap = await getDoc(
+    doc(db, 'productionRoutes', key)
+  );
+
+  return snap.exists()
+    ? { id: snap.id, ...snap.data() }
+    : null;
+}
+
+export async function fbSaveProductionRoute(date, data) {
+  const key = String(date || '').trim();
+
+  if (!key) {
+    throw new Error('Production route date is required');
+  }
+
+  await setDoc(
+    doc(db, 'productionRoutes', key),
+    {
+      ...data,
+      date: key,
+      updatedAt: serverTimestamp()
+    },
+    { merge: true }
+  );
+
+  return key;
+}
 export async function fbFindClient(login, password) {
   const normalizedLogin = String(login || '').trim();
   if (!normalizedLogin || !password) return null;
