@@ -364,6 +364,7 @@
           <select id="stats-chart-type" style="width:auto;min-width:110px">
             <option value="bar">Bar</option>
             <option value="line">Line</option>
+            <option value="donut">Donut</option>
           </select>
         </div>
       </div>
@@ -5435,12 +5436,227 @@ function renderStatsChart(orders) {
   if (!el) return;
 
   const kind = document.getElementById('stats-chart-data')?.value || 'revenue_day';
-  const type = document.getElementById('stats-chart-type')?.value || 'bar';
+  const typeEl =
+    document.getElementById('stats-chart-type');
+
+  let type = typeEl?.value || 'bar';
+
   const cfg = adminStatsChartConfig(kind);
+
+  if (type === 'donut' && cfg.time) {
+    type = 'line';
+    if (typeEl) typeEl.value = 'line';
+  }
+
   const rows = adminBuildStatsChartRows(orders, kind);
 
   if (!rows.length) {
     el.innerHTML = '<div class="empty-state"><div class="eicon">📊</div><p>No chart data</p></div>';
+    return;
+  }
+
+  if (type === 'donut') {
+    const buildDonutMarkup = (sourceRows, title) => {
+      const sorted = [...sourceRows]
+        .sort((a,b) =>
+          Number(b.value || 0) - Number(a.value || 0)
+        );
+
+      let donutRows = sorted;
+
+      if (sorted.length > 6) {
+        donutRows = sorted.slice(0, 6);
+
+        const otherValue = sorted
+          .slice(6)
+          .reduce(
+            (sum, row) => sum + Number(row.value || 0),
+            0
+          );
+
+        if (otherValue > 0) {
+          donutRows.push({
+            label: 'Other',
+            value: otherValue
+          });
+        }
+      }
+
+      const total = donutRows.reduce(
+        (sum, row) => sum + Number(row.value || 0),
+        0
+      );
+
+      const palette = [
+        '#2E6B3E',
+        '#4F855D',
+        '#709A78',
+        '#91B093',
+        '#B1C7AE',
+        '#8B6F47',
+        '#C49A6C'
+      ];
+
+      const radius = 44;
+      const circumference = 2 * Math.PI * radius;
+      let offset = 0;
+
+      const segments = donutRows.map((row, index) => {
+        const share =
+          total ? Number(row.value || 0) / total : 0;
+
+        const length = share * circumference;
+        const dashOffset = -offset;
+        offset += length;
+
+        return `
+          <circle
+            cx="60"
+            cy="60"
+            r="${radius}"
+            fill="none"
+            stroke="${palette[index % palette.length]}"
+            stroke-width="18"
+            stroke-dasharray="${length} ${circumference - length}"
+            stroke-dashoffset="${dashOffset}"
+            transform="rotate(-90 60 60)"
+          >
+            <title>${adminEscape(row.label)} · ${(share * 100).toFixed(1)}%</title>
+          </circle>
+        `;
+      }).join('');
+
+      const legend = donutRows.map((row, index) => {
+        const share =
+          total
+            ? Number(row.value || 0) / total * 100
+            : 0;
+
+        return `
+          <div style="
+            display:grid;
+            grid-template-columns:12px minmax(0,1fr) auto;
+            gap:8px;
+            align-items:center;
+            margin-bottom:8px;
+            font-size:13px;
+          ">
+            <span style="
+              width:10px;
+              height:10px;
+              border-radius:50%;
+              background:${palette[index % palette.length]};
+            "></span>
+
+            <span style="
+              overflow:hidden;
+              text-overflow:ellipsis;
+              white-space:nowrap;
+            ">${adminEscape(row.label)}</span>
+
+            <strong>${share.toFixed(1)}%</strong>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div style="min-width:0">
+          <div style="
+            font-weight:800;
+            margin-bottom:10px;
+            text-align:center;
+          ">
+            ${adminEscape(title)}
+          </div>
+
+          <div style="
+            display:flex;
+            gap:16px;
+            align-items:center;
+            justify-content:center;
+            flex-wrap:wrap;
+          ">
+            <div style="width:min(200px,60vw)">
+              <svg
+                viewBox="0 0 120 120"
+                style="width:100%;height:auto;display:block"
+              >
+                <circle
+                  cx="60"
+                  cy="60"
+                  r="${radius}"
+                  fill="none"
+                  stroke="var(--border)"
+                  stroke-width="18"
+                />
+                ${segments}
+              </svg>
+            </div>
+
+            <div style="
+              flex:1 1 180px;
+              min-width:170px;
+            ">
+              ${legend}
+            </div>
+          </div>
+        </div>
+      `;
+    };
+
+    const clientFilter =
+      document.getElementById('stats-table-client-filter');
+
+    const clientId =
+      clientFilter?.value || '';
+
+    const compareClient =
+      clientId &&
+      (
+        kind === 'product_qty' ||
+        kind === 'product_revenue'
+      );
+
+    if (compareClient) {
+      const overallOrders =
+        adminStatsFilteredOrders(_orders);
+
+      const overallRows =
+        adminBuildStatsChartRows(overallOrders, kind);
+
+      const clientName =
+        clientFilter?.selectedOptions?.[0]?.textContent?.trim()
+        || 'Client';
+
+      el.innerHTML = `
+        <div class="info-box" style="padding:14px">
+          <div style="
+            font-weight:800;
+            margin-bottom:14px;
+          ">
+            ${adminEscape(cfg.title)}
+          </div>
+
+          <div style="
+            display:grid;
+            grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+            gap:24px;
+          ">
+            ${buildDonutMarkup(overallRows, 'Overall')}
+            ${buildDonutMarkup(rows, clientName)}
+          </div>
+        </div>
+      `;
+
+      return;
+    }
+
+    el.innerHTML = `
+      <div class="info-box" style="padding:14px">
+        ${buildDonutMarkup(rows, cfg.title)}
+      </div>
+    `;
+
     return;
   }
 

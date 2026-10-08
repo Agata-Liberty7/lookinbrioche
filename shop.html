@@ -160,25 +160,43 @@
 
     <div id="my-stats-cards" class="stat-grid" style="padding:0;margin-bottom:12px"></div>
 
-    <div class="info-box" style="padding:14px;margin-bottom:12px">
-      <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
-        <div>
-          <div id="my-chart-title" style="font-size:12px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Chart</div>
-          <div id="my-chart-note" style="font-size:12px;color:var(--text3);margin-top:3px">Your order statistics</div>
+    <div style="
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+      gap:12px;
+      margin-bottom:12px;
+    ">
+      <div class="info-box" style="padding:14px">
+        <div id="my-popular-title"
+             style="font-size:12px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">
+          Overall popularity
         </div>
-        <select id="my-stats-chart-data" style="width:auto;min-width:190px" onchange="renderMyOrders()">
-          <option value="favorite_qty">Favorite products</option>
-          <option value="order_rhythm">Order rhythm</option>
-          <option value="weekday">Days of the week</option>
-        </select>
-        <select id="my-weekday-metric"
-                style="width:auto;min-width:130px;display:none"
-                onchange="renderMyOrders()">
-          <option value="orders">Orders</option>
-          <option value="amount">Amount</option>
-        </select>
+        <div id="my-popular-chart"></div>
       </div>
-      <div id="my-stats-chart"></div>
+
+      <div class="info-box" style="padding:14px">
+        <div id="my-mix-title"
+             style="font-size:12px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">
+          Your mix
+        </div>
+        <div id="my-mix-chart"></div>
+      </div>
+    </div>
+
+    <div class="info-box" style="padding:14px;margin-bottom:12px">
+      <div id="my-rhythm-title"
+           style="font-size:12px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">
+        Order rhythm
+      </div>
+      <div id="my-rhythm-chart"></div>
+    </div>
+
+    <div class="info-box" style="padding:14px;margin-bottom:12px">
+      <div id="my-weekdays-title"
+           style="font-size:12px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">
+        Days of the week
+      </div>
+      <div id="my-weekdays-chart"></div>
     </div>
 
     <div id="my-history-title" style="font-size:12px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 10px">Order history</div>
@@ -1810,17 +1828,17 @@ function myStatsText(key) {
     es: {
       period:'Periodo', from:'Desde', to:'Hasta', apply:'Aplicar', thisMonth:'Este mes', lastMonth:'Mes anterior', reset:'Reset',
       chart:'Gráfico', chartNote:'Tus estadísticas de pedidos', favorite:'Productos favoritos', rhythm:'Ritmo de pedidos', weekdays:'Días de la semana', weekdayOrders:'Pedidos', weekdayAmount:'Importe',
-      history:'Historial de pedidos', orders:'Pedidos', products:'Productos', productsTotal:'Productos', avg:'Pedido medio', noData:'No hay datos para este periodo'
+      overallPopularity:'Popularidad general', yourMix:'Tu mix', other:'Otros', history:'Historial de pedidos', orders:'Pedidos', products:'Productos', productsTotal:'Productos', avg:'Pedido medio', noData:'No hay datos para este periodo'
     },
     ru: {
       period:'Период', from:'С', to:'По', apply:'Применить', thisMonth:'Этот месяц', lastMonth:'Прошлый месяц', reset:'Сбросить',
       chart:'Диаграмма', chartNote:'Ваша статистика заказов', favorite:'Любимые товары', rhythm:'Ритмичность заказов', weekdays:'Дни недели', weekdayOrders:'Заказы', weekdayAmount:'Сумма',
-      history:'История заказов', orders:'Заказы', products:'Изделия', productsTotal:'Товары', avg:'Средний заказ', noData:'Нет данных за выбранный период'
+      overallPopularity:'Общая популярность', yourMix:'Ваш микс', other:'Другие', history:'История заказов', orders:'Заказы', products:'Изделия', productsTotal:'Товары', avg:'Средний заказ', noData:'Нет данных за выбранный период'
     },
     en: {
       period:'Period', from:'From', to:'To', apply:'Apply', thisMonth:'This month', lastMonth:'Last month', reset:'Reset',
       chart:'Chart', chartNote:'Your order statistics', favorite:'Favorite products', rhythm:'Order rhythm', weekdays:'Days of the week', weekdayOrders:'Orders', weekdayAmount:'Amount',
-      history:'Order history', orders:'Orders', products:'Products', productsTotal:'Products', avg:'Average order', noData:'No data for selected period'
+      overallPopularity:'Overall popularity', yourMix:'Your mix', other:'Other', history:'Order history', orders:'Orders', products:'Products', productsTotal:'Products', avg:'Average order', noData:'No data for selected period'
     }
   };
   return (dict[lang] || dict.es)[key] || key;
@@ -1917,6 +1935,80 @@ function shortProductLabel(name) {
     .replace(/^brioche\s+pirozhki\s+with\s+/i, '')
     .replace(/^пирожки\s+с\s+/i, '')
     .slice(0, 32);
+}
+
+function buildMyProductShareRows(orders) {
+  const map = new Map();
+
+  (orders || []).forEach(o => {
+    (o.items || []).forEach(item => {
+      if (!isClientReportProductItem(item, o)) return;
+
+      const productId = String(
+        item?.id ||
+        item?.productId ||
+        ''
+      ).trim();
+
+      const product = productId
+        ? (_catalog || []).find(
+            p => String(p?.id || '') === productId
+          )
+        : null;
+
+      const label = product
+        ? String(
+            product.internalName ||
+            shortProductLabel(productName(product))
+          ).trim()
+        : String(
+            item?.productName ||
+            shortProductLabel(item?.name)
+          )
+            .replace(/\s*·.*$/, '')
+            .trim();
+
+      if (!label) return;
+
+      const key = productId
+        ? `id:${productId}`
+        : `name:${label.toLowerCase()}`;
+
+      const qty = Number(item.qty || 0);
+
+      if (!Number.isFinite(qty) || qty <= 0) return;
+
+      if (!map.has(key)) {
+        map.set(key, {
+          label,
+          value: 0
+        });
+      }
+
+      map.get(key).value += qty;
+    });
+  });
+
+  const rows = [...map.values()]
+    .filter(r => r.value > 0)
+    .sort((a,b) => b.value - a.value);
+
+  if (rows.length <= 6) return rows;
+
+  const top = rows.slice(0, 6);
+
+  const otherValue = rows
+    .slice(6)
+    .reduce((sum, row) => sum + row.value, 0);
+
+  if (otherValue > 0) {
+    top.push({
+      label: myStatsText('other'),
+      value: otherValue
+    });
+  }
+
+  return top;
 }
 
 function myMonthKey(value) {
@@ -2373,11 +2465,331 @@ function renderMyStatsChart(orders) {
     </div>
   `;
 }
+function renderMyDonut(el, rows) {
+  if (!el) return;
+
+  if (!rows.length) {
+    el.innerHTML = `
+      <div class="empty-state" style="padding:18px">
+        <p>${myStatsText('noData')}</p>
+      </div>
+    `;
+    return;
+  }
+
+  const total = rows.reduce(
+    (sum, row) => sum + Number(row.value || 0),
+    0
+  );
+
+  const palette = [
+    '#2E6B3E',
+    '#4F855D',
+    '#709A78',
+    '#91B093',
+    '#B1C7AE',
+    '#8B6F47',
+    '#C49A6C'
+  ];
+
+  const radius = 44;
+  const circumference = 2 * Math.PI * radius;
+
+  let offset = 0;
+
+  const segments = rows.map((row, index) => {
+    const share =
+      total ? Number(row.value || 0) / total : 0;
+
+    const length = share * circumference;
+    const dashOffset = -offset;
+
+    offset += length;
+
+    return `
+      <circle
+        cx="60"
+        cy="60"
+        r="${radius}"
+        fill="none"
+        stroke="${palette[index % palette.length]}"
+        stroke-width="18"
+        stroke-dasharray="${length} ${circumference - length}"
+        stroke-dashoffset="${dashOffset}"
+        transform="rotate(-90 60 60)"
+      >
+        <title>${shopEscape(row.label)} · ${(share * 100).toFixed(1)}%</title>
+      </circle>
+    `;
+  }).join('');
+
+  const legend = rows.map((row, index) => {
+    const share =
+      total ? Number(row.value || 0) / total * 100 : 0;
+
+    const percent =
+      Math.abs(share - Math.round(share)) < 0.05
+        ? String(Math.round(share))
+        : share.toFixed(1);
+
+    return `
+      <div style="
+        display:grid;
+        grid-template-columns:12px minmax(0,1fr) auto;
+        gap:8px;
+        align-items:center;
+        margin-bottom:8px;
+        font-size:13px;
+      ">
+        <span style="
+          width:10px;
+          height:10px;
+          border-radius:50%;
+          background:${palette[index % palette.length]};
+        "></span>
+
+        <span style="
+          overflow:hidden;
+          text-overflow:ellipsis;
+          white-space:nowrap;
+        ">
+          ${shopEscape(row.label)}
+        </span>
+
+        <strong>${percent}%</strong>
+      </div>
+    `;
+  }).join('');
+
+  el.innerHTML = `
+    <div style="
+      display:flex;
+      gap:16px;
+      align-items:center;
+      justify-content:center;
+      flex-wrap:wrap;
+    ">
+      <div style="width:min(190px,60vw)">
+        <svg
+          viewBox="0 0 120 120"
+          style="width:100%;height:auto;display:block"
+        >
+          <circle
+            cx="60"
+            cy="60"
+            r="${radius}"
+            fill="none"
+            stroke="var(--border)"
+            stroke-width="18"
+          />
+          ${segments}
+        </svg>
+      </div>
+
+      <div style="
+        flex:1 1 180px;
+        min-width:170px;
+      ">
+        ${legend}
+      </div>
+    </div>
+  `;
+}
+
+function renderMyRhythmPreset(el, orders) {
+  if (!el) return;
+
+  const rows = buildMyRhythmRows(orders);
+
+  if (!rows.length) {
+    el.innerHTML = `<div class="empty-state"><p>${myStatsText('noData')}</p></div>`;
+    return;
+  }
+
+  const max =
+    Math.max(...rows.map(r => Number(r.value || 0)), 1);
+
+  const w = Math.min(
+    720,
+    Math.max(300, el.clientWidth || 300)
+  );
+
+  const h = 250;
+  const padL = 34;
+  const padR = 22;
+  const padT = 34;
+  const padB = 44;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+  const denom = Math.max(rows.length - 1, 1);
+
+  const points = rows.map((r, i) => ({
+    ...r,
+    x: padL + plotW * i / denom,
+    y: padT + plotH -
+       plotH * Number(r.value || 0) / max
+  }));
+
+  const path = points
+    .map((p, i) =>
+      `${i ? 'L' : 'M'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`
+    )
+    .join(' ');
+
+  const tickEvery =
+    Math.max(1, Math.ceil(points.length / 6));
+
+  el.innerHTML = `
+    <svg
+      viewBox="0 0 ${w} ${h}"
+      style="width:100%;height:auto;display:block;color:var(--brand)"
+    >
+      <line
+        x1="${padL}"
+        y1="${padT + plotH}"
+        x2="${padL + plotW}"
+        y2="${padT + plotH}"
+        stroke="currentColor"
+        opacity=".20"
+      />
+
+      <path
+        d="${path}"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="3"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+
+      ${points.map((p, i) => `
+        <circle
+          cx="${p.x.toFixed(1)}"
+          cy="${p.y.toFixed(1)}"
+          r="4"
+          fill="currentColor"
+        >
+          <title>${shopEscape(p.label)} · ${Math.round(p.value)}</title>
+        </circle>
+
+        <text
+          x="${p.x.toFixed(1)}"
+          y="${Math.max(13, p.y - 10).toFixed(1)}"
+          text-anchor="middle"
+          font-size="10"
+          font-weight="700"
+          fill="var(--text)"
+        >
+          ${Math.round(p.value)}
+        </text>
+
+        ${
+          i === 0 ||
+          i === points.length - 1 ||
+          i % tickEvery === 0
+            ? `
+              <text
+                x="${p.x.toFixed(1)}"
+                y="${h - 14}"
+                text-anchor="middle"
+                font-size="9.5"
+                fill="var(--text2)"
+              >
+                ${shopEscape(p.label)}
+              </text>
+            `
+            : ''
+        }
+      `).join('')}
+    </svg>
+  `;
+}
+
+function renderMyWeekdaysPreset(el, orders) {
+  if (!el) return;
+
+  const rows =
+    buildMyWeekdayRows(orders, 'orders');
+
+  if (!rows.length) {
+    el.innerHTML = `<div class="empty-state"><p>${myStatsText('noData')}</p></div>`;
+    return;
+  }
+
+  const max =
+    Math.max(...rows.map(r => Number(r.value || 0)), 1);
+
+  el.innerHTML = `
+    <div class="client-chart-bars">
+      ${rows.map(row => {
+        const value = Number(row.value || 0);
+        const width =
+          Math.max(4, Math.round(100 * value / max));
+
+        return `
+          <div class="client-chart-row">
+            <div class="client-chart-label">
+              ${shopEscape(row.label)}
+            </div>
+
+            <div class="client-chart-track">
+              <div
+                class="client-chart-fill"
+                style="width:${width}%"
+              ></div>
+            </div>
+
+            <div class="client-chart-value">
+              ${Math.round(value)}
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderMyStatsDashboard(mine, allOrders) {
+  const myCompleted =
+    (mine || []).filter(o => o.status === 'done');
+
+  const overallCompleted =
+    (allOrders || []).filter(
+      o =>
+        o.status === 'done' &&
+        myOrderMatchesPeriod(o)
+    );
+
+  renderMyDonut(
+    document.getElementById('my-popular-chart'),
+    buildMyProductShareRows(overallCompleted)
+  );
+
+  renderMyDonut(
+    document.getElementById('my-mix-chart'),
+    buildMyProductShareRows(myCompleted)
+  );
+
+  renderMyRhythmPreset(
+    document.getElementById('my-rhythm-chart'),
+    myCompleted
+  );
+
+  renderMyWeekdaysPreset(
+    document.getElementById('my-weekdays-chart'),
+    myCompleted
+  );
+}
+
 function updateMyOrdersLabels() {
   const pairs = [
     ['my-period-title','period'], ['my-date-from-label','from'], ['my-date-to-label','to'], ['my-apply-period','apply'],
     ['my-this-month','thisMonth'], ['my-last-month','lastMonth'], ['my-reset-period','reset'],
-    ['my-chart-title','chart'], ['my-chart-note','chartNote'], ['my-history-title','history']
+    ['my-popular-title','overallPopularity'],
+    ['my-mix-title','yourMix'],
+    ['my-rhythm-title','rhythm'],
+    ['my-weekdays-title','weekdays'],
+    ['my-history-title','history']
   ];
   pairs.forEach(([id,key]) => {
     const el = document.getElementById(id);
@@ -2672,7 +3084,7 @@ window.renderMyOrders = async () => {
   const mine=allMine.filter(myOrderMatchesPeriod);
 
   renderMyStatsCards(mine);
-  renderMyStatsChart(mine);
+  renderMyStatsDashboard(mine, _orders);
 
   const el=document.getElementById('my-orders-list');
   const SC={new:'badge-new',confirmed:'badge-confirmed',done:'badge-done',cancelled:'badge-cancelled'};
