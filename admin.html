@@ -23,6 +23,203 @@
   .color-swatch.active{border-color:#2E6B3E;box-shadow:0 0 0 3px rgba(46,107,62,.25)}
   .font-opt{display:inline-block;padding:8px 16px;border:1.5px solid var(--bdr);border-radius:20px;cursor:pointer;font-size:14px;margin:4px;background:var(--bgc);color:var(--text);transition:all .15s}
   .font-opt.active{border-color:#2E6B3E;background:#E5F2E9;color:#2E6B3E;font-weight:700}
+
+  /* PRODUCTION PANEL RESPONSIVE V2 */
+  .production-card {
+    margin: 0;
+    padding: 14px;
+  }
+
+  .production-card-header {
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:16px;
+  }
+
+  .production-card-title {
+    font-size:16px;
+    line-height:1.25;
+    font-weight:900;
+  }
+
+  .production-card-meta {
+    margin-top:5px;
+    font-size:12px;
+    color:var(--text3);
+  }
+
+  .production-capacity-compact {
+    flex:0 0 auto;
+    text-align:right;
+    font-size:12px;
+    line-height:1.35;
+    color:var(--text3);
+  }
+
+  .production-capacity-compact b {
+    display:block;
+    color:var(--text);
+    font-size:14px;
+  }
+
+  .production-section {
+    margin-top:18px;
+  }
+
+  .production-section-title {
+    margin-bottom:4px;
+    font-size:10px;
+    font-weight:900;
+    color:var(--text3);
+    text-transform:uppercase;
+    letter-spacing:.65px;
+  }
+
+  .production-section-summary {
+    font-size:11px;
+    color:var(--text3);
+  }
+
+  .production-row {
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:4px 14px;
+    align-items:center;
+    padding:8px 0;
+    border-top:1px solid var(--border);
+  }
+
+  .production-row-name {
+    min-width:0;
+    font-size:13px;
+  }
+
+  .production-row-qty {
+    text-align:right;
+    white-space:nowrap;
+    font-size:13px;
+    font-weight:800;
+  }
+
+  .production-row-meta {
+    grid-column:1 / -1;
+    font-size:11px;
+    color:var(--text3);
+  }
+
+  .production-prep-row {
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:12px;
+    align-items:center;
+    padding:8px 0;
+    border-top:1px solid var(--border);
+    font-size:12px;
+  }
+
+  .production-warning {
+    margin-top:8px;
+    border:1px solid var(--border);
+    border-radius:10px;
+    background:var(--card2);
+    font-size:11px;
+    color:var(--text2);
+  }
+
+  .production-warning summary {
+    cursor:pointer;
+    padding:8px 10px;
+    font-weight:700;
+    list-style:none;
+  }
+
+  .production-warning summary::-webkit-details-marker {
+    display:none;
+  }
+
+  .production-warning-details {
+    padding:0 10px 9px;
+    color:var(--text3);
+    line-height:1.45;
+  }
+
+  .production-inline-warning {
+    margin-top:8px;
+    padding:8px 10px;
+    border:1px solid var(--border);
+    border-radius:10px;
+    background:var(--card2);
+    font-size:11px;
+    color:var(--text2);
+  }
+
+  .production-fixed-row {
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:12px;
+    padding:7px 0;
+    border-top:1px solid var(--border);
+    font-size:11px;
+  }
+
+  @media (max-width: 640px) {
+    #production-summary {
+      padding-left:4px !important;
+      padding-right:4px !important;
+    }
+
+    .production-card {
+      padding:14px 12px;
+      border-radius:12px;
+    }
+
+    .production-card-header {
+      display:block;
+    }
+
+    .production-card-title {
+      font-size:16px;
+      white-space:nowrap;
+    }
+
+    .production-card-meta {
+      margin-top:6px;
+      font-size:12px;
+      white-space:nowrap;
+    }
+
+    .production-capacity-compact {
+      display:none;
+    }
+
+    .production-section {
+      margin-top:17px;
+    }
+
+    .production-section-title {
+      font-size:10px;
+    }
+
+    .production-prep-row {
+      padding:7px 0;
+    }
+
+    .production-row {
+      padding:9px 0;
+    }
+
+    .production-row-name,
+    .production-row-qty {
+      font-size:13px;
+    }
+
+    .production-row-meta {
+      font-size:11px;
+      white-space:normal;
+    }
+  }
+
 </style>
   <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32-v7.png">
   <link rel="shortcut icon" type="image/png" href="/icons/favicon-32-v7.png">
@@ -2525,30 +2722,19 @@ function renderProductionDaySummary(
       ? capacity - plan.occupiedUnits
       : null;
 
-  const occupancyColor =
-    hasCapacity && freeUnits < 0
-      ? '#DC2626'
-      : (
-          hasCapacity &&
-          freeUnits <= Math.max(6, capacity * 0.15)
-        )
-        ? '#D97706'
-        : 'var(--green)';
-
-  const period =
-    adminProductionDateText(
-      date,
-      date
-    );
-
   const dateObject =
     adminDateOnly(date);
+
+  const shortDate =
+    dateObject
+      ? `${String(dateObject.getDate()).padStart(2,'0')}/${String(dateObject.getMonth()+1).padStart(2,'0')}`
+      : adminProductionDateText(date, date);
 
   const weekday =
     dateObject
       ? dateObject.toLocaleDateString(
           'en-GB',
-          { weekday: 'long' }
+          { weekday:'short' }
         )
       : '';
 
@@ -2563,204 +2749,121 @@ function renderProductionDaySummary(
         : 'Oven';
 
   const title =
-    [period, weekday, modeLabel]
+    [shortDate, weekday, modeLabel]
       .filter(Boolean)
       .join(' · ');
 
+  const mobileCapacityText =
+    hasCapacity
+      ? (
+          freeUnits >= 0
+            ? `${freeUnits} free`
+            : `${Math.abs(freeUnits)} over`
+        )
+      : 'capacity not set';
+
   const capacityMain =
     hasCapacity
-      ? `${plan.occupiedUnits} / ${capacity} units`
+      ? `${plan.occupiedUnits} / ${capacity}`
       : `${plan.occupiedUnits} units`;
 
   const capacitySub =
     hasCapacity
       ? (
           freeUnits >= 0
-            ? `Free: ${freeUnits}`
-            : `Over capacity: ${Math.abs(freeUnits)}`
+            ? `${freeUnits} free`
+            : `${Math.abs(freeUnits)} over capacity`
         )
       : 'Capacity not set';
 
   el.innerHTML = `
-    <div class="info-box" style="margin:0">
+    <div class="info-box production-card">
 
-      <!-- HEADER -->
-      <div
-        style="
-          display:flex;
-          justify-content:space-between;
-          gap:16px;
-          align-items:flex-start;
-          flex-wrap:wrap
-        "
-      >
+      <div class="production-card-header">
+
         <div>
-          <div
-            style="
-              font-weight:900;
-              font-size:16px;
-              line-height:1.3
-            "
-          >
-            🥐 Production · ${adminEscape(title)}
+          <div class="production-card-title">
+            🥐 ${adminEscape(title)}
           </div>
 
-          <div
-            style="
-              font-size:12px;
-              color:var(--text3);
-              margin-top:5px
-            "
-          >
-            Fixed plan: ${plan.fixedUnits}
-            · Confirmed: ${plan.confirmedUnits}
+          <div class="production-card-meta">
+            ${plan.confirmedUnits} confirmed
+            · ${plan.fixedUnits} fixed
+            · ${adminEscape(mobileCapacityText)}
           </div>
         </div>
 
-        <div
-          style="
-            text-align:right;
-            min-width:140px
-          "
-        >
-          <div
-            style="
-              font-size:10px;
-              font-weight:900;
-              color:var(--text3);
-              text-transform:uppercase;
-              letter-spacing:.6px
-            "
-          >
-            Capacity
-          </div>
-
-          <div
-            style="
-              font-size:18px;
-              line-height:1.2;
-              font-weight:900;
-              color:${occupancyColor}
-            "
-          >
-            ${adminEscape(capacityMain)}
-          </div>
-
-          <div
-            style="
-              font-size:11px;
-              color:var(--text3);
-              margin-top:3px
-            "
-          >
-            ${adminEscape(capacitySub)}
-          </div>
+        <div class="production-capacity-compact">
+          <span>Capacity</span>
+          <b>${adminEscape(capacityMain)}</b>
+          <span>${adminEscape(capacitySub)}</span>
         </div>
+
       </div>
 
 
       ${
         plan.fixedClientRows.length
           ? `
-            <div style="margin-top:18px">
-
-              <div
-                style="
-                  font-size:10px;
-                  font-weight:900;
-                  color:var(--text3);
-                  text-transform:uppercase;
-                  letter-spacing:.6px;
-                  margin-bottom:3px
-                "
-              >
+            <div class="production-section">
+              <div class="production-section-title">
                 Fixed reservations
               </div>
 
               ${plan.fixedClientRows.map(row => `
-                <div
-                  style="
-                    display:flex;
-                    justify-content:space-between;
-                    gap:14px;
-                    padding:7px 0;
-                    border-top:1px solid var(--border);
-                    font-size:12px
-                  "
-                >
+                <div class="production-fixed-row">
                   <span>
                     <b>${adminEscape(row.clientName)}</b>
                     · ${
                       row.rule.type === 'per_product'
-                        ? `${row.rule.qty} units × SKU`
-                        : `${row.rule.qty} units total`
+                        ? `${row.rule.qty} × SKU`
+                        : `${row.rule.qty} units`
                     }
                   </span>
 
                   <span style="white-space:nowrap">
-                    Reserved ${row.planUnits}
+                    ${row.planUnits} reserved
                     ${
                       row.actualUnits
-                        ? ` · Ordered ${row.actualUnits}`
+                        ? ` · ${row.actualUnits} ordered`
                         : ''
                     }
                   </span>
                 </div>
               `).join('')}
-
             </div>
           `
           : ''
       }
 
 
-      <!-- PREPARE TODAY -->
-      <div style="margin-top:20px">
+      <div class="production-section">
 
-        <div
-          style="
-            font-size:10px;
-            font-weight:900;
-            color:var(--text3);
-            text-transform:uppercase;
-            letter-spacing:.6px;
-            margin-bottom:3px
-          "
-        >
+        <div class="production-section-title">
           Prepare today
         </div>
 
         ${
           prep.tasks.length
             ? prep.tasks.map(task => `
-                <div
-                  style="
-                    display:flex;
-                    justify-content:space-between;
-                    gap:14px;
-                    padding:7px 0;
-                    border-top:1px solid var(--border);
-                    font-size:12px
-                  "
-                >
+                <div class="production-prep-row">
+
                   <span>
                     ${adminEscape(task.label)}
-
                     <span style="color:var(--text3)">
-                      · for ${
-                        adminEscape(
-                          adminProductionDateText(
-                            task.targetDate,
-                            task.targetDate
-                          )
+                      · ${adminEscape(
+                        adminProductionDateText(
+                          task.targetDate,
+                          task.targetDate
                         )
-                      }
+                      )}
                     </span>
                   </span>
 
                   <b style="white-space:nowrap">
                     ${adminProductionWeightText(task.grams)}
                   </b>
+
                 </div>
               `).join('')
             : `
@@ -2775,26 +2878,16 @@ function renderProductionDaySummary(
               </div>
             `
         }
+
       </div>
 
 
-      <!-- WARNINGS -->
       ${
         plan.dayConfig?.mode === 'off' &&
         plan.occupiedUnits > 0
           ? `
-            <div
-              style="
-                margin-top:10px;
-                padding:8px 10px;
-                border-radius:10px;
-                background:#FEE2E2;
-                color:#991B1B;
-                font-size:12px;
-                font-weight:800
-              "
-            >
-              ⚠️ Production or reservation exists on a closed day.
+            <div class="production-inline-warning">
+              ⚠ Production exists on a closed day.
             </div>
           `
           : ''
@@ -2803,20 +2896,18 @@ function renderProductionDaySummary(
       ${
         plan.incompatibleProducts.length
           ? `
-            <div
-              style="
-                margin-top:8px;
-                padding:8px 10px;
-                border-radius:10px;
-                background:#FEF3C7;
-                color:#92400E;
-                font-size:12px;
-                font-weight:800
-              "
-            >
-              ⚠️ Technology mismatch:
-              ${adminEscape(plan.incompatibleProducts.join(', '))}
-            </div>
+            <details class="production-warning">
+              <summary>
+                ⚠ Technology mismatch ·
+                ${plan.incompatibleProducts.length}
+              </summary>
+
+              <div class="production-warning-details">
+                ${adminEscape(
+                  plan.incompatibleProducts.join(', ')
+                )}
+              </div>
+            </details>
           `
           : ''
       }
@@ -2824,17 +2915,9 @@ function renderProductionDaySummary(
       ${
         plan.pendingAssortment > 0
           ? `
-            <div
-              style="
-                margin-top:8px;
-                padding:8px 10px;
-                border-radius:10px;
-                background:var(--card2);
-                font-size:12px
-              "
-            >
-              ⏳ Assortment pending:
-              <b>${plan.pendingAssortment} units</b>
+            <div class="production-inline-warning">
+              ⏳ ${plan.pendingAssortment}
+              units waiting for assortment
             </div>
           `
           : ''
@@ -2843,66 +2926,39 @@ function renderProductionDaySummary(
       ${
         prep.unsetItems.length
           ? `
-            <div
-              style="
-                margin-top:8px;
-                padding:8px 10px;
-                border-radius:10px;
-                background:#FEF3C7;
-                color:#92400E;
-                font-size:11px
-              "
-            >
-              ⚙️ Filling prep not configured:
-              ${
-                adminEscape(
-                  prep.unsetItems
-                    .slice(0, 4)
-                    .join(', ')
-                )
-              }
-              ${
-                prep.unsetItems.length > 4
-                  ? ` · +${prep.unsetItems.length - 4} more`
-                  : ''
-              }
-            </div>
+            <details class="production-warning">
+              <summary>
+                ⚙ ${prep.unsetItems.length}
+                filling prep rules missing
+              </summary>
+
+              <div class="production-warning-details">
+                ${adminEscape(
+                  prep.unsetItems.join(', ')
+                )}
+              </div>
+            </details>
           `
           : ''
       }
 
 
-      <!-- TODAY PRODUCTION -->
-      <div style="margin-top:22px">
+      <div class="production-section">
 
         <div
           style="
             display:flex;
             justify-content:space-between;
-            gap:14px;
-            align-items:flex-end;
-            flex-wrap:wrap;
-            margin-bottom:3px
+            align-items:baseline;
+            gap:12px;
+            margin-bottom:4px
           "
         >
-          <div
-            style="
-              font-size:10px;
-              font-weight:900;
-              color:var(--text3);
-              text-transform:uppercase;
-              letter-spacing:.6px
-            "
-          >
+          <div class="production-section-title" style="margin-bottom:0">
             Today's production
           </div>
 
-          <div
-            style="
-              font-size:11px;
-              color:var(--text3)
-            "
-          >
+          <div class="production-section-summary">
             ${totalUnits} units
             ${
               totalDough > 0
@@ -2920,95 +2976,37 @@ function renderProductionDaySummary(
         ${
           rows.length
             ? rows.map(row => `
-                <div
-                  style="
-                    display:flex;
-                    justify-content:space-between;
-                    gap:16px;
-                    padding:9px 0;
-                    border-top:1px solid var(--border)
-                  "
-                >
-                  <span style="font-size:13px">
+                <div class="production-row">
 
+                  <div class="production-row-name">
                     ${adminEscape(row.label)}
+                  </div>
 
+                  <div class="production-row-qty">
+                    ${row.qty}
+                  </div>
+
+                  <div class="production-row-meta">
                     ${
-                      Number.isFinite(row.doughPerPiece) ||
-                      Number.isFinite(row.fillingPerPiece)
-                        ? `
-                          <span
-                            style="
-                              display:block;
-                              font-size:11px;
-                              color:var(--text3);
-                              margin-top:2px
-                            "
-                          >
-                            ${
-                              Number.isFinite(row.doughPerPiece)
-                                ? `${row.doughPerPiece} g dough / unit`
-                                : ''
-                            }
-                            ${
-                              Number.isFinite(row.doughPerPiece) &&
-                              Number.isFinite(row.fillingPerPiece)
-                                ? ' · '
-                                : ''
-                            }
-                            ${
-                              Number.isFinite(row.fillingPerPiece)
-                                ? `${row.fillingPerPiece} g filling / unit`
-                                : ''
-                            }
-                          </span>
-                        `
+                      Number(row.doughTotal) > 0
+                        ? `${adminProductionWeightText(row.doughTotal)} dough`
                         : ''
                     }
 
-                  </span>
-
-                  <div
-                    style="
-                      text-align:right;
-                      white-space:nowrap
-                    "
-                  >
-                    <b>${row.qty} units</b>
-
                     ${
-                      Number(row.doughTotal) > 0
-                        ? `
-                          <div
-                            style="
-                              font-size:11px;
-                              color:var(--text3);
-                              margin-top:2px
-                            "
-                          >
-                            ${adminProductionWeightText(row.doughTotal)}
-                            dough
-                          </div>
-                        `
+                      Number(row.doughTotal) > 0 &&
+                      Number(row.fillingTotal) > 0
+                        ? ' · '
                         : ''
                     }
 
                     ${
                       Number(row.fillingTotal) > 0
-                        ? `
-                          <div
-                            style="
-                              font-size:11px;
-                              color:var(--text3)
-                            "
-                          >
-                            ${adminProductionWeightText(row.fillingTotal)}
-                            filling
-                          </div>
-                        `
+                        ? `${adminProductionWeightText(row.fillingTotal)} filling`
                         : ''
                     }
                   </div>
+
                 </div>
               `).join('')
             : `
@@ -3025,9 +3023,11 @@ function renderProductionDaySummary(
         }
 
       </div>
+
     </div>
   `;
 }
+
 
 function renderProductionSummary(dateFrom, dateTo) {
   const el = document.getElementById('production-summary');
