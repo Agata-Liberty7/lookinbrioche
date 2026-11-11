@@ -97,7 +97,7 @@
         class="btn btn-outline btn-sm"
         onclick="openProductionRouteEditor()"
       >
-        🧭 Ruta de producción
+        🧭 Production route
       </button>
     </div>
 
@@ -298,6 +298,18 @@
         <div style="font-size:12px;color:var(--text3);margin-top:4px">Used when a client has no personal delivery fee</div>
       </div>
 
+      <div style="font-size:13px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:20px 0 12px">
+        Production planning
+      </div>
+
+      <div style="font-size:12px;color:var(--text3);margin:-4px 0 10px">
+        Weekly production mode and safe daily capacity. Empty capacity = no limit configured yet.
+      </div>
+
+      <div id="production-week-editor"
+           style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px">
+      </div>
+
       <div style="font-size:13px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:20px 0 12px">Security</div>
       <div class="form-group">
         <label>Admin password</label>
@@ -455,6 +467,40 @@
 
       <div id="product-variants-editor"></div>
     </div>
+    <div style="font-size:13px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:18px 0 10px">
+      Production planning
+    </div>
+
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Technology</label>
+        <select id="pm-production-mode">
+          <option value="oven">Horno</option>
+          <option value="fry">Fritura</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Dough prep</label>
+        <select id="pm-dough-prep-mode">
+          <option value="previous_workday">Previous working day</option>
+          <option value="same_day_morning">Same day · morning</option>
+          <option value="none">No prep task</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Filling prep</label>
+
+      <select id="pm-filling-prep-mode">
+        <option value="unset">Not configured</option>
+        <option value="previous_workday">Prepare previous working day</option>
+        <option value="same_day_morning">Prepare same day · morning</option>
+        <option value="none">No prep needed</option>
+      </select>
+    </div>
+
     <div class="form-group"><label>Descripción ES</label><textarea id="pm-desc-es" rows="2" placeholder="Descripción corta para clientes..."></textarea></div>
     <div class="form-group"><label>Описание RU</label><textarea id="pm-desc-ru" rows="2" placeholder="Короткое описание для клиентов..."></textarea></div>
     <div class="form-group"><label>Description EN</label><textarea id="pm-desc-en" rows="2" placeholder="Short description for clients..."></textarea></div>
@@ -536,6 +582,18 @@
     <div class="form-group">
       <label>Invoice Drive folder URL</label>
       <input type="url" id="cm-invoice-folder-url" placeholder="https://drive.google.com/drive/folders/...">
+    </div>
+
+    <div style="font-size:13px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:18px 0 10px">
+      Plan fijo de producción
+    </div>
+
+    <div style="font-size:12px;color:var(--text3);margin:-4px 0 8px">
+      Reserva capacidad aunque todavía no exista un pedido.
+    </div>
+
+    <div id="cm-fixed-production-plan"
+         style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
     </div>
 
     <div class="form-group">
@@ -634,7 +692,7 @@
   onclick="if(event.target===this)closeModal('production-route-modal')"
 >
   <div class="modal" style="max-width:760px">
-    <div class="modal-title">Ruta de producción</div>
+    <div class="modal-title">Production route</div>
 
     <input type="hidden" id="production-route-date">
 
@@ -683,7 +741,7 @@
 <script src="core.js"></script>
 <script type="module">
 import { fbGetSettings, fbSaveSettings, fbGetCatalog, fbSaveProduct, fbDeleteProduct,
-         fbGetOrders, fbUpdateOrder, fbDeleteOrder, fbListenOrders,
+         fbGetOrders, fbCreateOrderIfAbsent, fbUpdateOrder, fbDeleteOrder, fbListenOrders,
          fbGetClients, fbSaveClient, fbDeleteClient,
          fbGetProductionRoute, fbSaveProductionRoute } from './firebase.js';
 
@@ -908,7 +966,7 @@ window.saveProductionRoute = async () => {
 
     _productionRouteSteps = steps;
 
-    showToast('Ruta de producción guardada ✓');
+    showToast('Production route saved ✓');
     closeModal('production-route-modal');
   } catch (error) {
     console.error('Production route save error:', error);
@@ -1441,6 +1499,1536 @@ function adminProductionDateText(from, to) {
 }
 
 
+
+function adminDateOnly(value) {
+  const parts = String(value || '')
+    .split('-')
+    .map(Number);
+
+  if (
+    parts.length !== 3 ||
+    parts.some(value => !Number.isFinite(value))
+  ) {
+    return null;
+  }
+
+  return new Date(
+    parts[0],
+    parts[1] - 1,
+    parts[2],
+    12,
+    0,
+    0,
+    0
+  );
+}
+
+function adminWeekdayKey(value) {
+  const date = adminDateOnly(value);
+  if (!date) return '';
+
+  return [
+    'sun',
+    'mon',
+    'tue',
+    'wed',
+    'thu',
+    'fri',
+    'sat'
+  ][date.getDay()] || '';
+}
+
+function adminProductionModeLabel(mode) {
+  if (mode === 'fry') return 'Fritura';
+  if (mode === 'off') return 'Cerrado';
+  return 'Horno';
+}
+
+function adminProductionDayConfig(value) {
+  const weekday = adminWeekdayKey(value);
+
+  if (!weekday) return null;
+
+  return (
+    adminProductionWeekSettings()?.[weekday] ||
+    null
+  );
+}
+
+function adminClientFixedPlanRule(client, date) {
+  const weekday = adminWeekdayKey(date);
+
+  if (!weekday) return null;
+
+  const rule =
+    client?.fixedProductionPlan?.[weekday];
+
+  if (!rule) return null;
+
+  const qty = Number(rule.qty);
+
+  if (
+    !['per_product', 'total'].includes(rule.type) ||
+    !Number.isFinite(qty) ||
+    qty <= 0
+  ) {
+    return null;
+  }
+
+  return {
+    type: rule.type,
+    qty: Math.round(qty)
+  };
+}
+
+function adminProductionItemKey(item) {
+  const productId = String(
+    item?.id ||
+    item?.productId ||
+    ''
+  ).trim();
+
+  const variantKey = String(
+    item?.variantKey ||
+    'standard'
+  ).trim();
+
+  return `${productId}::${variantKey}`;
+}
+
+function adminAggregateProductionItems(items) {
+  const map = new Map();
+
+  (items || []).forEach(item => {
+    const qty = Number(item?.qty || 0);
+
+    if (!Number.isFinite(qty) || qty <= 0) {
+      return;
+    }
+
+    const key = adminProductionItemKey(item);
+    const current = map.get(key);
+
+    if (current) {
+      current.qty += qty;
+    } else {
+      map.set(
+        key,
+        {
+          ...item,
+          qty
+        }
+      );
+    }
+  });
+
+  return [...map.values()];
+}
+
+function adminProductionItemsFromOrders(orders) {
+  const items = [];
+
+  (orders || []).forEach(order => {
+    (order?.items || []).forEach(item => {
+      if (
+        adminIsReportProductItem(
+          item,
+          order
+        )
+      ) {
+        items.push(item);
+      }
+    });
+  });
+
+  return adminAggregateProductionItems(items);
+}
+
+function adminProductionUnitsFromItems(items) {
+  return (items || []).reduce(
+    (sum, item) => {
+      const qty = Number(item?.qty || 0);
+
+      return (
+        sum +
+        (
+          Number.isFinite(qty) && qty > 0
+            ? qty
+            : 0
+        )
+      );
+    },
+    0
+  );
+}
+
+function adminFixedPlanItemsForDate(
+  client,
+  rule,
+  date
+) {
+  const fixedPlanIsRealizedForDate =
+    (_orders || []).some(order => {
+      const sameClient =
+        String(
+          order?.customer?.userId || ''
+        ) === String(client?.id || '');
+
+      const sameDate =
+        String(
+          order?.delivery?.date || ''
+        ) === String(date || '');
+
+      if (
+        !sameClient ||
+        !sameDate
+      ) {
+        return false;
+      }
+
+      // New keeps the reservation until the order
+      // is actually confirmed.
+      // Confirmed/Done use the real order.
+      // Cancelled removes this delivery completely.
+      return [
+        'confirmed',
+        'done',
+        'cancelled'
+      ].includes(
+        String(order?.status || '')
+      );
+    });
+
+  if (fixedPlanIsRealizedForDate) {
+    return [];
+  }
+
+
+  if (
+    !rule ||
+    rule.type !== 'per_product'
+  ) {
+    return [];
+  }
+
+  const dayConfig =
+    adminProductionDayConfig(date);
+
+  if (
+    !dayConfig ||
+    dayConfig.mode === 'off'
+  ) {
+    return [];
+  }
+
+  const stableAssortment =
+    client?.stableAssortment || {};
+
+  const items = [];
+
+  (_catalog || []).forEach(product => {
+    if (product?.available === false) {
+      return;
+    }
+
+    if (
+      adminProductProductionMode(product) !==
+      dayConfig.mode
+    ) {
+      return;
+    }
+
+    getProductVariants(product)
+      .forEach(variant => {
+        if (variant?.available === false) {
+          return;
+        }
+
+        const variantKey =
+          String(
+            variant?.key ||
+            'standard'
+          );
+
+        const stableKey =
+          clientVariantPriceStorageKey(
+            product.id,
+            variantKey
+          );
+
+        if (
+          stableAssortment?.[stableKey] !== true
+        ) {
+          return;
+        }
+
+        items.push({
+          id: product.id,
+          productId: product.id,
+          variantKey,
+          weight:
+            variant?.weight || '',
+          qty: rule.qty,
+          name:
+            adminProductName(product)
+        });
+      });
+  });
+
+  return items;
+}
+
+function adminMergeFixedAndActualItems(
+  fixedItems,
+  actualItems
+) {
+  const fixed = new Map(
+    adminAggregateProductionItems(fixedItems)
+      .map(item => [
+        adminProductionItemKey(item),
+        item
+      ])
+  );
+
+  const actual = new Map(
+    adminAggregateProductionItems(actualItems)
+      .map(item => [
+        adminProductionItemKey(item),
+        item
+      ])
+  );
+
+  const keys = new Set([
+    ...fixed.keys(),
+    ...actual.keys()
+  ]);
+
+  const result = [];
+
+  keys.forEach(key => {
+    const fixedItem = fixed.get(key);
+    const actualItem = actual.get(key);
+
+    if (fixedItem && actualItem) {
+      result.push({
+        ...actualItem,
+        qty: Math.max(
+          Number(fixedItem.qty || 0),
+          Number(actualItem.qty || 0)
+        )
+      });
+
+      return;
+    }
+
+    if (actualItem) {
+      result.push({...actualItem});
+      return;
+    }
+
+    if (fixedItem) {
+      result.push({...fixedItem});
+    }
+  });
+
+  return result;
+}
+
+function adminBuildProductionDayPlan(date) {
+  const dayConfig =
+    adminProductionDayConfig(date) || {
+      mode: 'off',
+      capacity: null,
+      temporary: false
+    };
+
+  const confirmedOrders =
+    (_orders || []).filter(order =>
+      order?.status === 'confirmed' &&
+      adminOrderMatchesDate(
+        order,
+        date,
+        date
+      )
+    );
+
+  const ordersByClient = new Map();
+
+  confirmedOrders.forEach(order => {
+    const clientId = String(
+      order?.customer?.userId || ''
+    ).trim();
+
+    if (!clientId) return;
+
+    if (!ordersByClient.has(clientId)) {
+      ordersByClient.set(clientId, []);
+    }
+
+    ordersByClient
+      .get(clientId)
+      .push(order);
+  });
+
+  const plannedItems = [];
+  const fixedClientRows = [];
+  const handledClientIds = new Set();
+
+  let fixedUnits = 0;
+  let occupiedUnits = 0;
+  let pendingAssortment = 0;
+
+  (_clients || []).forEach(client => {
+    const rule =
+      adminClientFixedPlanRule(
+        client,
+        date
+      );
+
+    if (!rule) return;
+
+    const clientId = String(
+      client?.id || ''
+    ).trim();
+
+    const actualOrders =
+      clientId
+        ? (
+            ordersByClient.get(clientId) ||
+            []
+          )
+        : [];
+
+    const actualItems =
+      adminProductionItemsFromOrders(
+        actualOrders
+      );
+
+    const actualUnits =
+      adminProductionUnitsFromItems(
+        actualItems
+      );
+
+    let planUnits = 0;
+    let clientOccupiedUnits = 0;
+
+    if (rule.type === 'per_product') {
+      const fixedItems =
+        adminFixedPlanItemsForDate(
+          client,
+          rule,
+          date
+        );
+
+      planUnits =
+        adminProductionUnitsFromItems(
+          fixedItems
+        );
+
+      const mergedItems =
+        adminMergeFixedAndActualItems(
+          fixedItems,
+          actualItems
+        );
+
+      clientOccupiedUnits =
+        adminProductionUnitsFromItems(
+          mergedItems
+        );
+
+      plannedItems.push(
+        ...mergedItems
+      );
+    } else {
+      planUnits = rule.qty;
+
+      clientOccupiedUnits =
+        Math.max(
+          planUnits,
+          actualUnits
+        );
+
+      plannedItems.push(
+        ...actualItems
+      );
+
+      pendingAssortment +=
+        Math.max(
+          0,
+          planUnits - actualUnits
+        );
+    }
+
+    fixedUnits += planUnits;
+    occupiedUnits += clientOccupiedUnits;
+
+    if (clientId) {
+      handledClientIds.add(clientId);
+    }
+
+    fixedClientRows.push({
+      clientName: String(
+        client?.name ||
+        client?.login ||
+        'Client'
+      ),
+      rule,
+      planUnits,
+      actualUnits,
+      occupiedUnits: clientOccupiedUnits
+    });
+  });
+
+  confirmedOrders.forEach(order => {
+    const clientId = String(
+      order?.customer?.userId || ''
+    ).trim();
+
+    if (
+      clientId &&
+      handledClientIds.has(clientId)
+    ) {
+      return;
+    }
+
+    const items =
+      adminProductionItemsFromOrders(
+        [order]
+      );
+
+    occupiedUnits +=
+      adminProductionUnitsFromItems(
+        items
+      );
+
+    plannedItems.push(...items);
+  });
+
+  const confirmedUnits =
+    confirmedOrders.reduce(
+      (sum, order) => {
+        const items =
+          adminProductionItemsFromOrders(
+            [order]
+          );
+
+        return (
+          sum +
+          adminProductionUnitsFromItems(
+            items
+          )
+        );
+      },
+      0
+    );
+
+  const catalogById = new Map(
+    (_catalog || []).map(product => [
+      String(product?.id || ''),
+      product
+    ])
+  );
+
+  const incompatibleProducts =
+    new Set();
+
+  adminAggregateProductionItems(
+    plannedItems
+  ).forEach(item => {
+    const productId = String(
+      item?.id ||
+      item?.productId ||
+      ''
+    ).trim();
+
+    const product =
+      catalogById.get(productId);
+
+    if (!product) return;
+
+    const productMode =
+      adminProductProductionMode(product);
+
+    if (
+      dayConfig.mode !== 'off' &&
+      productMode !== dayConfig.mode
+    ) {
+      incompatibleProducts.add(
+        adminProductName(product)
+      );
+    }
+  });
+
+  return {
+    date,
+    dayConfig,
+    confirmedOrders,
+    confirmedUnits,
+    fixedUnits,
+    occupiedUnits,
+    pendingAssortment,
+    fixedClientRows,
+    incompatibleProducts:
+      [...incompatibleProducts],
+    plannedItems:
+      adminAggregateProductionItems(
+        plannedItems
+      )
+  };
+}
+
+function adminProductionRowsFromItems(items) {
+  const catalogById = new Map(
+    (_catalog || []).map(product => [
+      String(product?.id || ''),
+      product
+    ])
+  );
+
+  const totals = new Map();
+
+  (items || []).forEach(item => {
+    const qty = Number(
+      item?.qty || 0
+    );
+
+    if (
+      !Number.isFinite(qty) ||
+      qty <= 0
+    ) {
+      return;
+    }
+
+    const key =
+      adminProductionItemKey(item);
+
+    const label =
+      adminProductionProductLabel(
+        item,
+        catalogById
+      );
+
+    if (!label) return;
+
+    const fillingPerPiece =
+      adminProductionFillingPerPiece(
+        item,
+        catalogById
+      );
+
+    const doughPerPiece =
+      adminProductionDoughPerPiece(
+        item,
+        catalogById
+      );
+
+    const current =
+      totals.get(key) || {
+        label,
+        qty: 0,
+        fillingPerPiece,
+        doughPerPiece,
+        fillingTotal: 0,
+        doughTotal: 0
+      };
+
+    current.qty += qty;
+
+    if (
+      Number.isFinite(fillingPerPiece) &&
+      fillingPerPiece > 0
+    ) {
+      current.fillingPerPiece =
+        fillingPerPiece;
+
+      current.fillingTotal +=
+        fillingPerPiece * qty;
+    }
+
+    if (
+      Number.isFinite(doughPerPiece) &&
+      doughPerPiece > 0
+    ) {
+      current.doughPerPiece =
+        doughPerPiece;
+
+      current.doughTotal +=
+        doughPerPiece * qty;
+    }
+
+    totals.set(
+      key,
+      current
+    );
+  });
+
+  return [...totals.values()]
+    .sort(
+      (a, b) =>
+        a.label.localeCompare(
+          b.label,
+          'es'
+        )
+    );
+}
+
+
+function adminDateOnlyKey(date) {
+  if (
+    !(date instanceof Date) ||
+    Number.isNaN(date.getTime())
+  ) {
+    return '';
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+function adminAddDateDays(value, amount) {
+  const date = adminDateOnly(value);
+  if (!date) return '';
+
+  date.setDate(
+    date.getDate() + Number(amount || 0)
+  );
+
+  return adminDateOnlyKey(date);
+}
+
+function adminPreviousWorkingDay(value) {
+  for (
+    let offset = 1;
+    offset <= 7;
+    offset += 1
+  ) {
+    const candidate =
+      adminAddDateDays(value, -offset);
+
+    const config =
+      adminProductionDayConfig(candidate);
+
+    if (
+      candidate &&
+      config?.mode &&
+      config.mode !== 'off'
+    ) {
+      return candidate;
+    }
+  }
+
+  return '';
+}
+
+function adminPrepDateForMode(
+  productionDate,
+  prepMode
+) {
+  if (prepMode === 'same_day_morning') {
+    return productionDate;
+  }
+
+  if (prepMode === 'previous_workday') {
+    return adminPreviousWorkingDay(
+      productionDate
+    );
+  }
+
+  return '';
+}
+
+function adminVariantForProductionItem(
+  product,
+  item
+) {
+  const variants =
+    getProductVariants(product);
+
+  const variantKey = String(
+    item?.variantKey ||
+    'standard'
+  ).trim();
+
+  return (
+    variants.find(
+      variant =>
+        String(
+          variant?.key ||
+          'standard'
+        ).trim() === variantKey
+    ) ||
+    variants[0] ||
+    null
+  );
+}
+
+function adminPrepTasksForDate(prepDate) {
+  const catalogById = new Map(
+    (_catalog || []).map(product => [
+      String(product?.id || ''),
+      product
+    ])
+  );
+
+  const tasks = new Map();
+  const unsetItems = new Set();
+
+  function addTask(
+    targetDate,
+    kind,
+    key,
+    label,
+    grams
+  ) {
+    const value = Number(grams || 0);
+
+    if (
+      !Number.isFinite(value) ||
+      value <= 0
+    ) {
+      return;
+    }
+
+    const taskKey =
+      `${targetDate}::${kind}::${key}`;
+
+    const current =
+      tasks.get(taskKey) || {
+        targetDate,
+        kind,
+        label,
+        grams: 0
+      };
+
+    current.grams += value;
+
+    tasks.set(taskKey, current);
+  }
+
+  for (
+    let offset = 0;
+    offset <= 7;
+    offset += 1
+  ) {
+    const targetDate =
+      adminAddDateDays(
+        prepDate,
+        offset
+      );
+
+    const plan =
+      adminBuildProductionDayPlan(
+        targetDate
+      );
+
+    (plan.plannedItems || [])
+      .forEach(item => {
+        const productId = String(
+          item?.id ||
+          item?.productId ||
+          ''
+        ).trim();
+
+        const product =
+          catalogById.get(productId);
+
+        if (!product) return;
+
+        const variant =
+          adminVariantForProductionItem(
+            product,
+            item
+          );
+
+        if (!variant) return;
+
+        const qty = Number(
+          item?.qty || 0
+        );
+
+        if (
+          !Number.isFinite(qty) ||
+          qty <= 0
+        ) {
+          return;
+        }
+
+        const doughPerPiece =
+          adminProductionDoughPerPiece(
+            item,
+            catalogById
+          );
+
+        const fillingPerPiece =
+          adminProductionFillingPerPiece(
+            item,
+            catalogById
+          );
+
+        const doughMode =
+          adminProductDoughPrepMode(
+            product
+          );
+
+        const fillingMode =
+          adminProductFillingPrepMode(
+            product
+          );
+
+        const doughPrepDate =
+          adminPrepDateForMode(
+            targetDate,
+            doughMode
+          );
+
+        if (
+          doughPrepDate === prepDate &&
+          Number.isFinite(doughPerPiece) &&
+          doughPerPiece > 0
+        ) {
+          const productionMode =
+            adminProductProductionMode(
+              product
+            );
+
+          addTask(
+            targetDate,
+            'dough',
+            productionMode,
+            productionMode === 'fry'
+              ? 'Masa · fritura'
+              : 'Masa brioche',
+            doughPerPiece * qty
+          );
+        }
+
+        if (
+          fillingMode === 'unset' &&
+          Number.isFinite(fillingPerPiece) &&
+          fillingPerPiece > 0
+        ) {
+          unsetItems.add(
+            adminProductionProductLabel(
+              item,
+              catalogById
+            )
+          );
+        }
+
+        const fillingPrepDate =
+          adminPrepDateForMode(
+            targetDate,
+            fillingMode
+          );
+
+        if (
+          fillingPrepDate === prepDate &&
+          Number.isFinite(fillingPerPiece) &&
+          fillingPerPiece > 0
+        ) {
+          addTask(
+            targetDate,
+            'filling',
+            adminProductionItemKey(item),
+            `Relleno · ${
+              adminProductionProductLabel(
+                item,
+                catalogById
+              )
+            }`,
+            fillingPerPiece * qty
+          );
+        }
+      });
+  }
+
+  return {
+    tasks:
+      [...tasks.values()]
+        .sort((a, b) => {
+          if (
+            a.targetDate !== b.targetDate
+          ) {
+            return a.targetDate.localeCompare(
+              b.targetDate
+            );
+          }
+
+          return a.label.localeCompare(
+            b.label,
+            'es'
+          );
+        }),
+
+    unsetItems:
+      [...unsetItems]
+        .filter(Boolean)
+        .sort(
+          (a, b) =>
+            a.localeCompare(
+              b,
+              'es'
+            )
+        )
+  };
+}
+
+
+function renderProductionDaySummary(
+  date,
+  el
+) {
+  const plan =
+    adminBuildProductionDayPlan(date);
+
+  const rows =
+    adminProductionRowsFromItems(
+      plan.plannedItems
+    );
+
+  const prep =
+    adminPrepTasksForDate(date);
+
+  const totalUnits =
+    rows.reduce(
+      (sum, row) =>
+        sum + Number(row.qty || 0),
+      0
+    );
+
+  const totalDough =
+    rows.reduce(
+      (sum, row) =>
+        sum + Number(row.doughTotal || 0),
+      0
+    );
+
+  const totalFilling =
+    rows.reduce(
+      (sum, row) =>
+        sum + Number(row.fillingTotal || 0),
+      0
+    );
+
+  const capacity =
+    Number(plan.dayConfig?.capacity);
+
+  const hasCapacity =
+    Number.isFinite(capacity) &&
+    capacity > 0;
+
+  const freeUnits =
+    hasCapacity
+      ? capacity - plan.occupiedUnits
+      : null;
+
+  const occupancyColor =
+    hasCapacity && freeUnits < 0
+      ? '#DC2626'
+      : (
+          hasCapacity &&
+          freeUnits <= Math.max(6, capacity * 0.15)
+        )
+        ? '#D97706'
+        : 'var(--green)';
+
+  const period =
+    adminProductionDateText(
+      date,
+      date
+    );
+
+  const dateObject =
+    adminDateOnly(date);
+
+  const weekday =
+    dateObject
+      ? dateObject.toLocaleDateString(
+          'en-GB',
+          { weekday: 'long' }
+        )
+      : '';
+
+  const mode =
+    plan.dayConfig?.mode;
+
+  const modeLabel =
+    mode === 'fry'
+      ? 'Frying'
+      : mode === 'off'
+        ? 'Closed'
+        : 'Oven';
+
+  const title =
+    [period, weekday, modeLabel]
+      .filter(Boolean)
+      .join(' · ');
+
+  const capacityMain =
+    hasCapacity
+      ? `${plan.occupiedUnits} / ${capacity} units`
+      : `${plan.occupiedUnits} units`;
+
+  const capacitySub =
+    hasCapacity
+      ? (
+          freeUnits >= 0
+            ? `Free: ${freeUnits}`
+            : `Over capacity: ${Math.abs(freeUnits)}`
+        )
+      : 'Capacity not set';
+
+  el.innerHTML = `
+    <div class="info-box" style="margin:0">
+
+      <!-- HEADER -->
+      <div
+        style="
+          display:flex;
+          justify-content:space-between;
+          gap:16px;
+          align-items:flex-start;
+          flex-wrap:wrap
+        "
+      >
+        <div>
+          <div
+            style="
+              font-weight:900;
+              font-size:16px;
+              line-height:1.3
+            "
+          >
+            🥐 Production · ${adminEscape(title)}
+          </div>
+
+          <div
+            style="
+              font-size:12px;
+              color:var(--text3);
+              margin-top:5px
+            "
+          >
+            Fixed plan: ${plan.fixedUnits}
+            · Confirmed: ${plan.confirmedUnits}
+          </div>
+        </div>
+
+        <div
+          style="
+            text-align:right;
+            min-width:140px
+          "
+        >
+          <div
+            style="
+              font-size:10px;
+              font-weight:900;
+              color:var(--text3);
+              text-transform:uppercase;
+              letter-spacing:.6px
+            "
+          >
+            Capacity
+          </div>
+
+          <div
+            style="
+              font-size:18px;
+              line-height:1.2;
+              font-weight:900;
+              color:${occupancyColor}
+            "
+          >
+            ${adminEscape(capacityMain)}
+          </div>
+
+          <div
+            style="
+              font-size:11px;
+              color:var(--text3);
+              margin-top:3px
+            "
+          >
+            ${adminEscape(capacitySub)}
+          </div>
+        </div>
+      </div>
+
+
+      ${
+        plan.fixedClientRows.length
+          ? `
+            <div style="margin-top:18px">
+
+              <div
+                style="
+                  font-size:10px;
+                  font-weight:900;
+                  color:var(--text3);
+                  text-transform:uppercase;
+                  letter-spacing:.6px;
+                  margin-bottom:3px
+                "
+              >
+                Fixed reservations
+              </div>
+
+              ${plan.fixedClientRows.map(row => `
+                <div
+                  style="
+                    display:flex;
+                    justify-content:space-between;
+                    gap:14px;
+                    padding:7px 0;
+                    border-top:1px solid var(--border);
+                    font-size:12px
+                  "
+                >
+                  <span>
+                    <b>${adminEscape(row.clientName)}</b>
+                    · ${
+                      row.rule.type === 'per_product'
+                        ? `${row.rule.qty} units × SKU`
+                        : `${row.rule.qty} units total`
+                    }
+                  </span>
+
+                  <span style="white-space:nowrap">
+                    Reserved ${row.planUnits}
+                    ${
+                      row.actualUnits
+                        ? ` · Ordered ${row.actualUnits}`
+                        : ''
+                    }
+                  </span>
+                </div>
+              `).join('')}
+
+            </div>
+          `
+          : ''
+      }
+
+
+      <!-- PREPARE TODAY -->
+      <div style="margin-top:20px">
+
+        <div
+          style="
+            font-size:10px;
+            font-weight:900;
+            color:var(--text3);
+            text-transform:uppercase;
+            letter-spacing:.6px;
+            margin-bottom:3px
+          "
+        >
+          Prepare today
+        </div>
+
+        ${
+          prep.tasks.length
+            ? prep.tasks.map(task => `
+                <div
+                  style="
+                    display:flex;
+                    justify-content:space-between;
+                    gap:14px;
+                    padding:7px 0;
+                    border-top:1px solid var(--border);
+                    font-size:12px
+                  "
+                >
+                  <span>
+                    ${adminEscape(task.label)}
+
+                    <span style="color:var(--text3)">
+                      · for ${
+                        adminEscape(
+                          adminProductionDateText(
+                            task.targetDate,
+                            task.targetDate
+                          )
+                        )
+                      }
+                    </span>
+                  </span>
+
+                  <b style="white-space:nowrap">
+                    ${adminProductionWeightText(task.grams)}
+                  </b>
+                </div>
+              `).join('')
+            : `
+              <div
+                style="
+                  padding:7px 0;
+                  font-size:12px;
+                  color:var(--text3)
+                "
+              >
+                Nothing to prepare today.
+              </div>
+            `
+        }
+      </div>
+
+
+      <!-- WARNINGS -->
+      ${
+        plan.dayConfig?.mode === 'off' &&
+        plan.occupiedUnits > 0
+          ? `
+            <div
+              style="
+                margin-top:10px;
+                padding:8px 10px;
+                border-radius:10px;
+                background:#FEE2E2;
+                color:#991B1B;
+                font-size:12px;
+                font-weight:800
+              "
+            >
+              ⚠️ Production or reservation exists on a closed day.
+            </div>
+          `
+          : ''
+      }
+
+      ${
+        plan.incompatibleProducts.length
+          ? `
+            <div
+              style="
+                margin-top:8px;
+                padding:8px 10px;
+                border-radius:10px;
+                background:#FEF3C7;
+                color:#92400E;
+                font-size:12px;
+                font-weight:800
+              "
+            >
+              ⚠️ Technology mismatch:
+              ${adminEscape(plan.incompatibleProducts.join(', '))}
+            </div>
+          `
+          : ''
+      }
+
+      ${
+        plan.pendingAssortment > 0
+          ? `
+            <div
+              style="
+                margin-top:8px;
+                padding:8px 10px;
+                border-radius:10px;
+                background:var(--card2);
+                font-size:12px
+              "
+            >
+              ⏳ Assortment pending:
+              <b>${plan.pendingAssortment} units</b>
+            </div>
+          `
+          : ''
+      }
+
+      ${
+        prep.unsetItems.length
+          ? `
+            <div
+              style="
+                margin-top:8px;
+                padding:8px 10px;
+                border-radius:10px;
+                background:#FEF3C7;
+                color:#92400E;
+                font-size:11px
+              "
+            >
+              ⚙️ Filling prep not configured:
+              ${
+                adminEscape(
+                  prep.unsetItems
+                    .slice(0, 4)
+                    .join(', ')
+                )
+              }
+              ${
+                prep.unsetItems.length > 4
+                  ? ` · +${prep.unsetItems.length - 4} more`
+                  : ''
+              }
+            </div>
+          `
+          : ''
+      }
+
+
+      <!-- TODAY PRODUCTION -->
+      <div style="margin-top:22px">
+
+        <div
+          style="
+            display:flex;
+            justify-content:space-between;
+            gap:14px;
+            align-items:flex-end;
+            flex-wrap:wrap;
+            margin-bottom:3px
+          "
+        >
+          <div
+            style="
+              font-size:10px;
+              font-weight:900;
+              color:var(--text3);
+              text-transform:uppercase;
+              letter-spacing:.6px
+            "
+          >
+            Today's production
+          </div>
+
+          <div
+            style="
+              font-size:11px;
+              color:var(--text3)
+            "
+          >
+            ${totalUnits} units
+            ${
+              totalDough > 0
+                ? ` · ${adminProductionWeightText(totalDough)} dough`
+                : ''
+            }
+            ${
+              totalFilling > 0
+                ? ` · ${adminProductionWeightText(totalFilling)} filling`
+                : ''
+            }
+          </div>
+        </div>
+
+        ${
+          rows.length
+            ? rows.map(row => `
+                <div
+                  style="
+                    display:flex;
+                    justify-content:space-between;
+                    gap:16px;
+                    padding:9px 0;
+                    border-top:1px solid var(--border)
+                  "
+                >
+                  <span style="font-size:13px">
+
+                    ${adminEscape(row.label)}
+
+                    ${
+                      Number.isFinite(row.doughPerPiece) ||
+                      Number.isFinite(row.fillingPerPiece)
+                        ? `
+                          <span
+                            style="
+                              display:block;
+                              font-size:11px;
+                              color:var(--text3);
+                              margin-top:2px
+                            "
+                          >
+                            ${
+                              Number.isFinite(row.doughPerPiece)
+                                ? `${row.doughPerPiece} g dough / unit`
+                                : ''
+                            }
+                            ${
+                              Number.isFinite(row.doughPerPiece) &&
+                              Number.isFinite(row.fillingPerPiece)
+                                ? ' · '
+                                : ''
+                            }
+                            ${
+                              Number.isFinite(row.fillingPerPiece)
+                                ? `${row.fillingPerPiece} g filling / unit`
+                                : ''
+                            }
+                          </span>
+                        `
+                        : ''
+                    }
+
+                  </span>
+
+                  <div
+                    style="
+                      text-align:right;
+                      white-space:nowrap
+                    "
+                  >
+                    <b>${row.qty} units</b>
+
+                    ${
+                      Number(row.doughTotal) > 0
+                        ? `
+                          <div
+                            style="
+                              font-size:11px;
+                              color:var(--text3);
+                              margin-top:2px
+                            "
+                          >
+                            ${adminProductionWeightText(row.doughTotal)}
+                            dough
+                          </div>
+                        `
+                        : ''
+                    }
+
+                    ${
+                      Number(row.fillingTotal) > 0
+                        ? `
+                          <div
+                            style="
+                              font-size:11px;
+                              color:var(--text3)
+                            "
+                          >
+                            ${adminProductionWeightText(row.fillingTotal)}
+                            filling
+                          </div>
+                        `
+                        : ''
+                    }
+                  </div>
+                </div>
+              `).join('')
+            : `
+              <div
+                style="
+                  padding:8px 0;
+                  font-size:12px;
+                  color:var(--text3)
+                "
+              >
+                No production planned.
+              </div>
+            `
+        }
+
+      </div>
+    </div>
+  `;
+}
+
 function renderProductionSummary(dateFrom, dateTo) {
   const el = document.getElementById('production-summary');
   if (!el) return;
@@ -1454,6 +3042,18 @@ function renderProductionSummary(dateFrom, dateTo) {
         </div>
       </div>
     `;
+    return;
+  }
+
+  if (
+    dateFrom &&
+    dateTo &&
+    dateFrom === dateTo
+  ) {
+    renderProductionDaySummary(
+      dateFrom,
+      el
+    );
     return;
   }
 
@@ -1735,6 +3335,792 @@ window.cancelInvoiceByNumber = async function() {
 };
 
 
+
+let _fixedPlanAutoCreateRunning = false;
+
+
+function adminFixedOrderWeekdayKey(date) {
+  return [
+    'sun',
+    'mon',
+    'tue',
+    'wed',
+    'thu',
+    'fri',
+    'sat'
+  ][date.getDay()];
+}
+
+
+function adminFixedOrderDayMode(date) {
+  const key =
+    adminFixedOrderWeekdayKey(date);
+
+  const stored =
+    window._settings?.productionWeek?.[key];
+
+  if (
+    stored &&
+    ['oven', 'fry', 'off'].includes(stored.mode)
+  ) {
+    return stored.mode;
+  }
+
+  // Compatibility with the current default production week.
+  if (key === 'sun') return 'off';
+  if (key === 'wed') return 'fry';
+
+  return 'oven';
+}
+
+
+function adminFixedOrderDateObject(value) {
+  const match =
+    String(value || '')
+      .match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+  if (!match) return null;
+
+  return new Date(
+    Number(match[1]),
+    Number(match[2]) - 1,
+    Number(match[3])
+  );
+}
+
+
+function adminFixedOrderGenerationDate(
+  deliveryDate
+) {
+  const delivery =
+    adminFixedOrderDateObject(
+      deliveryDate
+    );
+
+  if (!delivery) return '';
+
+  for (let offset = 1; offset <= 14; offset += 1) {
+    const candidate =
+      new Date(
+        delivery.getFullYear(),
+        delivery.getMonth(),
+        delivery.getDate() - offset
+      );
+
+    if (
+      adminFixedOrderDayMode(candidate) !== 'off'
+    ) {
+      return adminLocalDateISO(candidate);
+    }
+  }
+
+  return '';
+}
+
+
+function adminFixedOrderRule(
+  client,
+  deliveryDate
+) {
+  const date =
+    adminFixedOrderDateObject(
+      deliveryDate
+    );
+
+  if (!date) return null;
+
+  const key =
+    adminFixedOrderWeekdayKey(date);
+
+  const rule =
+    client?.fixedProductionPlan?.[key];
+
+  if (!rule) return null;
+
+  const qty =
+    Number(rule.qty || 0);
+
+  if (
+    !Number.isFinite(qty) ||
+    qty <= 0
+  ) {
+    return null;
+  }
+
+  // At the moment only a per-SKU stable assortment
+  // can create a deterministic real order.
+  if (
+    ![
+      'per_product',
+      'per_sku',
+      'stable_sku'
+    ].includes(String(rule.type || ''))
+  ) {
+    return null;
+  }
+
+  return {
+    type: rule.type,
+    qty
+  };
+}
+
+
+function adminFixedOrderExisting(
+  clientId,
+  deliveryDate
+) {
+  return (_orders || []).find(order =>
+    String(
+      order?.customer?.userId || ''
+    ) === String(clientId || '') &&
+
+    String(
+      order?.delivery?.date || ''
+    ) === String(deliveryDate || '')
+  ) || null;
+}
+
+
+function adminFixedOrderProductName(
+  product,
+  client
+) {
+  const lang =
+    ['es', 'ru', 'en'].includes(
+      String(client?.language || '')
+    )
+      ? String(client.language)
+      : 'es';
+
+  return String(
+    product?.[`name_${lang}`] ||
+    product?.name_es ||
+    product?.name ||
+    product?.name_en ||
+    product?.name_ru ||
+    product?.internalName ||
+    'Product'
+  ).trim();
+}
+
+
+function adminFixedOrderUnitPrice(
+  client,
+  product,
+  variant,
+  variantIndex
+) {
+  const packQty =
+    Math.max(
+      1,
+      Number(variant?.packQty || 1)
+    );
+
+  const customPackPrice =
+    typeof adminClientVariantCustomPrice === 'function'
+      ? adminClientVariantCustomPrice(
+          client?.customPrices || {},
+          product,
+          variant,
+          variantIndex
+        )
+      : null;
+
+  if (
+    Number.isFinite(customPackPrice) &&
+    customPackPrice > 0
+  ) {
+    return customPackPrice / packQty;
+  }
+
+  let baseUnitPrice =
+    Number(variant?.price || 0);
+
+  if (
+    !Number.isFinite(baseUnitPrice) ||
+    baseUnitPrice <= 0
+  ) {
+    const packPrice =
+      Number(variant?.packPrice || 0);
+
+    if (
+      Number.isFinite(packPrice) &&
+      packPrice > 0
+    ) {
+      baseUnitPrice =
+        packPrice / packQty;
+    }
+  }
+
+  if (
+    !Number.isFinite(baseUnitPrice) ||
+    baseUnitPrice < 0
+  ) {
+    baseUnitPrice =
+      Number(product?.price || 0);
+  }
+
+  const coeffRaw =
+    Number(client?.coeff);
+
+  const discountRaw =
+    Number(client?.discount);
+
+  const coeff =
+    Number.isFinite(coeffRaw) &&
+    coeffRaw > 0
+      ? coeffRaw
+      : 1;
+
+  const discount =
+    Number.isFinite(discountRaw) &&
+    discountRaw > 0
+      ? discountRaw
+      : 0;
+
+  return (
+    baseUnitPrice *
+    coeff *
+    (1 - discount / 100)
+  );
+}
+
+
+function adminFixedOrderItems(
+  client,
+  rule,
+  deliveryDate
+) {
+  const stable =
+    client?.stableAssortment || {};
+
+  const delivery =
+    adminFixedOrderDateObject(
+      deliveryDate
+    );
+
+  if (!delivery) return [];
+
+  const dayMode =
+    adminFixedOrderDayMode(delivery);
+
+  if (dayMode === 'off') {
+    return [];
+  }
+
+  const items = [];
+
+  (_catalog || []).forEach(product => {
+    if (
+      !product ||
+      product.available === false
+    ) {
+      return;
+    }
+
+    const productMode =
+      typeof adminProductProductionMode === 'function'
+        ? adminProductProductionMode(product)
+        : 'oven';
+
+    if (
+      productMode &&
+      productMode !== dayMode
+    ) {
+      return;
+    }
+
+    const variants =
+      getProductVariants(product);
+
+    variants.forEach(
+      (variant, variantIndex) => {
+        if (
+          !variant ||
+          variant.available === false
+        ) {
+          return;
+        }
+
+        const productId =
+          String(product.id || '');
+
+        const variantKey =
+          String(
+            variant.key || 'standard'
+          );
+
+        const stableKey =
+          clientVariantPriceStorageKey(
+            productId,
+            variantKey
+          );
+
+        if (
+          stable[stableKey] !== true
+        ) {
+          return;
+        }
+
+        const qty =
+          Number(rule.qty || 0);
+
+        if (
+          !Number.isFinite(qty) ||
+          qty <= 0
+        ) {
+          return;
+        }
+
+        const baseName =
+          adminFixedOrderProductName(
+            product,
+            client
+          );
+
+        const hasExplicitVariants =
+          Array.isArray(product.variants) &&
+          product.variants.length > 0;
+
+        const variantCaption =
+          [
+            variant.label || variantKey,
+            variant.weight || ''
+          ]
+            .filter(Boolean)
+            .join(' · ');
+
+        const price =
+          adminFixedOrderUnitPrice(
+            client,
+            product,
+            variant,
+            variantIndex
+          );
+
+        items.push({
+          id: productId,
+          productName: baseName,
+
+          name:
+            hasExplicitVariants &&
+            variantCaption
+              ? `${baseName} · ${variantCaption}`
+              : baseName,
+
+          category:
+            String(product.category || ''),
+
+          variantKey,
+
+          variantLabel:
+            String(
+              variant.label ||
+              variantKey
+            ),
+
+          weight:
+            String(
+              variant.weight || ''
+            ),
+
+          packQty:
+            Math.max(
+              1,
+              Number(
+                variant.packQty || 1
+              )
+            ),
+
+          minQty:
+            Math.max(
+              1,
+              Number(
+                variant.minQty ||
+                variant.packQty ||
+                1
+              )
+            ),
+
+          qty,
+          price
+        });
+      }
+    );
+  });
+
+  return items;
+}
+
+
+function adminFixedOrderDeliveryFee(client) {
+  const method =
+    client?.deliveryMethod === 'pickup'
+      ? 'pickup'
+      : 'delivery';
+
+  if (method === 'pickup') {
+    return 0;
+  }
+
+  const personal =
+    Number(client?.deliveryFee);
+
+  if (
+    Number.isFinite(personal) &&
+    personal >= 0
+  ) {
+    return personal;
+  }
+
+  const fallback =
+    Number(
+      window._settings
+        ?.defaultDeliveryFee
+    );
+
+  return (
+    Number.isFinite(fallback) &&
+    fallback >= 0
+  )
+    ? fallback
+    : 0;
+}
+
+
+function adminFixedOrderDocumentId(
+  clientId,
+  deliveryDate
+) {
+  const safeClient =
+    String(clientId || '')
+      .replace(
+        /[^a-zA-Z0-9_-]/g,
+        '_'
+      );
+
+  const safeDate =
+    String(deliveryDate || '')
+      .replace(/-/g, '');
+
+  return (
+    `fixed_${safeClient}_${safeDate}`
+  );
+}
+
+
+function adminBuildFixedOrder(
+  client,
+  deliveryDate,
+  rule
+) {
+  const items =
+    adminFixedOrderItems(
+      client,
+      rule,
+      deliveryDate
+    );
+
+  if (!items.length) {
+    return null;
+  }
+
+  const subtotal =
+    items.reduce(
+      (sum, item) =>
+        sum +
+        Number(item.price || 0) *
+        Number(item.qty || 0),
+      0
+    );
+
+  const deliveryMethod =
+    client?.deliveryMethod === 'pickup'
+      ? 'pickup'
+      : 'delivery';
+
+  const deliveryFee =
+    adminFixedOrderDeliveryFee(
+      client
+    );
+
+  const clientId =
+    String(client.id || '');
+
+  const orderId =
+    adminFixedOrderDocumentId(
+      clientId,
+      deliveryDate
+    );
+
+  const fixedPlanKey =
+    `${clientId}::${deliveryDate}`;
+
+  return {
+    id: orderId,
+
+    date:
+      new Date().toISOString(),
+
+    customer: {
+      name:
+        String(
+          client.name ||
+          client.login ||
+          'Client'
+        ),
+
+      phone:
+        String(
+          client.phone || ''
+        ),
+
+      contactPerson:
+        String(
+          client.contactPerson || ''
+        ),
+
+      contactPhone:
+        String(
+          client.contactPhone || ''
+        ),
+
+      address:
+        String(
+          client.address || ''
+        ),
+
+      userId: clientId,
+
+      userName:
+        String(
+          client.name ||
+          client.login ||
+          ''
+        )
+    },
+
+    delivery: {
+      method:
+        deliveryMethod,
+
+      date:
+        deliveryDate,
+
+      time: '',
+
+      address:
+        deliveryMethod === 'delivery'
+          ? String(
+              client.address || ''
+            )
+          : '',
+
+      fee:
+        deliveryFee,
+
+      notes:
+        deliveryMethod === 'delivery'
+          ? String(
+              client.deliveryNotes || ''
+            )
+          : ''
+    },
+
+    subtotal,
+    deliveryFee,
+
+    payment:
+      String(
+        client.preferredPayment ||
+        'cash'
+      ),
+
+    invoiceDetails:
+      client.preferredPayment === 'invoice'
+        ? String(
+            client.invoiceDetails || ''
+          )
+        : null,
+
+    items,
+
+    total:
+      subtotal + deliveryFee,
+
+    status: 'new',
+
+    confirmationStatus: '',
+    confirmationSentAt: '',
+
+    lang:
+      String(
+        client.language || 'es'
+      ),
+
+    source: 'fixed_plan',
+    autoGenerated: true,
+    fixedPlanKey,
+    fixedPlanGeneratedAt:
+      new Date().toISOString(),
+
+    fixedPlanRule: {
+      type:
+        String(rule.type || ''),
+      qty:
+        Number(rule.qty || 0)
+    }
+  };
+}
+
+
+async function adminEnsureFixedPlanOrders() {
+  if (_fixedPlanAutoCreateRunning) {
+    return 0;
+  }
+
+  if (
+    !Array.isArray(_clients) ||
+    !_clients.length ||
+    !Array.isArray(_catalog) ||
+    !_catalog.length
+  ) {
+    return 0;
+  }
+
+  _fixedPlanAutoCreateRunning = true;
+
+  let createdCount = 0;
+  let attemptedCreate = false;
+
+  try {
+    const now =
+      new Date();
+
+    const today =
+      adminLocalDateISO(now);
+
+    // Enough to cover the next weekly fixed delivery,
+    // including weekends and closed days.
+    for (
+      let offset = 0;
+      offset <= 8;
+      offset += 1
+    ) {
+      const target =
+        new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate() + offset
+        );
+
+      const deliveryDate =
+        adminLocalDateISO(target);
+
+      for (
+        const client of _clients
+      ) {
+        if (!client?.id) {
+          continue;
+        }
+
+        const rule =
+          adminFixedOrderRule(
+            client,
+            deliveryDate
+          );
+
+        if (!rule) {
+          continue;
+        }
+
+        const generationDate =
+          adminFixedOrderGenerationDate(
+            deliveryDate
+          );
+
+        if (
+          !generationDate ||
+          generationDate > today
+        ) {
+          continue;
+        }
+
+        // Conservative rollout rule:
+        // any existing order for this client/date
+        // already represents that delivery.
+        if (
+          adminFixedOrderExisting(
+            client.id,
+            deliveryDate
+          )
+        ) {
+          continue;
+        }
+
+        const order =
+          adminBuildFixedOrder(
+            client,
+            deliveryDate,
+            rule
+          );
+
+        if (!order) {
+          console.warn(
+            'Fixed plan order skipped: no stable assortment',
+            client.name ||
+            client.login ||
+            client.id,
+            deliveryDate
+          );
+
+          continue;
+        }
+
+        attemptedCreate = true;
+
+        const result =
+          await fbCreateOrderIfAbsent(
+            order.id,
+            order
+          );
+
+        if (result?.created) {
+          createdCount += 1;
+        }
+      }
+    }
+
+    if (attemptedCreate) {
+      _orders =
+        await fbGetOrders();
+    }
+
+    if (createdCount > 0) {
+      showToast(
+        createdCount === 1
+          ? 'Fixed-plan order created'
+          : `${createdCount} fixed-plan orders created`
+      );
+    }
+
+    return createdCount;
+
+  } catch (error) {
+    console.error(
+      'Fixed-plan order generation error:',
+      error
+    );
+
+    return 0;
+
+  } finally {
+    _fixedPlanAutoCreateRunning = false;
+  }
+}
+
+
 async function renderOrders(refresh = true) {
   const filter=document.getElementById('order-filter').value;
   const dateFrom=document.getElementById('order-date-from')?.value || '';
@@ -1749,6 +4135,8 @@ async function renderOrders(refresh = true) {
     }
     hideLoading();
   }
+
+  await adminEnsureFixedPlanOrders();
 
   renderProductionSummary(dateFrom, dateTo);
 
@@ -1811,7 +4199,7 @@ async function renderOrders(refresh = true) {
     return`<div class="order-card">
       <div class="order-header" data-locked="${waPending?'1':'0'}" onclick="if(this.dataset.locked!=='1')this.nextElementSibling.classList.toggle('open')">
         <div>
-          <div style="font-size:11px;color:var(--text3);font-weight:700">#${String(o.id).slice(-6)} · ${d}</div>
+          <div style="font-size:11px;color:var(--text3);font-weight:700">#${String(o.id).slice(-6)} · ${d}${o.source === 'fixed_plan' ? ' · 🔁 Fixed plan' : ''}</div>
           <div style="font-size:15px;font-weight:700;margin-top:2px">${adminEscape(adminOrderClientName(o))}</div>
           <div style="font-size:12px;color:var(--text2);margin-top:2px">${customer.phone?adminEscape(customer.phone):''}${delD?' · 📅 '+adminEscape(delD):''}</div>
         </div>
@@ -1834,11 +4222,19 @@ async function renderOrders(refresh = true) {
                   <input
                     id="admin-confirmedqty-${adminEscape(o.id)}-${itemIndex}"
                     type="number"
-                    min="1"
+                    min="0"
                     step="1"
                     value="${confirmedQty}"
                     style="width:72px;padding:5px 7px;font-size:12px"
                   >
+                  <button
+                    type="button"
+                    class="btn btn-danger btn-sm"
+                    style="padding:5px 8px"
+                    onclick="adminRemoveOrderItem('${o.id}',${itemIndex})"
+                  >
+                    Remove
+                  </button>
                   <span>ordered: ${originalQty}</span>
                 </div>
               ` : ''}
@@ -2689,11 +5085,31 @@ window.markOrderWhatsAppSent = async id => {
 };
 
 
+window.adminRemoveOrderItem = (id, index) => {
+  const input = document.getElementById(
+    `admin-confirmedqty-${id}-${index}`
+  );
+
+  if (!input) return;
+
+  input.value = '0';
+
+  const row = input.closest('li');
+
+  if (row) {
+    row.style.opacity = '.45';
+    row.style.textDecoration = 'line-through';
+  }
+};
+
+
 function adminCollectConfirmedItems(id, order) {
   if (!order) return [];
 
-  return (order.items || []).map((item, index) => {
-    const input = document.getElementById(`admin-confirmedqty-${id}-${index}`);
+  const items = (order.items || []).map((item, index) => {
+    const input = document.getElementById(
+      `admin-confirmedqty-${id}-${index}`
+    );
 
     const originalQty = Number(
       item.originalQty ?? item.qty ?? 0
@@ -2710,19 +5126,30 @@ function adminCollectConfirmedItems(id, order) {
 
     if (
       !Number.isFinite(confirmedQty) ||
-      confirmedQty <= 0 ||
+      confirmedQty < 0 ||
       !Number.isInteger(confirmedQty)
     ) {
-      throw new Error(`Invalid quantity for ${item.name || 'product'}`);
+      throw new Error(
+        `Invalid quantity for ${item.name || 'product'}`
+      );
     }
 
     return {
       ...item,
       originalQty,
       qty: confirmedQty,
-      adminQtyOverride: confirmedQty !== originalQty
+      adminQtyOverride:
+        confirmedQty !== originalQty
     };
-  });
+  }).filter(item => Number(item.qty) > 0);
+
+  if (!items.length) {
+    throw new Error(
+      'Order cannot be confirmed without items'
+    );
+  }
+
+  return items;
 }
 
 function adminConfirmedOrderTotals(order, items) {
@@ -3318,6 +5745,44 @@ function readProductVariantEditor() {
   return variants;
 }
 
+function adminProductProductionMode(product) {
+  return product?.productionMode === 'fry'
+    ? 'fry'
+    : 'oven';
+}
+
+function adminProductDoughPrepMode(product) {
+  const value = String(product?.doughPrepMode || '').trim();
+
+  if (
+    ['previous_workday', 'same_day_morning', 'none'].includes(value)
+  ) {
+    return value;
+  }
+
+  return adminProductProductionMode(product) === 'fry'
+    ? 'same_day_morning'
+    : 'previous_workday';
+}
+
+function adminProductFillingPrepMode(product) {
+  const value = String(
+    product?.fillingPrepMode || ''
+  ).trim();
+
+  if (
+    [
+      'previous_workday',
+      'same_day_morning',
+      'none'
+    ].includes(value)
+  ) {
+    return value;
+  }
+
+  return 'unset';
+}
+
 let pmPhotoData=null;
 
 window.openProductModal = id => {
@@ -3345,6 +5810,15 @@ window.openProductModal = id => {
 
     document.getElementById('pm-unit').value=p.unit||'sht';
     refreshProductCategorySelect(adminNormalizeCatKey(p.category));
+
+    document.getElementById('pm-production-mode').value=
+      adminProductProductionMode(p);
+
+    document.getElementById('pm-dough-prep-mode').value=
+      adminProductDoughPrepMode(p);
+
+    document.getElementById('pm-filling-prep-mode').value=
+      adminProductFillingPrepMode(p);
 
     renderProductVariantEditor(
       productVariantsForEditor(p)
@@ -3381,6 +5855,11 @@ window.openProductModal = id => {
 
     document.getElementById('pm-unit').value='sht';
     refreshProductCategorySelect(defaultAdminCategoryKey());
+
+    document.getElementById('pm-production-mode').value='oven';
+    document.getElementById('pm-dough-prep-mode').value='previous_workday';
+    document.getElementById('pm-filling-prep-mode').value='unset';
+
     document.getElementById('pm-avail').checked=true;
     document.getElementById('pm-is-new').checked=false;
 
@@ -3454,6 +5933,18 @@ window.saveProduct = async () => {
 
     unit:document.getElementById('pm-unit').value,
     category:document.getElementById('pm-cat').value||'other',
+
+    productionMode:
+      document.getElementById('pm-production-mode').value||'oven',
+
+    doughPrepMode:
+      document.getElementById('pm-dough-prep-mode').value||
+      'previous_workday',
+
+    fillingPrepMode:
+      document.getElementById('pm-filling-prep-mode').value||
+      'unset',
+
     available:document.getElementById('pm-avail').checked,
     isNew:document.getElementById('pm-is-new').checked,
     photo:pmPhotoData||null,
@@ -3662,7 +6153,10 @@ function adminClientCustomPriceCount(client) {
   return count;
 }
 
-function renderClientCustomPrices(customPrices = {}) {
+function renderClientCustomPrices(
+  customPrices = {},
+  stableAssortment = {}
+) {
   const el = document.getElementById('cm-custom-prices');
   if (!el) return;
 
@@ -3691,6 +6185,15 @@ function renderClientCustomPrices(customPrices = {}) {
 
       const value = savedPrice === null ? '' : savedPrice;
 
+      const stableKey =
+        clientVariantPriceStorageKey(
+          productId,
+          variantKey
+        );
+
+      const stableSelected =
+        stableAssortment?.[stableKey] === true;
+
       return `
         <div class="client-variant-price-row">
           <div class="client-variant-price-info">
@@ -3703,18 +6206,40 @@ function renderClientCustomPrices(customPrices = {}) {
             </div>
           </div>
 
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            data-client-price-product="${adminAttrEscape(productId)}"
-            data-client-price-variant="${adminAttrEscape(variantKey)}"
-            data-client-price-default="${index === 0 ? '1' : '0'}"
-            value="${value}"
-            placeholder="${basePackPrice
-              ? basePackPrice.toFixed(2)
-              : '0.00'}"
-          >
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              style="min-width:110px;flex:1"
+              data-client-price-product="${adminAttrEscape(productId)}"
+              data-client-price-variant="${adminAttrEscape(variantKey)}"
+              data-client-price-default="${index === 0 ? '1' : '0'}"
+              value="${value}"
+              placeholder="${basePackPrice
+                ? basePackPrice.toFixed(2)
+                : '0.00'}"
+            >
+
+            <label
+              style="
+                display:flex;
+                align-items:center;
+                gap:6px;
+                white-space:nowrap;
+                font-size:12px;
+                font-weight:700
+              "
+            >
+              <input
+                type="checkbox"
+                data-client-stable-product="${adminAttrEscape(productId)}"
+                data-client-stable-variant="${adminAttrEscape(variantKey)}"
+                ${stableSelected ? 'checked' : ''}
+              >
+              Stable assortment
+            </label>
+          </div>
         </div>
       `;
     }).join('');
@@ -3773,6 +6298,39 @@ function collectClientCustomPrices() {
   });
 
   return prices;
+}
+
+
+
+function collectClientStableAssortment() {
+  const assortment = {};
+
+  document.querySelectorAll(
+    '[data-client-stable-product][data-client-stable-variant]'
+  ).forEach(input => {
+    if (!input.checked) return;
+
+    const productId = String(
+      input.dataset.clientStableProduct || ''
+    ).trim();
+
+    const variantKey = String(
+      input.dataset.clientStableVariant ||
+      'standard'
+    ).trim();
+
+    if (!productId) return;
+
+    const key =
+      clientVariantPriceStorageKey(
+        productId,
+        variantKey
+      );
+
+    assortment[key] = true;
+  });
+
+  return assortment;
 }
 
 
@@ -4188,17 +6746,115 @@ window.openClientModal = async id => {
     document.getElementById('cm-lang').value=c.language||'es';
     document.getElementById('cm-notes').value=c.notes||'';
     document.getElementById('cm-coeff').value=c.coeff||1;document.getElementById('cm-group').value=c.group||'retail';
-    renderClientCustomPrices(c.customPrices || {});
+    renderClientCustomPrices(
+      c.customPrices || {},
+      c.stableAssortment || {}
+    );
+
+    renderClientFixedProductionPlan(
+      c.fixedProductionPlan || {}
+    );
   } else {
     ['cm-login','cm-pass','cm-name','cm-phone','cm-contact-person','cm-contact-phone','cm-address','cm-delivery-fee','cm-delivery-notes','cm-invoice','cm-invoice-sheet-url','cm-invoice-data-sheet','cm-invoice-prefix','cm-invoice-folder-url','cm-notes'].forEach(i=>document.getElementById(i).value='');
     document.getElementById('cm-delivery-method').value='delivery';
     document.getElementById('cm-payment').value='';
     document.getElementById('cm-lang').value='es';
     document.getElementById('cm-disc').value='0';document.getElementById('cm-coeff').value='1';document.getElementById('cm-group').value='retail';
-    renderClientCustomPrices({});
+    renderClientCustomPrices({}, {});
+    renderClientFixedProductionPlan({});
   }
   document.getElementById('client-modal').classList.add('open');
 };
+
+
+function renderClientFixedProductionPlan(plan = {}) {
+  const el = document.getElementById('cm-fixed-production-plan');
+  if (!el) return;
+
+  el.innerHTML = ADMIN_PRODUCTION_WEEKDAYS.map(day => {
+    const saved = plan?.[day.key] || {};
+
+    const type =
+      ['per_product', 'total'].includes(saved.type)
+        ? saved.type
+        : 'none';
+
+    const qty = Number(saved.qty);
+
+    return `
+      <div
+        data-client-plan-day="${day.key}"
+        style="
+          display:grid;
+          grid-template-columns:minmax(82px,.8fr) minmax(150px,1.4fr) minmax(70px,.6fr);
+          gap:8px;
+          align-items:center
+        "
+      >
+        <b style="font-size:12px">${day.label}</b>
+
+        <select data-client-plan-field="type">
+          <option value="none" ${type === 'none' ? 'selected' : ''}>
+            Sin reserva
+          </option>
+
+          <option value="per_product" ${type === 'per_product' ? 'selected' : ''}>
+            Por SKU del surtido estable
+          </option>
+
+          <option value="total" ${type === 'total' ? 'selected' : ''}>
+            Total uds
+          </option>
+        </select>
+
+        <input
+          type="number"
+          min="1"
+          step="1"
+          data-client-plan-field="qty"
+          value="${Number.isFinite(qty) && qty > 0 ? Math.round(qty) : ''}"
+          placeholder="uds"
+        >
+      </div>
+    `;
+  }).join('');
+}
+
+function collectClientFixedProductionPlan() {
+  const plan = {};
+
+  ADMIN_PRODUCTION_WEEKDAYS.forEach(day => {
+    const row = document.querySelector(
+      `[data-client-plan-day="${day.key}"]`
+    );
+
+    if (!row) return;
+
+    const type =
+      row.querySelector(
+        '[data-client-plan-field="type"]'
+      )?.value || 'none';
+
+    const qty = Number(
+      row.querySelector(
+        '[data-client-plan-field="qty"]'
+      )?.value
+    );
+
+    if (
+      ['per_product', 'total'].includes(type) &&
+      Number.isFinite(qty) &&
+      qty > 0
+    ) {
+      plan[day.key] = {
+        type,
+        qty: Math.round(qty)
+      };
+    }
+  });
+
+  return plan;
+}
 
 window.saveClient = async () => {
   const login=document.getElementById('cm-login').value.trim();
@@ -4228,6 +6884,8 @@ window.saveClient = async () => {
     discount:parseFloat(document.getElementById('cm-disc').value)||0,
     coeff:parseFloat(document.getElementById('cm-coeff').value)||1,
     group:document.getElementById('cm-group').value,
+    fixedProductionPlan:collectClientFixedProductionPlan(),
+    stableAssortment:collectClientStableAssortment(),
     customPrices:collectClientCustomPrices()};
   const editId=document.getElementById('cm-id').value;
   try{
@@ -4571,6 +7229,146 @@ function refreshProductCategorySelect(selectedKey = '') {
 }
 
 // ─────────────────────────────────────────────────────────────────
+const ADMIN_PRODUCTION_WEEKDAYS = [
+  { key: 'mon', label: 'Lunes' },
+  { key: 'tue', label: 'Martes' },
+  { key: 'wed', label: 'Miércoles' },
+  { key: 'thu', label: 'Jueves' },
+  { key: 'fri', label: 'Viernes' },
+  { key: 'sat', label: 'Sábado' },
+  { key: 'sun', label: 'Domingo' }
+];
+
+const ADMIN_DEFAULT_PRODUCTION_WEEK = {
+  mon: { mode: 'oven', capacity: null, temporary: false },
+  tue: { mode: 'oven', capacity: null, temporary: false },
+  wed: { mode: 'fry',  capacity: null, temporary: false },
+  thu: { mode: 'oven', capacity: null, temporary: false },
+  fri: { mode: 'oven', capacity: null, temporary: false },
+  sat: { mode: 'oven', capacity: null, temporary: true },
+  sun: { mode: 'off',  capacity: null, temporary: false }
+};
+
+function adminProductionWeekSettings() {
+  const saved = getSettings()?.productionWeek || {};
+  const result = {};
+
+  ADMIN_PRODUCTION_WEEKDAYS.forEach(day => {
+    const defaults = ADMIN_DEFAULT_PRODUCTION_WEEK[day.key];
+    const current = saved[day.key] || {};
+    const capacity = Number(current.capacity);
+
+    result[day.key] = {
+      mode: ['oven', 'fry', 'off'].includes(current.mode)
+        ? current.mode
+        : defaults.mode,
+
+      capacity:
+        Number.isFinite(capacity) && capacity > 0
+          ? Math.round(capacity)
+          : null,
+
+      temporary:
+        current.temporary === true ||
+        (
+          current.temporary === undefined &&
+          defaults.temporary === true
+        )
+    };
+  });
+
+  return result;
+}
+
+function renderProductionWeekEditor() {
+  const el = document.getElementById('production-week-editor');
+  if (!el) return;
+
+  const week = adminProductionWeekSettings();
+
+  el.innerHTML = ADMIN_PRODUCTION_WEEKDAYS.map(day => {
+    const value = week[day.key];
+
+    return `
+      <div
+        data-production-weekday="${day.key}"
+        style="
+          display:grid;
+          grid-template-columns:minmax(90px,1fr) minmax(120px,1.2fr) minmax(90px,.8fr);
+          gap:8px;
+          align-items:center;
+          padding:9px 10px;
+          border:1px solid var(--border);
+          border-radius:12px;
+          background:var(--card2)
+        "
+      >
+        <div>
+          <b style="font-size:13px">${day.label}</b>
+        </div>
+
+        <select data-production-week-field="mode">
+          <option value="oven" ${value.mode === 'oven' ? 'selected' : ''}>Horno</option>
+          <option value="fry" ${value.mode === 'fry' ? 'selected' : ''}>Fritura</option>
+          <option value="off" ${value.mode === 'off' ? 'selected' : ''}>Cerrado</option>
+        </select>
+
+        <input
+          type="number"
+          min="1"
+          step="1"
+          data-production-week-field="capacity"
+          value="${value.capacity ?? ''}"
+          placeholder="cap. uds"
+        >
+
+      </div>
+    `;
+  }).join('');
+}
+
+function readProductionWeekEditor() {
+  const week = {};
+
+  ADMIN_PRODUCTION_WEEKDAYS.forEach(day => {
+    const row = document.querySelector(
+      `[data-production-weekday="${day.key}"]`
+    );
+
+    if (!row) {
+      week[day.key] = {
+        ...ADMIN_DEFAULT_PRODUCTION_WEEK[day.key]
+      };
+      return;
+    }
+
+    const mode =
+      row.querySelector(
+        '[data-production-week-field="mode"]'
+      )?.value ||
+      ADMIN_DEFAULT_PRODUCTION_WEEK[day.key].mode;
+
+    const capacityRaw = Number(
+      row.querySelector(
+        '[data-production-week-field="capacity"]'
+      )?.value
+    );
+
+    week[day.key] = {
+      mode,
+
+      capacity:
+        Number.isFinite(capacityRaw) && capacityRaw > 0
+          ? Math.round(capacityRaw)
+          : null,
+
+      temporary: false
+    };
+  });
+
+  return week;
+}
+
 function loadSettingsForm(){
   const s=getSettings();
   document.getElementById('s-name').value=s.shopName||'';
@@ -4592,6 +7390,7 @@ function loadSettingsForm(){
   document.getElementById('s-facebook-url').value=s.facebookUrl||'';
   document.getElementById('s-business-hours').value=s.businessHours||'';
   document.getElementById('s-default-delivery-fee').value=s.defaultDeliveryFee??'';
+  renderProductionWeekEditor();
   document.getElementById('s-adminpass').value='';
   renderProductCategoryEditor(
     getProductCategories({ includeUnavailable: true })
@@ -4656,6 +7455,7 @@ window.saveSettingsForm = async () => {
   s.facebookUrl=document.getElementById('s-facebook-url').value.trim();
   s.businessHours=document.getElementById('s-business-hours').value.trim();
   s.defaultDeliveryFee=parseAdminNumber(document.getElementById('s-default-delivery-fee').value)||0;
+  s.productionWeek=readProductionWeekEditor();
 
   const newPass=document.getElementById('s-adminpass').value.trim();
   if(newPass)s.adminPassword=newPass;

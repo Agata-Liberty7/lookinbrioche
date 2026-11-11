@@ -3,7 +3,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/fireba
 import {
   getFirestore, doc, getDoc, setDoc, collection,
   getDocs, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy,
-  where, limit, increment, serverTimestamp
+  where, limit, increment, serverTimestamp, runTransaction
 } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -86,6 +86,37 @@ export async function fbAddOrder(order) {
   const ref = await addDoc(collection(db, 'orders'), data);
   return ref.id;
 }
+
+export async function fbCreateOrderIfAbsent(id, order) {
+  const orderId = String(id || '').trim();
+
+  if (!orderId) {
+    throw new Error('Order id required');
+  }
+
+  const ref = doc(db, 'orders', orderId);
+
+  return await runTransaction(db, async transaction => {
+    const snap = await transaction.get(ref);
+
+    if (snap.exists()) {
+      return {
+        id: orderId,
+        created: false
+      };
+    }
+
+    const { id: ignoredId, ...data } = order || {};
+
+    transaction.set(ref, data);
+
+    return {
+      id: orderId,
+      created: true
+    };
+  });
+}
+
 export async function fbUpdateOrder(id, data) {
   await updateDoc(doc(db, 'orders', String(id)), data);
 }
