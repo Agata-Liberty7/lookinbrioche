@@ -2766,6 +2766,20 @@ function renderProductionDaySummary(
       0
     );
 
+  const totalDough =
+    rows.reduce(
+      (sum, row) =>
+        sum + Number(row.doughTotal || 0),
+      0
+    );
+
+  const totalFilling =
+    rows.reduce(
+      (sum, row) =>
+        sum + Number(row.fillingTotal || 0),
+      0
+    );
+
   const capacity =
     Number(plan.dayConfig?.capacity);
 
@@ -2810,7 +2824,7 @@ function renderProductionDaySummary(
       .join(' · ');
 
   const headerMeta = [
-    `${plan.confirmedUnits} confirmed`,
+    `${plan.confirmedUnits} units confirmed`,
     plan.fixedUnits > 0
       ? `${plan.fixedUnits} fixed`
       : '',
@@ -2908,10 +2922,14 @@ function renderProductionDaySummary(
                   </span>
 
                   <span style="white-space:nowrap">
-                    ${row.planUnits} reserved
+                    ${
+                      row.planUnits > 0
+                        ? `${row.planUnits} reserved`
+                        : ''
+                    }
                     ${
                       row.actualUnits
-                        ? ` · ${row.actualUnits} ordered`
+                        ? `${row.planUnits > 0 ? ' · ' : ''}${row.actualUnits} ordered`
                         : ''
                     }
                   </span>
@@ -2938,6 +2956,16 @@ function renderProductionDaySummary(
 
           <div class="production-v3-section-total">
             ${totalUnits} units
+            ${
+              totalDough > 0
+                ? ` · ${adminProductionWeightText(totalDough)} dough`
+                : ''
+            }
+            ${
+              totalFilling > 0
+                ? ` · ${adminProductionWeightText(totalFilling)} filling`
+                : ''
+            }
           </div>
 
         </div>
