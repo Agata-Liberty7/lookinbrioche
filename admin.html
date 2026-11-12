@@ -9,6 +9,30 @@
 <meta name="apple-mobile-web-app-title" content="Look-in Admin">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>Look-in Brioche — Admin</title>
+<script>
+(() => {
+  try {
+    const cached =
+      JSON.parse(localStorage.getItem('settings_cache') || 'null') || {};
+
+    const mode =
+      cached.darkMode ||
+      cached.theme ||
+      'system';
+
+    const dark =
+      mode === 'dark' ||
+      (
+        mode === 'system' &&
+        window.matchMedia('(prefers-color-scheme: dark)').matches
+      );
+
+    document.documentElement.classList.toggle('dark', dark);
+  } catch (error) {
+    // Keep the default light theme if cached settings cannot be read.
+  }
+})();
+</script>
 <link rel="stylesheet" href="style.css">
 <style>
   :root{--brand:#2E6B3E;--brand-dk:#1e5c30;--brand-lt:#E5F2E9;--brand-mid:#4C9E63}
