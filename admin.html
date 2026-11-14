@@ -6339,6 +6339,8 @@ function emptyProductVariantDraft(index = 0) {
     weight: '',
     doughWeightG: '',
     fillingWeightG: '',
+    productionSpareQty: '',
+    productionSpareBaseQty: '',
     packQty: 1,
     minQty: 1,
     packPrice: '',
@@ -6369,6 +6371,8 @@ function productVariantsForEditor(product) {
       weight: String(variant.weight || ''),
       doughWeightG: String(variant.doughWeightG || ''),
       fillingWeightG: String(variant.fillingWeightG || ''),
+      productionSpareQty: String(variant.productionSpareQty || ''),
+      productionSpareBaseQty: String(variant.productionSpareBaseQty || ''),
       packQty,
       minQty: Math.max(1, Number(variant.minQty || packQty)),
       packPrice,
@@ -6392,6 +6396,8 @@ function productVariantDrafts() {
       weight: field('weight')?.value || '',
       doughWeightG: field('doughWeightG')?.value || '',
       fillingWeightG: field('fillingWeightG')?.value || '',
+      productionSpareQty: field('productionSpareQty')?.value || '',
+      productionSpareBaseQty: field('productionSpareBaseQty')?.value || '',
       packQty: field('packQty')?.value || '',
       minQty: field('minQty')?.value || '',
       packPrice: field('packPrice')?.value || '',
@@ -6535,6 +6541,30 @@ function renderProductVariantEditor(variants) {
         </div>
 
         <div class="form-group">
+          <label>Tech spare qty</label>
+          <input
+            type="number"
+            data-variant-field="productionSpareQty"
+            value="${variantEditorEscape(variant.productionSpareQty)}"
+            min="0"
+            step="1"
+            placeholder="0"
+          >
+        </div>
+
+        <div class="form-group">
+          <label>Tech spare per qty</label>
+          <input
+            type="number"
+            data-variant-field="productionSpareBaseQty"
+            value="${variantEditorEscape(variant.productionSpareBaseQty)}"
+            min="1"
+            step="1"
+            placeholder="24"
+          >
+        </div>
+
+        <div class="form-group">
           <label>Pack qty *</label>
           <input
             type="number"
@@ -6664,6 +6694,8 @@ function readProductVariantEditor() {
 
     const doughWeightG = parseAdminNumber(draft.doughWeightG);
     const fillingWeightG = parseAdminNumber(draft.fillingWeightG);
+    const productionSpareQty = parseAdminNumber(draft.productionSpareQty);
+    const productionSpareBaseQty = parseAdminNumber(draft.productionSpareBaseQty);
     const packQty = parseAdminNumber(draft.packQty);
     const minQty = parseAdminNumber(draft.minQty);
     const packPrice = parseAdminNumber(draft.packPrice);
@@ -6690,6 +6722,34 @@ function readProductVariantEditor() {
 
     if (fillingWeightG !== null && fillingWeightG < 0) {
       showToast(`Variant ${rowNumber}: Filling weight cannot be negative`);
+      return null;
+    }
+
+    if (
+      productionSpareQty !== null &&
+      (
+        productionSpareQty < 0 ||
+        !Number.isInteger(productionSpareQty)
+      )
+    ) {
+      showToast(
+        `Variant ${rowNumber}: Tech spare qty must be a whole number`
+      );
+      return null;
+    }
+
+    if (
+      productionSpareQty !== null &&
+      productionSpareQty > 0 &&
+      (
+        productionSpareBaseQty === null ||
+        productionSpareBaseQty <= 0 ||
+        !Number.isInteger(productionSpareBaseQty)
+      )
+    ) {
+      showToast(
+        `Variant ${rowNumber}: set Tech spare per qty`
+      );
       return null;
     }
 
@@ -6726,6 +6786,11 @@ function readProductVariantEditor() {
       weight,
       doughWeightG: doughWeightG ?? 0,
       fillingWeightG: fillingWeightG ?? 0,
+      productionSpareQty: productionSpareQty ?? 0,
+      productionSpareBaseQty:
+        productionSpareQty && productionSpareQty > 0
+          ? productionSpareBaseQty
+          : 0,
       packQty,
       minQty,
       packPrice,
