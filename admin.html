@@ -2469,7 +2469,9 @@ function adminBuildProductionDayPlan(date) {
 
   const confirmedOrders =
     (_orders || []).filter(order =>
-      order?.status === 'confirmed' &&
+      ['confirmed', 'done'].includes(
+        String(order?.status || '')
+      ) &&
       adminOrderMatchesDate(
         order,
         date,
