@@ -646,6 +646,20 @@
     }
   }
 
+
+  #planning-week-grid[data-planning-mode="production"] .planning-dough-row,
+  #planning-week-grid[data-planning-mode="production"] .planning-dough-make,
+  #planning-week-grid[data-planning-mode="production"] .planning-target-date {
+    display:none;
+  }
+
+  #planning-mode-production.active,
+  #planning-mode-prep.active,
+  #planning-mode-stock.active {
+    font-weight:900;
+    box-shadow:inset 0 -2px 0 currentColor;
+  }
+
 </style>
   <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32-v7.png">
   <link rel="shortcut icon" type="image/png" href="/icons/favicon-32-v7.png">
@@ -773,6 +787,18 @@
 
       </div>
 
+    </div>
+
+    <div style="display:flex;gap:6px;margin:0 16px 12px">
+      <button id="planning-mode-production" type="button" class="btn btn-sm btn-outline" onclick="setPlanningMode('production')">
+        Production
+      </button>
+      <button id="planning-mode-prep" type="button" class="btn btn-sm btn-outline" onclick="setPlanningMode('prep')">
+        Prep
+      </button>
+      <button id="planning-mode-stock" type="button" class="btn btn-sm btn-outline" onclick="setPlanningMode('stock')">
+        Stock
+      </button>
     </div>
 
     <div class="planning-stock-bar">
@@ -3783,6 +3809,14 @@ async () => {
 };
 
 
+let _planningMode = 'production';
+
+window.setPlanningMode = mode => {
+  if (!['production', 'prep', 'stock'].includes(mode)) return;
+  _planningMode = mode;
+  renderWeeklyPlanning();
+};
+
 let _planningWeekOffset = 0;
 let _planningView = 'rolling';
 
@@ -3900,6 +3934,13 @@ function renderWeeklyPlanning() {
     );
 
   if (!grid) return;
+
+  grid.dataset.planningMode = _planningMode;
+
+  ['production', 'prep', 'stock'].forEach(mode => {
+    document.getElementById(`planning-mode-${mode}`)
+      ?.classList.toggle('active', mode === _planningMode);
+  });
 
   const weekStart =
     adminPlanningWeekStart(
@@ -4223,7 +4264,7 @@ function renderWeeklyPlanning() {
 
         <div class="planning-section">
 
-          <div class="planning-section-title">
+          <div class="planning-section-title planning-production-title">
             Production
           </div>
 
