@@ -665,6 +665,36 @@
   <link rel="shortcut icon" type="image/png" href="/icons/favicon-32-v7.png">
   <link rel="apple-touch-icon" sizes="192x192" href="/icons/admin-icon-192.png">
   <link rel="manifest" href="/admin-manifest.json?v=2">
+
+<style>
+.planning-calendar-tab{
+  flex:1;
+  padding:9px 8px;
+  border:1px solid var(--border);
+  border-bottom:1px solid var(--border);
+  border-radius:10px 10px 0 0;
+  background:var(--bg2);
+  color:var(--text3);
+  font:inherit;
+  font-size:11px;
+  font-weight:800;
+}
+.planning-calendar-tab.active{
+  background:var(--bg);
+  color:var(--text);
+  border-bottom-color:var(--bg);
+}
+@media(max-width:700px){
+  .planning-week-grid{
+    grid-template-columns:none!important;
+    grid-auto-flow:column;
+    grid-auto-columns:50%!important;
+    width:max-content;
+    min-width:100%;
+  }
+}
+</style>
+
 </head>
 <body>
 
@@ -790,17 +820,18 @@
     </div>
 
     <div style="display:flex;gap:6px;margin:0 16px 12px">
-      <button id="planning-mode-production" type="button" class="btn btn-sm btn-outline" onclick="setPlanningMode('production')">
+      <button id="planning-mode-production" type="button" class="planning-calendar-tab" onclick="setPlanningMode('production')">
         Production
       </button>
-      <button id="planning-mode-prep" type="button" class="btn btn-sm btn-outline" onclick="setPlanningMode('prep')">
+      <button id="planning-mode-prep" type="button" class="planning-calendar-tab" onclick="setPlanningMode('prep')">
         Prep
       </button>
-      <button id="planning-mode-stock" type="button" class="btn btn-sm btn-outline" onclick="setPlanningMode('stock')">
+      <button id="planning-mode-stock" type="button" class="planning-calendar-tab" onclick="setPlanningMode('stock')">
         Stock
       </button>
     </div>
 
+    <div id="planning-stock-view" style="display:none">
     <div class="planning-stock-bar">
       <div>
         <b>Dough stock now</b>
@@ -829,8 +860,9 @@
         </button>
       </div>
     </div>
+    </div>
 
-    <div class="planning-week-scroll">
+    <div id="planning-calendar-view" class="planning-week-scroll">
       <div
         id="planning-week-grid"
         class="planning-week-grid"
@@ -3937,6 +3969,22 @@ function renderWeeklyPlanning() {
 
   grid.dataset.planningMode = _planningMode;
 
+  const stockView =
+    document.getElementById('planning-stock-view');
+
+  const calendarView =
+    document.getElementById('planning-calendar-view');
+
+  if (stockView) {
+    stockView.style.display =
+      _planningMode === 'stock' ? '' : 'none';
+  }
+
+  if (calendarView) {
+    calendarView.style.display =
+      _planningMode === 'stock' ? 'none' : '';
+  }
+
   ['production', 'prep', 'stock'].forEach(mode => {
     document.getElementById(`planning-mode-${mode}`)
       ?.classList.toggle('active', mode === _planningMode);
@@ -4262,6 +4310,9 @@ function renderWeeklyPlanning() {
         </div>
 
 
+        ${
+          _planningMode === 'production'
+            ? `
         <div class="planning-section">
 
           <div class="planning-section-title planning-production-title">
@@ -4293,9 +4344,12 @@ function renderWeeklyPlanning() {
           }
 
         </div>
-
+              `
+            : ''
+        }
 
         ${
+          _planningMode === 'prep' &&
           doughPlan
             ? `
               <div class="planning-section">
@@ -4440,6 +4494,7 @@ function renderWeeklyPlanning() {
         }
 
         ${
+          _planningMode === 'prep' &&
           prep.tasks.some(
             task =>
               task.kind === 'filling'
