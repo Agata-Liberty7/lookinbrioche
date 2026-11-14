@@ -10662,3 +10662,27 @@ window.closeModal = id => document.getElementById(id).classList.remove('open');
 </script>
 </body>
 </html>
+
+<style>
+@media (max-width:700px) {
+  .planning-week-scroll {
+    width:100%;
+    overflow-x:auto;
+    overflow-y:visible;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  .planning-week-grid {
+    display:flex !important;
+    width:max-content !important;
+    min-width:0 !important;
+  }
+
+  .planning-day-card {
+    flex:0 0 calc((100vw - 48px) / 2) !important;
+    width:calc((100vw - 48px) / 2) !important;
+    min-width:calc((100vw - 48px) / 2) !important;
+    max-width:calc((100vw - 48px) / 2) !important;
+  }
+}
+</style>
