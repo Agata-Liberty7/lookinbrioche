@@ -689,17 +689,17 @@
         <button
           type="button"
           class="btn btn-sm btn-outline"
-          onclick="setPlanningWeek(0)"
+          onclick="setPlanningRolling()"
         >
-          This week
+          Next 7 days
         </button>
 
         <button
           type="button"
           class="btn btn-sm btn-outline"
-          onclick="setPlanningWeek(1)"
+          onclick="setPlanningCalendarWeek()"
         >
-          Next week
+          This week
         </button>
 
         <button
@@ -1732,7 +1732,11 @@ window.switchTab = tab => {
   document.querySelectorAll('.admin-section').forEach(s=>s.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
   if(tab==='orders')   renderOrders(false);
-  if(tab==='planning') renderWeeklyPlanning();
+  if(tab==='planning') {
+    _planningView = 'rolling';
+    _planningWeekOffset = 0;
+    renderWeeklyPlanning();
+  }
   if(tab==='catalog')  { fbGetCatalog().then(d=>{_catalog=d;renderCatalog();}); }
   if(tab==='clients')  { fbGetClients().then(d=>{_clients=d;renderClients();}); }
   if(tab==='stats')    renderStats();
@@ -3100,6 +3104,7 @@ function adminPrepTasksForDate(prepDate) {
 
 
 let _planningWeekOffset = 0;
+let _planningView = 'rolling';
 
 function adminPlanningWeekStart(offset = 0) {
   const date = new Date();
@@ -3111,13 +3116,19 @@ function adminPlanningWeekStart(offset = 0) {
     0
   );
 
-  const weekday =
-    date.getDay() || 7;
+  if (_planningView === 'calendar') {
+    const weekday =
+      date.getDay() || 7;
+
+    date.setDate(
+      date.getDate() -
+      weekday +
+      1
+    );
+  }
 
   date.setDate(
-    date.getDate() -
-    weekday +
-    1 +
+    date.getDate() +
     Number(offset || 0) * 7
   );
 
@@ -3153,9 +3164,16 @@ function adminPlanningModeLabel(mode) {
   return 'Oven';
 }
 
-window.setPlanningWeek = offset => {
-  _planningWeekOffset =
-    Number(offset || 0);
+window.setPlanningRolling = () => {
+  _planningView = 'rolling';
+  _planningWeekOffset = 0;
+
+  renderWeeklyPlanning();
+};
+
+window.setPlanningCalendarWeek = () => {
+  _planningView = 'calendar';
+  _planningWeekOffset = 0;
 
   renderWeeklyPlanning();
 };
@@ -3215,11 +3233,22 @@ function renderWeeklyPlanning() {
     );
 
   if (range) {
+    const viewLabel =
+      _planningView === 'calendar'
+        ? 'Calendar week'
+        : (
+            _planningWeekOffset === 0
+              ? 'Next 7 days'
+              : '7-day window'
+          );
+
     range.textContent =
-      adminProductionDateText(
-        weekStart,
-        weekEnd
-      );
+      `${viewLabel} · ${
+        adminProductionDateText(
+          weekStart,
+          weekEnd
+        )
+      }`;
   }
 
   const today =
