@@ -323,6 +323,269 @@
     }
   }
 
+
+
+  /* WEEKLY PRODUCTION PLANNING V1 */
+
+  .planning-toolbar {
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    gap:16px;
+    padding:16px;
+  }
+
+  .planning-title {
+    font-size:17px;
+    font-weight:900;
+    color:var(--text);
+  }
+
+  .planning-range {
+    margin-top:3px;
+    font-size:12px;
+    color:var(--text3);
+  }
+
+  .planning-controls {
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+    gap:6px;
+  }
+
+  .planning-week-scroll {
+    overflow-x:auto;
+    padding:0 16px 100px;
+    -webkit-overflow-scrolling:touch;
+    scroll-snap-type:x proximity;
+  }
+
+  .planning-week-grid {
+    display:grid;
+    grid-template-columns:repeat(7, minmax(145px, 1fr));
+    min-width:1060px;
+    border:1px solid var(--border);
+    border-radius:14px;
+    overflow:hidden;
+    background:var(--bgc);
+  }
+
+  .planning-day {
+    min-width:0;
+    padding:0 11px 14px;
+    border-right:1px solid var(--border);
+    background:var(--bgc);
+    scroll-snap-align:start;
+  }
+
+  .planning-day:last-child {
+    border-right:0;
+  }
+
+  .planning-day.is-today {
+    background:var(--card2);
+  }
+
+  .planning-day.is-closed {
+    opacity:.68;
+  }
+
+  .planning-day.has-warning {
+    box-shadow:inset 0 3px 0 var(--brand);
+  }
+
+  .planning-day-head {
+    position:sticky;
+    top:0;
+    z-index:2;
+    margin:0 -11px 10px;
+    padding:10px 11px 9px;
+    background:inherit;
+    border-bottom:1px solid var(--border);
+  }
+
+  .planning-day-weekday {
+    font-size:10px;
+    font-weight:900;
+    letter-spacing:.6px;
+    text-transform:uppercase;
+    color:var(--text3);
+  }
+
+  .planning-day-date {
+    margin-top:2px;
+    font-size:16px;
+    line-height:1.1;
+    font-weight:900;
+    color:var(--text);
+  }
+
+  .planning-mode {
+    display:inline-block;
+    margin-top:6px;
+    padding:2px 6px;
+    border-radius:20px;
+    background:var(--card2);
+    font-size:10px;
+    font-weight:800;
+    color:var(--text2);
+  }
+
+  .planning-capacity {
+    margin-top:10px;
+  }
+
+  .planning-capacity-line {
+    display:flex;
+    justify-content:space-between;
+    gap:8px;
+    font-size:11px;
+  }
+
+  .planning-capacity-line b {
+    color:var(--text);
+  }
+
+  .planning-capacity-line span {
+    color:var(--text3);
+    text-align:right;
+  }
+
+  .planning-capacity-track {
+    height:5px;
+    margin-top:6px;
+    overflow:hidden;
+    border-radius:10px;
+    background:var(--bg2);
+  }
+
+  .planning-capacity-fill {
+    height:100%;
+    border-radius:10px;
+    background:var(--green);
+  }
+
+  .planning-day.is-over .planning-capacity-fill {
+    background:var(--brand);
+  }
+
+  .planning-mini-meta {
+    margin-top:6px;
+    font-size:10px;
+    line-height:1.35;
+    color:var(--text3);
+  }
+
+  .planning-section {
+    margin-top:14px;
+  }
+
+  .planning-section-title {
+    margin-bottom:5px;
+    font-size:9px;
+    font-weight:900;
+    letter-spacing:.65px;
+    text-transform:uppercase;
+    color:var(--text3);
+  }
+
+  .planning-total {
+    margin-bottom:7px;
+    font-size:11px;
+    line-height:1.45;
+    font-weight:800;
+    color:var(--text2);
+  }
+
+  .planning-product-row,
+  .planning-prep-row {
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:7px;
+    padding:5px 0;
+    border-top:1px solid var(--border);
+    font-size:10px;
+    line-height:1.25;
+  }
+
+  .planning-product-row span:first-child,
+  .planning-prep-row span:first-child {
+    min-width:0;
+    overflow-wrap:anywhere;
+  }
+
+  .planning-product-row b,
+  .planning-prep-row b {
+    white-space:nowrap;
+    text-align:right;
+  }
+
+  .planning-target-date {
+    display:block;
+    margin-top:2px;
+    color:var(--text3);
+    font-size:9px;
+  }
+
+  .planning-empty {
+    padding:5px 0;
+    font-size:10px;
+    color:var(--text3);
+  }
+
+  .planning-alert {
+    margin-top:8px;
+    padding:6px 7px;
+    border-radius:8px;
+    background:var(--card2);
+    font-size:9px;
+    line-height:1.35;
+    color:var(--text2);
+  }
+
+  .planning-open-day {
+    width:100%;
+    margin-top:14px;
+    padding:7px 8px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    background:transparent;
+    color:var(--text2);
+    font:inherit;
+    font-size:10px;
+    font-weight:800;
+    cursor:pointer;
+  }
+
+  @media (hover:hover) and (pointer:fine) {
+    .planning-open-day:hover {
+      background:var(--card2);
+    }
+  }
+
+  @media (max-width:640px) {
+    .planning-toolbar {
+      align-items:flex-start;
+      flex-direction:column;
+      padding:14px 12px 10px;
+    }
+
+    .planning-controls {
+      justify-content:flex-start;
+    }
+
+    .planning-week-scroll {
+      padding:0 4px 90px;
+    }
+
+    .planning-week-grid {
+      grid-template-columns:repeat(7, 154px);
+      min-width:1078px;
+      border-radius:12px;
+    }
+  }
+
 </style>
   <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32-v7.png">
   <link rel="shortcut icon" type="image/png" href="/icons/favicon-32-v7.png">
@@ -356,6 +619,7 @@
 
   <div class="admin-tabs" id="admin-tabs">
     <div class="admin-tab active" onclick="switchTab('orders')">📋 Orders</div>
+    <div class="admin-tab" onclick="switchTab('planning')">🗓 Planning</div>
     <div class="admin-tab" onclick="switchTab('catalog')">🥟 Catalog</div>
     <div class="admin-tab" onclick="switchTab('clients')">👥 Clients</div>
     <div class="admin-tab" onclick="switchTab('settings')">⚙️ Settings</div>
@@ -393,6 +657,71 @@
 
 
     <div id="orders-list" style="padding:0 16px 100px"></div>
+  </div>
+
+  <!-- ══ PLANNING ═══════════════════════════════════════════════════════════ -->
+  <div id="tab-planning" class="admin-section">
+
+    <div class="planning-toolbar">
+
+      <div>
+        <div class="planning-title">
+          Weekly production
+        </div>
+
+        <div
+          id="planning-range"
+          class="planning-range"
+        ></div>
+      </div>
+
+      <div class="planning-controls">
+
+        <button
+          type="button"
+          class="btn btn-sm btn-outline"
+          onclick="shiftPlanningWeek(-1)"
+          aria-label="Previous week"
+        >
+          ‹
+        </button>
+
+        <button
+          type="button"
+          class="btn btn-sm btn-outline"
+          onclick="setPlanningWeek(0)"
+        >
+          This week
+        </button>
+
+        <button
+          type="button"
+          class="btn btn-sm btn-outline"
+          onclick="setPlanningWeek(1)"
+        >
+          Next week
+        </button>
+
+        <button
+          type="button"
+          class="btn btn-sm btn-outline"
+          onclick="shiftPlanningWeek(1)"
+          aria-label="Next week"
+        >
+          ›
+        </button>
+
+      </div>
+
+    </div>
+
+    <div class="planning-week-scroll">
+      <div
+        id="planning-week-grid"
+        class="planning-week-grid"
+      ></div>
+    </div>
+
   </div>
 
   <!-- ══ CATALOG ═════════════════════════════════════════════════════════════ -->
@@ -1398,11 +1727,12 @@ window._adminLogout = window.adminLogout = () => { sessionStorage.removeItem('ad
 
 window.switchTab = tab => {
   document.querySelectorAll('.admin-tab').forEach((el,i)=>{
-    el.classList.toggle('active',['orders','catalog','clients','settings','stats'][i]===tab);
+    el.classList.toggle('active',['orders','planning','catalog','clients','settings','stats'][i]===tab);
   });
   document.querySelectorAll('.admin-section').forEach(s=>s.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
   if(tab==='orders')   renderOrders(false);
+  if(tab==='planning') renderWeeklyPlanning();
   if(tab==='catalog')  { fbGetCatalog().then(d=>{_catalog=d;renderCatalog();}); }
   if(tab==='clients')  { fbGetClients().then(d=>{_clients=d;renderClients();}); }
   if(tab==='stats')    renderStats();
@@ -2765,6 +3095,492 @@ function adminPrepTasksForDate(prepDate) {
             )
         )
   };
+}
+
+
+
+let _planningWeekOffset = 0;
+
+function adminPlanningWeekStart(offset = 0) {
+  const date = new Date();
+
+  date.setHours(
+    12,
+    0,
+    0,
+    0
+  );
+
+  const weekday =
+    date.getDay() || 7;
+
+  date.setDate(
+    date.getDate() -
+    weekday +
+    1 +
+    Number(offset || 0) * 7
+  );
+
+  return adminDateOnlyKey(date);
+}
+
+function adminPlanningShortDate(value) {
+  const date =
+    adminDateOnly(value);
+
+  if (!date) return value || '';
+
+  return `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')}`;
+}
+
+function adminPlanningWeekday(value) {
+  const date =
+    adminDateOnly(value);
+
+  if (!date) return '';
+
+  return date
+    .toLocaleDateString(
+      'en-GB',
+      { weekday:'short' }
+    )
+    .toUpperCase();
+}
+
+function adminPlanningModeLabel(mode) {
+  if (mode === 'fry') return 'Frying';
+  if (mode === 'off') return 'Closed';
+  return 'Oven';
+}
+
+window.setPlanningWeek = offset => {
+  _planningWeekOffset =
+    Number(offset || 0);
+
+  renderWeeklyPlanning();
+};
+
+window.shiftPlanningWeek = amount => {
+  _planningWeekOffset +=
+    Number(amount || 0);
+
+  renderWeeklyPlanning();
+};
+
+window.openPlanningDay = date => {
+  const from =
+    document.getElementById(
+      'order-date-from'
+    );
+
+  const to =
+    document.getElementById(
+      'order-date-to'
+    );
+
+  const status =
+    document.getElementById(
+      'order-filter'
+    );
+
+  if (from) from.value = date;
+  if (to) to.value = date;
+  if (status) status.value = '';
+
+  window.switchTab('orders');
+};
+
+function renderWeeklyPlanning() {
+  const grid =
+    document.getElementById(
+      'planning-week-grid'
+    );
+
+  const range =
+    document.getElementById(
+      'planning-range'
+    );
+
+  if (!grid) return;
+
+  const weekStart =
+    adminPlanningWeekStart(
+      _planningWeekOffset
+    );
+
+  const weekEnd =
+    adminAddDateDays(
+      weekStart,
+      6
+    );
+
+  if (range) {
+    range.textContent =
+      adminProductionDateText(
+        weekStart,
+        weekEnd
+      );
+  }
+
+  const today =
+    adminDateOnlyKey(
+      new Date()
+    );
+
+  const cards = [];
+
+  for (
+    let offset = 0;
+    offset < 7;
+    offset += 1
+  ) {
+    const date =
+      adminAddDateDays(
+        weekStart,
+        offset
+      );
+
+    const plan =
+      adminBuildProductionDayPlan(
+        date
+      );
+
+    const rows =
+      adminProductionRowsFromItems(
+        plan.plannedItems
+      );
+
+    const prep =
+      adminPrepTasksForDate(
+        date
+      );
+
+    const totalUnits =
+      rows.reduce(
+        (sum, row) =>
+          sum + Number(row.qty || 0),
+        0
+      );
+
+    const totalDough =
+      rows.reduce(
+        (sum, row) =>
+          sum +
+          Number(row.doughTotal || 0),
+        0
+      );
+
+    const totalFilling =
+      rows.reduce(
+        (sum, row) =>
+          sum +
+          Number(row.fillingTotal || 0),
+        0
+      );
+
+    const capacity =
+      Number(
+        plan.dayConfig?.capacity
+      );
+
+    const hasCapacity =
+      Number.isFinite(capacity) &&
+      capacity > 0;
+
+    const freeUnits =
+      hasCapacity
+        ? capacity - plan.occupiedUnits
+        : null;
+
+    const percent =
+      hasCapacity
+        ? Math.max(
+            0,
+            Math.min(
+              100,
+              (
+                plan.occupiedUnits /
+                capacity
+              ) * 100
+            )
+          )
+        : 0;
+
+    const mode =
+      plan.dayConfig?.mode ||
+      'off';
+
+    const isClosed =
+      mode === 'off';
+
+    const isOver =
+      hasCapacity &&
+      plan.occupiedUnits > capacity;
+
+    const hasWarning =
+      isOver ||
+      (
+        isClosed &&
+        plan.occupiedUnits > 0
+      ) ||
+      plan.incompatibleProducts.length > 0 ||
+      plan.pendingAssortment > 0;
+
+    const meta = [
+      plan.confirmedUnits > 0
+        ? `${plan.confirmedUnits} confirmed`
+        : '',
+      plan.fixedUnits > 0
+        ? `${plan.fixedUnits} fixed`
+        : ''
+    ]
+      .filter(Boolean)
+      .join(' · ');
+
+    const productionTotal = [
+      `${totalUnits} units`,
+      totalDough > 0
+        ? `${adminProductionWeightText(totalDough)} dough`
+        : '',
+      totalFilling > 0
+        ? `${adminProductionWeightText(totalFilling)} filling`
+        : ''
+    ]
+      .filter(Boolean)
+      .join(' · ');
+
+    const alerts = [];
+
+    if (
+      isClosed &&
+      plan.occupiedUnits > 0
+    ) {
+      alerts.push(
+        '⚠ Production on closed day'
+      );
+    }
+
+    if (isOver) {
+      alerts.push(
+        `⚠ ${Math.abs(freeUnits)} units over capacity`
+      );
+    }
+
+    if (
+      plan.pendingAssortment > 0
+    ) {
+      alerts.push(
+        `⏳ ${plan.pendingAssortment} units waiting for assortment`
+      );
+    }
+
+    if (
+      plan.incompatibleProducts.length
+    ) {
+      alerts.push(
+        `⚠ Technology mismatch · ${plan.incompatibleProducts.length}`
+      );
+    }
+
+    cards.push(`
+      <article
+        class="
+          planning-day
+          ${date === today ? 'is-today' : ''}
+          ${isClosed ? 'is-closed' : ''}
+          ${isOver ? 'is-over' : ''}
+          ${hasWarning ? 'has-warning' : ''}
+        "
+      >
+
+        <div class="planning-day-head">
+
+          <div class="planning-day-weekday">
+            ${adminEscape(
+              adminPlanningWeekday(date)
+            )}
+          </div>
+
+          <div class="planning-day-date">
+            ${adminEscape(
+              adminPlanningShortDate(date)
+            )}
+          </div>
+
+          <div class="planning-mode">
+            ${adminEscape(
+              adminPlanningModeLabel(mode)
+            )}
+          </div>
+
+        </div>
+
+        <div class="planning-capacity">
+
+          <div class="planning-capacity-line">
+
+            <b>
+              ${
+                hasCapacity
+                  ? `${plan.occupiedUnits} / ${capacity}`
+                  : `${plan.occupiedUnits} units`
+              }
+            </b>
+
+            <span>
+              ${
+                hasCapacity
+                  ? (
+                      freeUnits >= 0
+                        ? `${freeUnits} free`
+                        : `${Math.abs(freeUnits)} over`
+                    )
+                  : 'no capacity'
+              }
+            </span>
+
+          </div>
+
+          ${
+            hasCapacity
+              ? `
+                <div class="planning-capacity-track">
+                  <div
+                    class="planning-capacity-fill"
+                    style="width:${percent}%"
+                  ></div>
+                </div>
+              `
+              : ''
+          }
+
+          ${
+            meta
+              ? `
+                <div class="planning-mini-meta">
+                  ${adminEscape(meta)}
+                </div>
+              `
+              : ''
+          }
+
+        </div>
+
+
+        <div class="planning-section">
+
+          <div class="planning-section-title">
+            Production
+          </div>
+
+          <div class="planning-total">
+            ${adminEscape(productionTotal)}
+          </div>
+
+          ${
+            rows.length
+              ? rows.map(row => `
+                  <div class="planning-product-row">
+                    <span>
+                      ${adminEscape(row.label)}
+                    </span>
+
+                    <b>
+                      ${adminEscape(row.qty)} u
+                    </b>
+                  </div>
+                `).join('')
+              : `
+                <div class="planning-empty">
+                  No production
+                </div>
+              `
+          }
+
+        </div>
+
+
+        <div class="planning-section">
+
+          <div class="planning-section-title">
+            Prep due
+          </div>
+
+          ${
+            prep.tasks.length
+              ? prep.tasks.map(task => `
+                  <div class="planning-prep-row">
+
+                    <span>
+                      ${adminEscape(task.label)}
+
+                      <small class="planning-target-date">
+                        → ${adminEscape(
+                          adminPlanningShortDate(
+                            task.targetDate
+                          )
+                        )}
+                      </small>
+                    </span>
+
+                    <b>
+                      ${adminEscape(
+                        adminProductionWeightText(
+                          task.grams
+                        )
+                      )}
+                    </b>
+
+                  </div>
+                `).join('')
+              : `
+                <div class="planning-empty">
+                  Nothing to prepare
+                </div>
+              `
+          }
+
+          ${
+            prep.unsetItems.length
+              ? `
+                <div class="planning-alert">
+                  ⚙ ${prep.unsetItems.length}
+                  filling prep rules missing
+                </div>
+              `
+              : ''
+          }
+
+        </div>
+
+
+        ${
+          alerts.length
+            ? `
+              <div class="planning-alert">
+                ${alerts
+                  .map(adminEscape)
+                  .join('<br>')}
+              </div>
+            `
+            : ''
+        }
+
+
+        <button
+          type="button"
+          class="planning-open-day"
+          onclick="openPlanningDay('${adminEscape(date)}')"
+        >
+          Open day →
+        </button>
+
+      </article>
+    `);
+  }
+
+  grid.innerHTML =
+    cards.join('');
 }
 
 
