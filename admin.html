@@ -354,6 +354,66 @@
     gap:6px;
   }
 
+  .planning-stock-bar {
+    margin:0 16px 12px;
+    padding:10px 12px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    border:1px solid var(--border);
+    border-radius:12px;
+    background:var(--bgc);
+    font-size:12px;
+  }
+
+  .planning-stock-note {
+    margin-top:2px;
+    color:var(--text3);
+    font-size:10px;
+  }
+
+  .planning-stock-entry {
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+
+  .planning-stock-entry input {
+    width:88px;
+    padding:6px 8px;
+    font-size:12px;
+  }
+
+  .planning-dough-row {
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:7px;
+    padding:4px 0;
+    font-size:10px;
+    line-height:1.3;
+  }
+
+  .planning-dough-row b {
+    white-space:nowrap;
+    text-align:right;
+  }
+
+  .planning-dough-make {
+    margin-top:6px;
+    padding:7px 0 2px;
+    border-top:1px solid var(--border);
+    font-size:11px;
+    font-weight:900;
+  }
+
+  .planning-dough-batches {
+    margin-top:3px;
+    font-size:9px;
+    font-weight:400;
+    color:var(--text3);
+  }
+
   .planning-week-scroll {
     overflow-x:auto;
     padding:0 16px 100px;
@@ -713,6 +773,35 @@
 
       </div>
 
+    </div>
+
+    <div class="planning-stock-bar">
+      <div>
+        <b>Dough stock now</b>
+        <div class="planning-stock-note">
+          Actual usable brioche dough remaining now
+        </div>
+      </div>
+
+      <div class="planning-stock-entry">
+        <input
+          id="planning-dough-stock"
+          type="number"
+          min="0"
+          step="10"
+          inputmode="decimal"
+          placeholder="g"
+        >
+        <span>g</span>
+
+        <button
+          type="button"
+          class="btn btn-sm btn-outline"
+          onclick="savePlanningDoughStock()"
+        >
+          Save
+        </button>
+      </div>
     </div>
 
     <div class="planning-week-scroll">
@@ -2892,6 +2981,63 @@ function adminVariantForProductionItem(
   );
 }
 
+
+function adminProductionQtyWithSpare(
+  product,
+  item,
+  qty
+) {
+  const value =
+    Number(qty || 0);
+
+  if (
+    !Number.isFinite(value) ||
+    value <= 0
+  ) {
+    return 0;
+  }
+
+  const variant =
+    adminVariantForProductionItem(
+      product,
+      item
+    );
+
+  if (!variant) {
+    return value;
+  }
+
+  const spareQty =
+    Number(
+      variant.productionSpareQty || 0
+    );
+
+  const baseQty =
+    Number(
+      variant.productionSpareBaseQty || 0
+    );
+
+  if (
+    !Number.isFinite(spareQty) ||
+    spareQty <= 0 ||
+    !Number.isFinite(baseQty) ||
+    baseQty <= 0
+  ) {
+    return value;
+  }
+
+  const groups =
+    Math.ceil(
+      value / baseQty
+    );
+
+  return (
+    value +
+    groups * spareQty
+  );
+}
+
+
 function adminPrepTasksForDate(prepDate) {
   const catalogById = new Map(
     (_catalog || []).map(product => [
@@ -2983,6 +3129,13 @@ function adminPrepTasksForDate(prepDate) {
           return;
         }
 
+        const productionQty =
+          adminProductionQtyWithSpare(
+            product,
+            item,
+            qty
+          );
+
         const doughPerPiece =
           adminProductionDoughPerPiece(
             item,
@@ -3028,7 +3181,7 @@ function adminPrepTasksForDate(prepDate) {
             productionMode === 'fry'
               ? 'Masa · fritura'
               : 'Masa brioche',
-            doughPerPiece * qty
+            doughPerPiece * productionQty
           );
         }
 
@@ -3066,7 +3219,7 @@ function adminPrepTasksForDate(prepDate) {
                 catalogById
               )
             }`,
-            fillingPerPiece * qty
+            fillingPerPiece * productionQty
           );
         }
       });
@@ -3103,6 +3256,531 @@ function adminPrepTasksForDate(prepDate) {
   };
 }
 
+
+
+
+const ADMIN_DOUGH_RESERVE_G = 1250;
+
+const ADMIN_DOUGH_BATCHES_G = [
+  1250,
+  1650,
+  2100,
+  2500
+];
+
+const ADMIN_DOUGH_PREFERRED_G =
+  new Set([
+    1650,
+    2100
+  ]);
+
+
+function adminDoughDemandForDate(date) {
+  const plan =
+    adminBuildProductionDayPlan(
+      date
+    );
+
+  const catalogById = new Map(
+    (_catalog || []).map(product => [
+      String(product?.id || ''),
+      product
+    ])
+  );
+
+  let grams = 0;
+  let orderedUnits = 0;
+  let productionUnits = 0;
+
+  (plan.plannedItems || [])
+    .forEach(item => {
+      const productId = String(
+        item?.id ||
+        item?.productId ||
+        ''
+      ).trim();
+
+      const product =
+        catalogById.get(productId);
+
+      if (!product) return;
+
+      if (
+        adminProductProductionMode(
+          product
+        ) !== 'oven'
+      ) {
+        return;
+      }
+
+      const qty =
+        Number(item?.qty || 0);
+
+      if (
+        !Number.isFinite(qty) ||
+        qty <= 0
+      ) {
+        return;
+      }
+
+      const productionQty =
+        adminProductionQtyWithSpare(
+          product,
+          item,
+          qty
+        );
+
+      const doughPerPiece =
+        adminProductionDoughPerPiece(
+          item,
+          catalogById
+        );
+
+      if (
+        !Number.isFinite(doughPerPiece) ||
+        doughPerPiece <= 0
+      ) {
+        return;
+      }
+
+      orderedUnits += qty;
+      productionUnits += productionQty;
+
+      grams +=
+        productionQty *
+        doughPerPiece;
+    });
+
+  return {
+    grams,
+    orderedUnits,
+    productionUnits,
+    spareUnits:
+      Math.max(
+        0,
+        productionUnits -
+        orderedUnits
+      )
+  };
+}
+
+
+function adminDoughComboScore(combo) {
+  const nonPreferred =
+    combo.filter(
+      value =>
+        !ADMIN_DOUGH_PREFERRED_G.has(
+          value
+        )
+    ).length;
+
+  return {
+    nonPreferred,
+    batches: combo.length
+  };
+}
+
+
+function adminBetterDoughCombo(
+  current,
+  candidate
+) {
+  if (!current) return candidate;
+
+  const a =
+    adminDoughComboScore(current);
+
+  const b =
+    adminDoughComboScore(candidate);
+
+  if (
+    a.nonPreferred !==
+    b.nonPreferred
+  ) {
+    return (
+      b.nonPreferred <
+      a.nonPreferred
+        ? candidate
+        : current
+    );
+  }
+
+  if (
+    a.batches !==
+    b.batches
+  ) {
+    return (
+      b.batches <
+      a.batches
+        ? candidate
+        : current
+    );
+  }
+
+  return current;
+}
+
+
+function adminSelectDoughBatches(
+  requiredGrams
+) {
+  const required =
+    Math.max(
+      0,
+      Number(requiredGrams || 0)
+    );
+
+  if (required <= 0) {
+    return {
+      total: 0,
+      batches: []
+    };
+  }
+
+  const unit = 50;
+
+  const sizes =
+    ADMIN_DOUGH_BATCHES_G.map(
+      grams => ({
+        grams,
+        units: grams / unit
+      })
+    );
+
+  const goal =
+    Math.ceil(
+      required / unit
+    );
+
+  const maxBatchUnits =
+    Math.max(
+      ...sizes.map(x => x.units)
+    );
+
+  const limit =
+    goal + maxBatchUnits;
+
+  const dp =
+    Array(limit + 1)
+      .fill(null);
+
+  dp[0] = [];
+
+  for (
+    let total = 1;
+    total <= limit;
+    total += 1
+  ) {
+    for (const size of sizes) {
+      const previous =
+        total -
+        size.units;
+
+      if (
+        previous < 0 ||
+        !dp[previous]
+      ) {
+        continue;
+      }
+
+      const candidate = [
+        ...dp[previous],
+        size.grams
+      ].sort(
+        (a, b) => a - b
+      );
+
+      dp[total] =
+        adminBetterDoughCombo(
+          dp[total],
+          candidate
+        );
+    }
+  }
+
+  for (
+    let total = goal;
+    total <= limit;
+    total += 1
+  ) {
+    if (!dp[total]) continue;
+
+    return {
+      total:
+        total * unit,
+
+      batches:
+        dp[total]
+    };
+  }
+
+  return {
+    total: 0,
+    batches: []
+  };
+}
+
+
+function adminBriochePrepTargets(
+  prepDate
+) {
+  const prep =
+    adminPrepTasksForDate(
+      prepDate
+    );
+
+  const map =
+    new Map();
+
+  (prep.tasks || [])
+    .filter(
+      task =>
+        task.kind === 'dough' &&
+        task.label === 'Masa brioche'
+    )
+    .forEach(task => {
+      const date =
+        String(
+          task.targetDate || ''
+        );
+
+      if (!date) return;
+
+      map.set(
+        date,
+        (
+          map.get(date) || 0
+        ) +
+        Number(task.grams || 0)
+      );
+    });
+
+  return [
+    ...map.entries()
+  ].map(
+    ([date, grams]) => ({
+      date,
+      grams
+    })
+  );
+}
+
+
+function adminBuildDoughForecast(
+  startDate,
+  days = 7
+) {
+  const settings =
+    getSettings();
+
+  const today =
+    adminDateOnlyKey(
+      new Date()
+    );
+
+  const stockDate =
+    String(
+      settings?.doughStockDate ||
+      ''
+    );
+
+  const currentStock =
+    Number(
+      settings?.doughStockG
+    );
+
+  if (
+    stockDate !== today ||
+    !Number.isFinite(currentStock) ||
+    currentStock < 0
+  ) {
+    return {
+      ready: false,
+      rows: []
+    };
+  }
+
+  const endDate =
+    adminAddDateDays(
+      startDate,
+      Number(days || 7) - 1
+    );
+
+  let stock =
+    currentStock;
+
+  let date =
+    today;
+
+  const rows = [];
+
+  for (
+    let guard = 0;
+    guard < 60;
+    guard += 1
+  ) {
+    const opening =
+      stock;
+
+    /*
+      Today's stock is "stock now":
+      today's already-produced orders are therefore
+      not subtracted a second time.
+    */
+    const demand =
+      date === today
+        ? {
+            grams: 0,
+            orderedUnits: 0,
+            productionUnits: 0,
+            spareUnits: 0
+          }
+        : adminDoughDemandForDate(
+            date
+          );
+
+    const afterProduction =
+      opening -
+      demand.grams;
+
+    const targets =
+      adminBriochePrepTargets(
+        date
+      );
+
+    const targetDemand =
+      targets.reduce(
+        (sum, target) =>
+          sum +
+          Number(
+            target.grams || 0
+          ),
+        0
+      );
+
+    const minimumMake =
+      targets.length
+        ? Math.max(
+            0,
+            targetDemand +
+            ADMIN_DOUGH_RESERVE_G -
+            afterProduction
+          )
+        : 0;
+
+    const batchPlan =
+      adminSelectDoughBatches(
+        minimumMake
+      );
+
+    const closing =
+      afterProduction +
+      batchPlan.total;
+
+    if (
+      date >= startDate &&
+      date <= endDate
+    ) {
+      rows.push({
+        date,
+        opening,
+        demand,
+        afterProduction,
+        targets,
+        targetDemand,
+        minimumMake,
+        make:
+          batchPlan.total,
+        batches:
+          batchPlan.batches,
+        closing
+      });
+    }
+
+    stock =
+      closing;
+
+    if (date === endDate) {
+      break;
+    }
+
+    date =
+      adminAddDateDays(
+        date,
+        1
+      );
+  }
+
+  return {
+    ready: true,
+    rows
+  };
+}
+
+
+window.savePlanningDoughStock =
+async () => {
+  const input =
+    document.getElementById(
+      'planning-dough-stock'
+    );
+
+  const value =
+    Number(input?.value);
+
+  if (
+    !Number.isFinite(value) ||
+    value < 0
+  ) {
+    showToast(
+      'Enter current dough stock in grams'
+    );
+    return;
+  }
+
+  const settings =
+    getSettings();
+
+  settings.doughStockG =
+    Math.round(value);
+
+  settings.doughStockDate =
+    adminDateOnlyKey(
+      new Date()
+    );
+
+  try {
+    await fbSaveSettings(
+      settings
+    );
+
+    window._settings =
+      Object.assign(
+        {},
+        window._settings || {},
+        settings
+      );
+
+    saveSettingsCache(
+      window._settings
+    );
+
+    renderWeeklyPlanning();
+
+    showToast(
+      'Dough stock saved ✓'
+    );
+  } catch (error) {
+    console.error(
+      'Dough stock save error:',
+      error
+    );
+
+    showToast(
+      'Error saving dough stock'
+    );
+  }
+};
 
 
 let _planningWeekOffset = 0;
@@ -3258,6 +3936,47 @@ function renderWeeklyPlanning() {
       new Date()
     );
 
+  const doughForecast =
+    adminBuildDoughForecast(
+      weekStart,
+      7
+    );
+
+  const doughByDate =
+    new Map(
+      (doughForecast.rows || [])
+        .map(row => [
+          row.date,
+          row
+        ])
+    );
+
+  const stockInput =
+    document.getElementById(
+      'planning-dough-stock'
+    );
+
+  if (
+    stockInput &&
+    document.activeElement !==
+      stockInput
+  ) {
+    const settings =
+      getSettings();
+
+    stockInput.value =
+      settings?.doughStockDate === today &&
+      Number.isFinite(
+        Number(
+          settings?.doughStockG
+        )
+      )
+        ? Number(
+            settings.doughStockG
+          )
+        : '';
+  }
+
   const cards = [];
 
   for (
@@ -3285,6 +4004,10 @@ function renderWeeklyPlanning() {
       adminPrepTasksForDate(
         date
       );
+
+    const doughPlan =
+      doughByDate.get(date) ||
+      null;
 
     const totalUnits =
       rows.reduce(
@@ -3531,58 +4254,198 @@ function renderWeeklyPlanning() {
         </div>
 
 
-        <div class="planning-section">
+        ${
+          doughPlan
+            ? `
+              <div class="planning-section">
 
-          <div class="planning-section-title">
-            Prep due
-          </div>
+                <div class="planning-section-title">
+                  Dough
+                </div>
 
-          ${
-            prep.tasks.length
-              ? prep.tasks.map(task => `
-                  <div class="planning-prep-row">
+                <div class="planning-dough-row">
+                  <span>Opening</span>
+                  <b>
+                    ${adminEscape(
+                      adminProductionWeightText(
+                        doughPlan.opening
+                      )
+                    )}
+                  </b>
+                </div>
 
-                    <span>
-                      ${adminEscape(task.label)}
+                ${
+                  doughPlan.demand.grams > 0
+                    ? `
+                      <div class="planning-dough-row">
+                        <span>
+                          Production use
+                          ${
+                            doughPlan.demand.spareUnits > 0
+                              ? ` · +${doughPlan.demand.spareUnits} tech spare`
+                              : ''
+                          }
+                        </span>
 
-                      <small class="planning-target-date">
-                        → ${adminEscape(
-                          adminPlanningShortDate(
-                            task.targetDate
+                        <b>
+                          −${adminEscape(
+                            adminProductionWeightText(
+                              doughPlan.demand.grams
+                            )
+                          )}
+                        </b>
+                      </div>
+                    `
+                    : ''
+                }
+
+                ${
+                  doughPlan.targets.length
+                    ? `
+                      <div class="planning-dough-row">
+                        <span>
+                          Required for ${
+                            doughPlan.targets
+                              .map(target =>
+                                `${adminPlanningWeekday(target.date)} ${adminPlanningShortDate(target.date)}`
+                              )
+                              .join(', ')
+                          }
+                        </span>
+
+                        <b>
+                          ${adminEscape(
+                            adminProductionWeightText(
+                              doughPlan.targetDemand
+                            )
+                          )}
+                        </b>
+                      </div>
+
+                      <div class="planning-dough-row">
+                        <span>Minimum reserve</span>
+                        <b>1.25 kg</b>
+                      </div>
+
+                      <div class="planning-dough-make">
+                        Make
+                        ${adminEscape(
+                          adminProductionWeightText(
+                            doughPlan.make
                           )
                         )}
-                      </small>
-                    </span>
 
-                    <b>
-                      ${adminEscape(
-                        adminProductionWeightText(
-                          task.grams
+                        ${
+                          doughPlan.batches.length
+                            ? `
+                              <div class="planning-dough-batches">
+                                ${doughPlan.batches
+                                  .map(value =>
+                                    adminProductionWeightText(
+                                      value
+                                    )
+                                  )
+                                  .join(' + ')}
+                              </div>
+                            `
+                            : ''
+                        }
+                      </div>
+                    `
+                    : ''
+                }
+
+                <div class="planning-dough-row">
+                  <span>Closing</span>
+                  <b>
+                    ${adminEscape(
+                      adminProductionWeightText(
+                        Math.max(
+                          0,
+                          doughPlan.closing
                         )
-                      )}
-                    </b>
-
-                  </div>
-                `).join('')
-              : `
-                <div class="planning-empty">
-                  Nothing to prepare
+                      )
+                    )}
+                  </b>
                 </div>
-              `
-          }
 
-          ${
-            prep.unsetItems.length
-              ? `
-                <div class="planning-alert">
-                  ⚙ ${prep.unsetItems.length}
-                  filling prep rules missing
+                ${
+                  doughPlan.afterProduction < 0
+                    ? `
+                      <div class="planning-alert">
+                        ⚠ Dough shortage before production
+                      </div>
+                    `
+                    : ''
+                }
+
+              </div>
+            `
+            : (
+                date >= today
+                  ? `
+                    <div class="planning-section">
+                      <div class="planning-section-title">
+                        Dough
+                      </div>
+
+                      <div class="planning-empty">
+                        Set current dough stock above
+                      </div>
+                    </div>
+                  `
+                  : ''
+              )
+        }
+
+        ${
+          prep.tasks.some(
+            task =>
+              task.kind === 'filling'
+          )
+            ? `
+              <div class="planning-section">
+
+                <div class="planning-section-title">
+                  Fillings to prep
                 </div>
-              `
-              : ''
-          }
 
-        </div>
+                ${prep.tasks
+                  .filter(
+                    task =>
+                      task.kind === 'filling'
+                  )
+                  .map(task => `
+                    <div class="planning-prep-row">
+
+                      <span>
+                        ${adminEscape(task.label)}
+
+                        <small class="planning-target-date">
+                          → ${adminEscape(
+                            adminPlanningShortDate(
+                              task.targetDate
+                            )
+                          )}
+                        </small>
+                      </span>
+
+                      <b>
+                        ${adminEscape(
+                          adminProductionWeightText(
+                            task.grams
+                          )
+                        )}
+                      </b>
+
+                    </div>
+                  `)
+                  .join('')}
+
+              </div>
+            `
+            : ''
+        }
 
 
         ${
